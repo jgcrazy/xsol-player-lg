@@ -1,0 +1,196 @@
+/* Search results: a query box over Channels / Programs / Movies / Series.
+   The poster rails reuse the shared catalog tile/poster visuals; these are the
+   search-only bits (the query box and the M3U vertical channel list). */
+.search-view {
+  width: 1920px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 40px 80px 60px;
+  overflow-y: auto;
+}
+.search-bar { margin-bottom: 32px; }
+.search-input {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20px 28px;
+  font-size: 34px;
+  color: var(--text-primary);
+  background: var(--catalog-surface);
+  border: 3px solid var(--catalog-control);
+  border-radius: 12px;
+  outline: none;
+}
+.search-input.focused { border-color: var(--accent, #3ea6ff); }
+.search-results { display: block; }
+.search-empty { margin-top: 40px; }
+
+.search-virtual-section { margin-bottom: 28px; }
+
+/* The section height comes from the virtual spacer (sized inline to the full
+   list), capped here — a short result set must not reserve a full-height box. */
+.search-virtual-scroll {
+  position: relative;
+  max-height: 420px;
+  overflow-y: auto;
+  overflow-anchor: none;
+}
+
+/* M3U-only results are one or two vertical lists that own the whole view, so
+   they share its height and bottom padding instead of stopping at the cap
+   above: a lone Channels list fills the screen, and with Programs alongside
+   it the two shrink in proportion to their contents. */
+.search-view.search-lists { padding-bottom: 0; }
+.search-lists .search-results {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+.search-lists .search-virtual-section {
+  display: flex;
+  flex-direction: column;
+  flex: 0 1 auto;
+  min-height: 0;
+}
+.search-lists .search-virtual-section:last-child { margin-bottom: 0; }
+.search-lists .search-virtual-scroll {
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: none;
+}
+.search-lists-mixed .search-channels {
+  flex-shrink: 0;
+  max-height: 462px;
+}
+.search-lists-mixed .search-channels .search-virtual-scroll {
+  max-height: 420px;
+}
+.search-virtual-list-spacer,
+.search-virtual-rail-spacer {
+  position: relative;
+}
+.search-virtual-list-cell {
+  position: absolute;
+  left: 0;
+  right: 0;
+  box-sizing: border-box;
+}
+/* Rail cells are absolutely positioned, so the spacer carries the row height:
+   poster tile (330 + 10 margin + 31 name line) by default, and the shorter
+   landscape channel tile (124 logo) for the channel rail. */
+.search-virtual-rail-spacer {
+  flex: 0 0 auto;
+  height: 371px;
+}
+.search-channel-rail .search-virtual-rail-spacer { height: 165px; }
+.search-virtual-rail-cell {
+  position: absolute;
+  top: 0;
+  width: 220px;
+}
+
+/* Channel results carry 16:9-ish logos, not portrait posters — use a landscape
+   box and contain the logo so it isn't cropped. */
+.search-channel-tile .catalog-poster-wrap { height: 124px; }
+.search-channel-tile .catalog-poster { object-fit: contain; }
+
+/* M3U-only Search: a vertical list of channel rows (Xtream uses the poster
+   rails above). */
+.search-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.search-channels { margin-bottom: 28px; }
+.search-channel-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  padding: 12px 20px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  cursor: pointer;
+}
+.search-channel-row.focused {
+  background: var(--bg-tertiary);
+  border-color: var(--focus-ring);
+}
+.search-row-logo {
+  width: 84px;
+  height: 52px;
+  object-fit: contain;
+  flex: none;
+  background: rgba(255, 255, 255, 0.06);
+  border-radius: 4px;
+}
+.search-row-logo-empty {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  font-weight: 700;
+  color: var(--text-secondary);
+}
+.search-row-name {
+  font-size: 30px;
+  color: var(--text-primary);
+}
+
+.search-programs { margin: 0 0 28px; }
+.search-program-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.search-program-row {
+  display: flex;
+  align-items: center;
+  gap: 24px;
+  min-height: 72px;
+  padding: 12px 20px;
+  border: 2px solid transparent;
+  border-radius: 8px;
+  background: var(--catalog-surface);
+  cursor: pointer;
+}
+.search-program-row.focused {
+  border-color: var(--focus-ring);
+  background: var(--bg-tertiary);
+}
+.search-program-time {
+  width: 150px;
+  flex: none;
+  font-size: 21px;
+  line-height: 1.35;
+  color: var(--text-secondary);
+}
+.search-program-body {
+  min-width: 0;
+  flex: 1 1 auto;
+}
+.search-program-title {
+  overflow: hidden;
+  font-size: 28px;
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-program-channel {
+  overflow: hidden;
+  margin-top: 4px;
+  font-size: 21px;
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.search-program-action {
+  flex: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  font-size: 20px;
+  color: var(--text-primary);
+  background: var(--catalog-control);
+}
+.search-program-row.state-live .search-program-action {
+  color: #fff;
+  background: var(--accent);
+}

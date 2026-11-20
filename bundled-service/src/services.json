@@ -1,0 +1,9 @@
+{
+  "id": "com.xsol.player.service",
+  "description": "Bundled webOS JS service for the IPTV player",
+  "services": [
+    {
+      "name": "com.xsol.player.service"
+    }
+  ]
+}

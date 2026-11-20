@@ -1,0 +1,12 @@
+{
+  "packages": [
+    {
+      "id": "com.xsol.player",
+      "title": "XSol Player",
+      "iconUri": "https://raw.githubusercontent.com/jgcrazy/xsol-player-lg/main/assets/icon130.png",
+      "manifestUrl": "https://github.com/jgcrazy/xsol-player-lg/releases/latest/download/com.xsol.player.manifest.json",
+      "fullDescriptionUrl": "https://jgcrazy.github.io/xsol-player-lg/",
+      "shortDescription": "An IPTV player for LG webOS TVs. Supports M3U playlists, Xtream Codes accounts, XMLTV program guides, and catch-up/timeshift playback."
+    }
+  ]
+}
