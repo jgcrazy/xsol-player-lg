@@ -1,6 +1,6 @@
 {
   "id": "com.xsol.player",
-  "version": "1.16.0",
+  "version": "1.0.0",
   "vendor": "XSol",
   "type": "web",
   "main": "index.html",
