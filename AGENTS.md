@@ -337,8 +337,8 @@ syncs it into `appinfo.json` and the `__APP_VERSION__` build constant;
 - Message length is proportional: small/mechanical changes get a tight one-line
   subject; real features get an imperative subject, a blank line, then a body
   covering the key behaviors and the *why*, with bullets for supporting changes.
-- Before every commit, present the exact proposed message as a heredoc and wait
-  for explicit user approval:
+- **Commit automatically when a piece of work is finished.** Do not wait for
+  approval of the message; pass it as a heredoc:
 
   ```bash
   git commit -F - <<'EOF'
@@ -348,5 +348,8 @@ syncs it into `appinfo.json` and the `__APP_VERSION__` build constant;
   EOF
   ```
 
-  Do not invoke `git commit` until the user approves that exact message.
-- Only commit or push when asked.
+  Report the commit hash and subject afterwards.
+- **Commits stay local.** The history is kept for rollback and lookup. Push,
+  tag, or publish a release only when the user asks.
+- `docs/xsol-integration.md` is listed in `.git/info/exclude` and must never be
+  committed or pushed.
