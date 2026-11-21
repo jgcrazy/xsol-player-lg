@@ -255,6 +255,45 @@ describe('Access', () => {
       expect(onPlaylistChanged).toHaveBeenCalledOnce();
     });
 
+    it('marks only one access as in use, settling a leftover of several on at once', async () => {
+      StorageService.setPlaylists([
+        { id: 'xsol-web-1', name: 'N1', url: 'http://host/a' },
+        { id: 'xsol-web-2', name: 'N2', url: 'http://host/b' },
+      ]);
+      access.open();
+      await settle();
+
+      expect(Array.from(root.querySelectorAll('.access-row.is-in-use .access-row-name')).map(n => n.textContent))
+        .toEqual(['N1']);
+      // The channels were loaded from both: they have to be reloaded from the one kept.
+      expect(onPlaylistChanged).toHaveBeenCalledOnce();
+    });
+
+    it('puts the list just signed in with into use', async () => {
+      vi.spyOn(LoginService, 'signIn').mockResolvedValue({ status: 'done' });
+      refresh.mockImplementation(async () => {
+        const stored = StorageService.getPlaylists();
+        if (stored.some(item => item.id === 'xsol-web-9')) return false;
+        StorageService.setPlaylists([...stored, { id: 'xsol-web-9', name: 'N3', url: 'http://host/c', enabled: false }]);
+        return true;
+      });
+      access.open();
+      await settle();
+      onPlaylistChanged.mockClear();
+      // The portal list that arrived on its own did not take over.
+      expect(text('.access-row.is-in-use .access-row-name')).toBe('N1');
+      StorageService.setPlaylists(StorageService.getPlaylists().filter(item => item.id !== 'xsol-web-9'));
+
+      root.querySelector<HTMLElement>('[data-access-action="login-open"]')!.click();
+      root.querySelector<HTMLInputElement>('[data-access-field="target"]')!.value = '12345';
+      root.querySelector<HTMLElement>('[data-access-action="login-submit"]')!.click();
+      await settle();
+
+      expect(Array.from(root.querySelectorAll('.access-row.is-in-use .access-row-name')).map(n => n.textContent))
+        .toEqual(['N3']);
+      expect(onPlaylistChanged).toHaveBeenCalled();
+    });
+
     it('does nothing but say so when the one in use is selected again', async () => {
       access.open();
       await settle();

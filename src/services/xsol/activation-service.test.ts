@@ -6,6 +6,8 @@ import {
   ActivationService,
   PANEL_PLAYLIST_ID,
   playlistFromDomain,
+  settleSingleAccess,
+  useOnlyPlaylist,
 } from './activation-service';
 import { resetDeviceIdentityForTests } from './device-identity';
 import { PanelClient } from './panel-client';
@@ -481,5 +483,67 @@ describe('ActivationService.removePlaylist', () => {
 
   it('is fine with an id that is no longer there', async () => {
     expect(await ActivationService.removePlaylist('gone')).toBe(true);
+  });
+});
+
+describe('one access in use at a time', () => {
+  const inUse = () => StorageService.getPlaylists().filter(item => item.enabled !== false).map(item => item.id);
+
+  it('takes the first list that arrives into use', async () => {
+    checkReply.data = active({ web_playlists: [{ id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' }] });
+    await ActivationService.refresh();
+    expect(inUse()).toEqual(['xsol-web-7']);
+  });
+
+  it('leaves a list that arrives later switched off, so the one in use stays the only one', async () => {
+    StorageService.setPlaylists([{ id: 'p1', name: 'P1', url: 'http://host/a' }]);
+    checkReply.data = active({
+      web_playlists: [
+        { id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' },
+        { id: 9, name: 'N2', m3u_url: 'http://host/b.m3u' },
+      ],
+    });
+
+    expect(await ActivationService.refresh()).toBe(true);
+
+    expect(StorageService.getPlaylists().map(item => item.id)).toEqual(['p1', 'xsol-web-7', 'xsol-web-9']);
+    expect(inUse()).toEqual(['p1']);
+  });
+
+  it('takes a new list into use when everything configured was switched off', async () => {
+    StorageService.setPlaylists([{ id: 'p1', name: 'P1', url: 'http://host/a', enabled: false }]);
+    checkReply.data = active({ web_playlists: [{ id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' }] });
+    await ActivationService.refresh();
+    expect(inUse()).toEqual(['xsol-web-7']);
+  });
+
+  it('useOnlyPlaylist switches the others off and reports whether anything changed', () => {
+    StorageService.setPlaylists([
+      { id: 'p1', name: 'P1', url: 'http://host/a' },
+      { id: 'p2', name: 'P2', url: 'http://host/b', enabled: false },
+    ]);
+    expect(useOnlyPlaylist('p2')).toBe(true);
+    expect(inUse()).toEqual(['p2']);
+    expect(useOnlyPlaylist('p2')).toBe(false);
+    expect(useOnlyPlaylist('gone')).toBe(false);
+    expect(inUse()).toEqual(['p2']);
+  });
+
+  it('settles several lists left on by an older build, keeping the first', () => {
+    StorageService.setPlaylists([
+      { id: 'xsol-web-1', name: 'N1', url: 'http://host/a' },
+      { id: 'xsol-web-2', name: 'N2', url: 'http://host/b' },
+    ]);
+    expect(settleSingleAccess()).toBe(true);
+    expect(inUse()).toEqual(['xsol-web-1']);
+    expect(settleSingleAccess()).toBe(false);
+
+    // Sources combined by hand in Settings, none from the panel, are left alone.
+    StorageService.setPlaylists([
+      { id: 'p1', name: 'P1', url: 'http://host/a' },
+      { id: 'p2', name: 'P2', url: 'http://host/b' },
+    ]);
+    expect(settleSingleAccess()).toBe(false);
+    expect(inUse()).toEqual(['p1', 'p2']);
   });
 });

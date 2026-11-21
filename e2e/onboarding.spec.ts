@@ -230,15 +230,22 @@ test('the configured accesses can be selected and removed', async ({ page }) => 
   panel.name = 'N1';
   await page.addInitScript(() => {
     if (localStorage.getItem('iptv_playlists')) return;
-    localStorage.setItem('iptv_playlists', JSON.stringify([{ id: 'p1', name: 'P1', url: 'http://host/playlist.m3u' }]));
+    // The portal list is already known and waiting, switched off, as it arrives
+    // while another access is in use.
+    localStorage.setItem('iptv_playlists', JSON.stringify([
+      { id: 'p1', name: 'P1', url: 'http://host/playlist.m3u' },
+      { id: 'xsol-web-1', name: 'N1', url: 'http://host/playlist.m3u', source: 'url', enabled: false },
+    ]));
   });
   await page.goto('/');
-  // The first check brings the portal playlist and reloads; let that settle first.
-  await expect(page.locator('#view-channels')).toContainText('N1', { timeout: 15_000 });
+  // Only the access in use is loaded: the TV screen shows no second source.
+  await expect(page.locator('#view-channels .channel-item')).toHaveCount(2);
+  await expect(page.locator('#view-channels .playlist-tab')).toHaveCount(0);
   await enterTab(page, 'access');
   const names = page.locator('.access-row-name');
   await expect(names).toHaveText(['P1', 'N1'], { timeout: 15_000 });
-  await expect(page.locator('.access-row.is-in-use')).toHaveCount(2);
+  // Only the access actually in use says so: the portal list arrived switched off.
+  await expect(page.locator('.access-row.is-in-use .access-row-name')).toHaveText(['P1']);
 
   // Selecting one leaves it as the only access in use.
   await page.locator('[data-access-action="use"][data-id="xsol-web-1"]').click();

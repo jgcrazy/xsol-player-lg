@@ -27,7 +27,7 @@ import { Access } from './components/access';
 import { Home, type HomeChannel, type HomeData, type HomeSection } from './components/home';
 import { RecentlyWatchedService } from './services/recently-watched';
 import { createXtreamClient } from './services/xtream-client';
-import { ActivationService } from './services/xsol/activation-service';
+import { ActivationService, settleSingleAccess } from './services/xsol/activation-service';
 import { PlayerPresentation } from './components/player-presentation';
 import { PanelClient, type WatchingInfo } from './services/xsol/panel-client';
 import { showToast } from './components/toast';
@@ -640,6 +640,8 @@ class App {
     this.epgGrid.resetDay(); // re-pick today; a tz change invalidates the remembered day index
 
     try {
+      // Only the access in use is loaded: never two accounts' channels at once.
+      settleSingleAccess();
       const playlists = StorageService.getPlaylists();
       log.info('Configured playlists:', playlists.length);
       if (!playlists.length) {

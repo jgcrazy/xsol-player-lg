@@ -1,8 +1,10 @@
-import type { Action, PlaylistEntry } from '../types';
+import type { Action } from '../types';
 import { CONFIG } from '../config';
 import { SpatialNav } from '../navigation/spatial-nav';
 import {
   ActivationService,
+  settleSingleAccess,
+  useOnlyPlaylist,
   type ActivationSnapshot,
 } from '../services/xsol/activation-service';
 import { LoginService, type LoginResult } from '../services/xsol/login-service';
@@ -73,6 +75,8 @@ export class Access {
   // The row whose Remove was pressed once; a second press on it removes.
   private pendingRemove = '';
   private removing = false;
+  // Ids present before a sign-in on the TV; the one that arrives next takes over.
+  private adoptAfter: string[] | null = null;
   private notice: Notice = null;
 
   constructor(
@@ -103,8 +107,14 @@ export class Access {
       this.opened = true;
       this.unsubscribe = ActivationService.subscribe(() => this.render());
     }
+    // Exactly one access is in use; settle a leftover from when several could be.
+    const settled = settleSingleAccess();
     this.render();
     this.focusFirst();
+    if (settled) {
+      this.handlers.onPlaylistChanged();
+      return;
+    }
     void this.poll(false);
   }
 
@@ -117,6 +127,7 @@ export class Access {
     this.timer = null;
     this.formOpen = false;
     this.pendingRemove = '';
+    this.adoptAfter = null;
     this.notice = null;
   }
 
@@ -175,22 +186,13 @@ export class Access {
   // Selecting an access makes it the one the TV plays: the others stay
   // configured but are switched off.
   private usePlaylist(id: string): void {
-    const playlists = StorageService.getPlaylists();
-    const chosen = playlists.filter(item => item.id === id)[0];
+    const chosen = StorageService.getPlaylists().filter(item => item.id === id)[0];
     if (!chosen) return;
-    const alreadyAlone = playlists.every(item => (item.id === id) === (item.enabled !== false));
-    if (alreadyAlone) {
+    if (!useOnlyPlaylist(id)) {
       this.notice = { kind: 'info', text: t('access.list.alreadyInUse', { name: chosen.name }) };
       this.render();
       return;
     }
-    StorageService.setPlaylists(playlists.map((item) => {
-      const copy: PlaylistEntry = { ...item };
-      if (item.id === id) delete copy.enabled;
-      else copy.enabled = false;
-      return copy;
-    }));
-    if (chosen.source === 'xtream') StorageService.setSelectedXtreamAccountId(id);
     this.notice = { kind: 'success', text: t('access.list.selected', { name: chosen.name }) };
     this.render();
     this.handlers.onPlaylistChanged();
@@ -263,6 +265,8 @@ export class Access {
       return;
     }
     this.formOpen = false;
+    // The list just signed in with is the one the user wants in use.
+    this.adoptAfter = StorageService.getPlaylists().map(item => item.id);
     this.notice = { kind: 'success', text: t('access.login.success') };
     this.render();
     // The panel now holds the playlist; the same check that serves the portal picks it up.
@@ -310,6 +314,14 @@ export class Access {
       this.refreshing = false;
     }
     if (!this.opened) return;
+    if (changed && this.adoptAfter) {
+      const before = this.adoptAfter;
+      const arrived = StorageService.getPlaylists().filter(item => before.indexOf(item.id) === -1)[0];
+      if (arrived) {
+        this.adoptAfter = null;
+        useOnlyPlaylist(arrived.id);
+      }
+    }
     this.render();
     if (changed) {
       this.handlers.onPlaylistChanged();

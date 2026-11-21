@@ -233,6 +233,9 @@ function applyPanelPlaylist(data: PanelData): { changed: boolean; names: string[
   }
   for (let i = 0; i < wanted.length; i++) {
     if (placed[wanted[i].id]) continue;
+    // One access is in use at a time: a list arriving while another is in use
+    // waits, switched off, until the user picks it on the Access screen.
+    if (next.some(item => item.enabled !== false)) wanted[i].enabled = false;
     next.push(wanted[i]);
     changed = true;
   }
@@ -250,6 +253,40 @@ function statusFrom(data: PanelData): ActivationStatus {
   if (status === 'blocked') return 'blocked';
   if (status === 'expired') return 'expired';
   return 'inactive';
+}
+
+/**
+ * Makes one source the access in use and switches every other one off; they
+ * stay configured. Returns false when it already was the only one in use.
+ */
+export function useOnlyPlaylist(id: string): boolean {
+  const playlists = StorageService.getPlaylists();
+  const chosen = playlists.filter(item => item.id === id)[0];
+  if (!chosen) return false;
+  if (playlists.every(item => (item.id === id) === (item.enabled !== false))) return false;
+  StorageService.setPlaylists(playlists.map((item) => {
+    const copy: PlaylistEntry = { ...item };
+    if (item.id === id) delete copy.enabled;
+    else copy.enabled = false;
+    return copy;
+  }));
+  if (chosen.source === 'xtream') StorageService.setSelectedXtreamAccountId(id);
+  return true;
+}
+
+/**
+ * Older builds could leave several sources on at once. Keeps the one the user
+ * last chose (or the first that is on) and switches the rest off. Returns true
+ * when something changed and channel data must be reloaded.
+ */
+export function settleSingleAccess(): boolean {
+  const on = StorageService.getPlaylists().filter(item => item.enabled !== false);
+  // The rule belongs to accesses the panel delivers; sources a user combines
+  // by hand in Settings are left as they set them.
+  if (on.length < 2 || !on.some(isPanelManaged)) return false;
+  const selected = StorageService.getSelectedXtreamAccountId();
+  const keep = on.filter(item => item.id === selected)[0] ?? on[0];
+  return useOnlyPlaylist(keep.id);
 }
 
 // The playlist the panel has as this device's active one, as last reported.
