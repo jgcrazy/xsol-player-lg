@@ -510,6 +510,12 @@ export interface DeviceLinkState {
   deviceToken?: string;
   /** Six-digit portal key, as last reported by the panel. */
   manageKey?: string;
+  /**
+   * Set while the panel has this device expired or blocked. Kept so the app
+   * stays locked across a restart with no connection; cleared by the next
+   * answer that says otherwise.
+   */
+  lockedStatus?: 'expired' | 'blocked';
 }
 
 export const StorageService = {

@@ -155,6 +155,7 @@ export const ZH_CN_MESSAGES = {
   'access.detail.trialUntil': '试用至 {date}',
   'access.detail.alreadyRegistered': '此 MAC 已被注册，请联系客服释放。',
   'access.detail.code': '代码：{code}',
+  'access.lockedHint': '续期激活后才能继续使用本设备。请在门户续期或联系客服。',
   'access.playlist.label': '列表：',
   'access.playlist.none': '尚未关联',
   'access.playlist.linked': '已关联',

@@ -161,6 +161,7 @@ export const RU_MESSAGES = {
   'access.detail.trialUntil': 'Пробный период до {date}',
   'access.detail.alreadyRegistered': 'Этот MAC уже зарегистрирован. Обратитесь в поддержку, чтобы освободить его.',
   'access.detail.code': 'Код: {code}',
+  'access.lockedHint': 'Устройством нельзя пользоваться, пока активация не будет продлена. Продлите её на портале или обратитесь в поддержку.',
   'access.playlist.label': 'Список:',
   'access.playlist.none': 'Пока не привязан',
   'access.playlist.linked': 'Привязан',

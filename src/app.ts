@@ -30,6 +30,7 @@ import { Home, type HomeChannel, type HomeData, type HomeSection } from './compo
 import { RecentlyWatchedService } from './services/recently-watched';
 import { createXtreamClient } from './services/xtream-client';
 import { ActivationService } from './services/xsol/activation-service';
+import { PanelClient, type WatchingInfo } from './services/xsol/panel-client';
 import { showToast } from './components/toast';
 import { showNumberEntry, hideNumberEntry } from './components/number-entry';
 import { ReminderService } from './services/reminder-service';
@@ -72,6 +73,7 @@ class App {
   private access!: Access;
   private home!: Home;
   private returnToAccess = false;
+  private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private sidebar!: Sidebar;
   private menu!: PlayerMenu;
   private reminderPrompt = new ReminderPrompt();
@@ -181,7 +183,8 @@ class App {
         this.returnToAccess = true;
         void this.onSettingsSaved('reload');
       },
-      onBack: () => this.leaveToStart(),
+      // A locked device has nowhere to go back to: Back offers to exit instead.
+      onBack: () => (ActivationService.locked ? this.confirmExit() : this.leaveToStart()),
       onRevealTabBar: () => {
         if (!this.tabBar.shown) return false;
         this.tabBar.focus();
@@ -322,6 +325,7 @@ class App {
     this.enterChannelsAfterUploadSync = StorageService.getPlaylists().length === 0;
     this.bindBundledServiceLifecycle();
     this.bindReminderLifecycle();
+    this.bindActivationGuard();
     // Register a retail-safe callback immediately. If Developer Mode is
     // detected below, the same named activities are replaced with alerts.
     ReminderService.reschedulePending();
@@ -897,6 +901,7 @@ class App {
       void ActivationService.refresh()
         .then((changed) => {
           if (changed) void this.onSettingsSaved('reload');
+          this.sendHeartbeat();
         })
         .catch(err => log.warn('Activation check failed:', err));
 
@@ -955,6 +960,11 @@ class App {
   }
 
   private showView(name: ViewName, preserveChannelFocus = false): void {
+    // An expired or blocked device gets the Access screen and nothing else.
+    if (ActivationService.locked && name !== 'access' && name !== 'loading') {
+      this.lockToAccess();
+      return;
+    }
     this.livePreview?.beforeViewChange(name);
     if (name !== 'access') this.access?.close();
     if (name !== 'home') this.home?.close();
@@ -1184,6 +1194,65 @@ class App {
           err,
         ));
     }
+  }
+
+  private lockToAccess(): void {
+    this.player.stop();
+    this.sidebar.hide();
+    this.menu.hide();
+    this.showView('access');
+    this.access.open();
+  }
+
+  /**
+   * Keeps the activation honest while the app runs: re-reads it on a timer, locks
+   * the app the moment the panel reports it expired or blocked, and tells the
+   * panel the device is online (and what it is playing) once a minute.
+   */
+  private bindActivationGuard(): void {
+    ActivationService.subscribe(() => {
+      const current = this.viewStack[this.viewStack.length - 1];
+      if (ActivationService.locked && current !== 'access') this.lockToAccess();
+    });
+    setInterval(() => {
+      if (document.hidden) return;
+      void ActivationService.refresh()
+        .then((changed) => {
+          // The Access screen reloads on its own polls; elsewhere a changed playlist is applied here.
+          if (changed && this.viewStack[this.viewStack.length - 1] !== 'access') {
+            void this.onSettingsSaved('reload');
+          }
+        })
+        .catch(err => log.warn('Activation re-check failed:', err));
+    }, CONFIG.XSOL.ACTIVATION_RECHECK_INTERVAL_MS);
+    document.addEventListener('visibilitychange', () => this.syncHeartbeat());
+    this.syncHeartbeat();
+  }
+
+  private syncHeartbeat(): void {
+    if (document.hidden) {
+      if (this.heartbeatTimer !== null) clearInterval(this.heartbeatTimer);
+      this.heartbeatTimer = null;
+      return;
+    }
+    if (this.heartbeatTimer !== null) return;
+    this.heartbeatTimer = setInterval(() => this.sendHeartbeat(), CONFIG.XSOL.HEARTBEAT_INTERVAL_MS);
+  }
+
+  private sendHeartbeat(): void {
+    // Only a registered device has anything to report; registering is the activation check's job.
+    if (!StorageService.getDeviceLink().secret) return;
+    PanelClient.heartbeat(this.watchingNow())
+      .catch(err => log.debug('Heartbeat failed:', err));
+  }
+
+  // What the panel shows as "watching now"; null clears it.
+  private watchingNow(): WatchingInfo | null {
+    const current = this.viewStack[this.viewStack.length - 1];
+    const playing = current === 'player' || this.player.isInLivePreview();
+    if (!playing || this.player.isVod()) return null;
+    const channel = this.player.getCurrentChannel();
+    return channel ? { type: 'live', title: channel.name } : null;
   }
 
   private showHome(): void {

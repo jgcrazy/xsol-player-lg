@@ -258,6 +258,57 @@ describe('ActivationService.refresh', () => {
     expect(ActivationService.snapshot.playlistName).toBe('');
   });
 
+  it.each(['expired', 'blocked'] as const)('locks the app while the panel reports %s', async (status) => {
+    checkReply.data = { activated: false, status, manage_key: '123456' };
+
+    await ActivationService.refresh();
+
+    expect(ActivationService.locked).toBe(true);
+    expect(StorageService.getDeviceLink().lockedStatus).toBe(status);
+  });
+
+  it('does not lock an inactive, offline or refused device', async () => {
+    checkReply.data = { activated: false, status: 'inactive' };
+    await ActivationService.refresh();
+    expect(ActivationService.locked).toBe(false);
+
+    offline = true;
+    await ActivationService.refresh();
+    expect(ActivationService.locked).toBe(false);
+  });
+
+  it('does not lock when the panel has enforcement switched off', async () => {
+    checkReply.data = { activated: false, status: 'expired', activation_enforced: false };
+
+    await ActivationService.refresh();
+
+    expect(ActivationService.snapshot.status).toBe('expired');
+    expect(ActivationService.locked).toBe(false);
+    expect(StorageService.getDeviceLink().lockedStatus).toBeUndefined();
+  });
+
+  it('stays locked across a restart with no connection, and unlocks on the next good answer', async () => {
+    checkReply.data = { activated: false, status: 'expired', manage_key: '123456' };
+    await ActivationService.refresh();
+
+    // A new run: nothing in memory, and the panel cannot be reached.
+    ActivationService.resetForTests();
+    offline = true;
+    expect(ActivationService.locked).toBe(true);
+    expect(ActivationService.snapshot.manageKey).toBe('123456');
+    await ActivationService.refresh();
+    // Losing the connection is not a way out of the lock.
+    expect(ActivationService.snapshot.status).toBe('expired');
+    expect(ActivationService.locked).toBe(true);
+    expect(StorageService.getDeviceLink().lockedStatus).toBe('expired');
+
+    offline = false;
+    checkReply.data = active();
+    await ActivationService.refresh();
+    expect(ActivationService.locked).toBe(false);
+    expect(StorageService.getDeviceLink().lockedStatus).toBeUndefined();
+  });
+
   it('notifies subscribers and stops after unsubscribe', async () => {
     const seen: string[] = [];
     const stop = ActivationService.subscribe(snapshot => seen.push(snapshot.status));

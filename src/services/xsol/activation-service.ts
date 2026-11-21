@@ -34,6 +34,8 @@ export interface ActivationSnapshot {
   playlistName: string;
   /** Panel code behind 'refused'. */
   errorCode: string;
+  /** False when the panel has switched activation enforcement off for everyone. */
+  enforced: boolean;
 }
 
 type Listener = (snapshot: ActivationSnapshot) => void;
@@ -48,9 +50,31 @@ let current: ActivationSnapshot = {
   hasPlaylist: false,
   playlistName: '',
   errorCode: '',
+  enforced: true,
 };
+let hydrated = false;
 const listeners: Listener[] = [];
 let inFlight: Promise<boolean> | null = null;
+
+// Before the panel has answered in this run, start from what it said last time:
+// an expired or blocked device must not get a free session by launching offline.
+function hydrate(): void {
+  if (hydrated) return;
+  hydrated = true;
+  const link = StorageService.getDeviceLink();
+  if (link.deviceId) current.deviceId = link.deviceId;
+  if (link.manageKey) current.manageKey = link.manageKey;
+  if (link.lockedStatus === 'expired' || link.lockedStatus === 'blocked') current.status = link.lockedStatus;
+}
+
+function rememberLock(status: ActivationStatus, enforced: boolean): void {
+  const link = StorageService.getDeviceLink();
+  const locked = enforced && (status === 'expired' || status === 'blocked') ? status : undefined;
+  if (link.lockedStatus === locked) return;
+  if (locked) link.lockedStatus = locked;
+  else delete link.lockedStatus;
+  StorageService.setDeviceLink(link);
+}
 
 function publish(next: ActivationSnapshot): void {
   current = next;
@@ -176,6 +200,7 @@ function statusFrom(data: PanelData): ActivationStatus {
 }
 
 async function check(): Promise<boolean> {
+  hydrate();
   const identity = await resolveDeviceIdentity();
   const link = StorageService.getDeviceLink();
   const base: ActivationSnapshot = {
@@ -193,8 +218,12 @@ async function check(): Promise<boolean> {
     const changed = applyPanelPlaylist(data);
     const expiry = data.expiry_date;
     const domain = text(data.domain);
+    const status = statusFrom(data);
+    const enforced = data.activation_enforced !== false;
+    rememberLock(status, enforced);
     publish({
-      status: statusFrom(data),
+      status,
+      enforced,
       deviceId: identity.deviceId,
       manageKey: StorageService.getDeviceLink().manageKey ?? '',
       expiryDate: typeof expiry === 'string' ? expiry : '',
@@ -209,7 +238,9 @@ async function check(): Promise<boolean> {
     if (error instanceof PanelError && error.code !== 'network') {
       publish({ ...base, status: 'refused', errorCode: error.code });
     } else {
-      publish({ ...base, status: 'offline', errorCode: '' });
+      // Unreachable is not a way out of a lock: keep showing what the panel last said.
+      const locked = StorageService.getDeviceLink().lockedStatus;
+      publish({ ...base, status: locked ?? 'offline', errorCode: '' });
     }
     return false;
   }
@@ -217,7 +248,14 @@ async function check(): Promise<boolean> {
 
 export const ActivationService = {
   get snapshot(): ActivationSnapshot {
+    hydrate();
     return current;
+  },
+
+  /** True while the panel has this device expired or blocked and enforces activation. */
+  get locked(): boolean {
+    const snapshot = this.snapshot;
+    return snapshot.enforced && (snapshot.status === 'expired' || snapshot.status === 'blocked');
   },
 
   /** The portal page for this device, MAC prefilled; what the QR code carries. */
@@ -247,11 +285,13 @@ export const ActivationService = {
   },
 
   resetForTests(): void {
+    hydrated = false;
     inFlight = null;
     listeners.length = 0;
     current = {
       status: 'connecting', deviceId: '', manageKey: '', expiryDate: '',
       trial: false, lifetime: false, hasPlaylist: false, playlistName: '', errorCode: '',
+      enforced: true,
     };
   },
 };

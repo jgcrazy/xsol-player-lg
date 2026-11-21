@@ -157,6 +157,7 @@ export const PT_BR_MESSAGES = {
   'access.detail.trialUntil': 'Teste até {date}',
   'access.detail.alreadyRegistered': 'Este MAC já está registrado. Fale com o suporte para liberar.',
   'access.detail.code': 'Código: {code}',
+  'access.lockedHint': 'Este aparelho só volta a funcionar depois que a ativação for renovada. Renove pelo portal ou fale com o suporte.',
   'access.playlist.label': 'Lista:',
   'access.playlist.none': 'Nenhuma vinculada ainda',
   'access.playlist.linked': 'Vinculada',

@@ -305,3 +305,11 @@
 .access-notice--success {
   color: var(--success);
 }
+
+.access-locked {
+  margin-top: 12px;
+  max-width: 900px;
+  font-size: calc(22px * var(--font-scale));
+  line-height: 1.35;
+  color: var(--warning);
+}

@@ -161,6 +161,7 @@ export const PL_MESSAGES = {
   'access.detail.trialUntil': 'Okres próbny do {date}',
   'access.detail.alreadyRegistered': 'Ten MAC jest już zarejestrowany. Skontaktuj się z pomocą, aby go zwolnić.',
   'access.detail.code': 'Kod: {code}',
+  'access.lockedHint': 'Z tego urządzenia nie można korzystać, dopóki aktywacja nie zostanie odnowiona. Odnów ją w portalu lub skontaktuj się z pomocą.',
   'access.playlist.label': 'Lista:',
   'access.playlist.none': 'Brak powiązanej listy',
   'access.playlist.linked': 'Powiązana',

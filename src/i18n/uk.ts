@@ -161,6 +161,7 @@ export const UK_MESSAGES = {
   'access.detail.trialUntil': 'Пробний період до {date}',
   'access.detail.alreadyRegistered': 'Цей MAC уже зареєстровано. Зверніться до підтримки, щоб звільнити його.',
   'access.detail.code': 'Код: {code}',
+  'access.lockedHint': 'Пристроєм не можна користуватися, доки активацію не буде продовжено. Продовжте її на порталі або зверніться до підтримки.',
   'access.playlist.label': 'Список:',
   'access.playlist.none': 'Ще не прив’язано',
   'access.playlist.linked': 'Прив’язано',

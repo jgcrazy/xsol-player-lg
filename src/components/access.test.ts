@@ -13,7 +13,7 @@ function snapshot(patch: Partial<ActivationSnapshot> = {}): ActivationSnapshot {
   return {
     status: 'active', deviceId: '02:00:00:00:00:01', manageKey: '123456',
     expiryDate: '2030-01-05 00:00:00', trial: false, lifetime: false,
-    hasPlaylist: false, playlistName: '', errorCode: '', ...patch,
+    hasPlaylist: false, playlistName: '', errorCode: '', enforced: true, ...patch,
   };
 }
 
@@ -184,6 +184,24 @@ describe('Access', () => {
 
     expect(text('#access-status')).toBe('Device blocked');
   });
+  it('explains the lock while the device is expired or blocked, and Back offers to leave the app', async () => {
+    current = snapshot({ status: 'expired' });
+    vi.spyOn(ActivationService, 'locked', 'get').mockReturnValue(true);
+    access.open();
+    await settle();
+
+    expect(text('#access-locked')).toMatch(/renew/i);
+    // Signing in stays available: a new account or code can bring the device back.
+    expect(root.querySelector('[data-access-action="login-code"]')).not.toBeNull();
+  });
+
+  it('shows no lock notice on an active device', async () => {
+    access.open();
+    await settle();
+
+    expect(root.querySelector('#access-locked')).toBeNull();
+  });
+
   it('names the linked playlist, or says there is none', async () => {
     access.open();
     await settle();

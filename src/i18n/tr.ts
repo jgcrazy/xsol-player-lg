@@ -155,6 +155,7 @@ export const TR_MESSAGES = {
   'access.detail.trialUntil': 'Deneme {date} tarihine kadar',
   'access.detail.alreadyRegistered': 'Bu MAC zaten kayıtlı. Serbest bırakmak için destekle iletişime geçin.',
   'access.detail.code': 'Kod: {code}',
+  'access.lockedHint': 'Etkinleştirme yenilenene kadar bu cihaz kullanılamaz. Portaldan yenileyin veya destekle iletişime geçin.',
   'access.playlist.label': 'Liste:',
   'access.playlist.none': 'Henüz bağlı liste yok',
   'access.playlist.linked': 'Bağlı',

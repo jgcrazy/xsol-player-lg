@@ -380,6 +380,8 @@ export class Access {
               <span class="access-status-text" id="access-status">${t(STATUS_KEY[snapshot.status])}</span>
               ${detail ? html`<span class="access-status-detail" id="access-status-detail">${detail}</span>` : ''}
             </div>
+            ${ActivationService.locked ? html`
+              <p class="access-locked" id="access-locked" data-key="access-locked">${t('access.lockedHint')}</p>` : ''}
             <div class="access-playlist" data-key="access-playlist">
               <span class="access-playlist-label">${t('access.playlist.label')}</span>
               <span class="access-playlist-name" id="access-playlist">${this.playlistText(snapshot)}</span>

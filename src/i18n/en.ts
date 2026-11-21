@@ -160,6 +160,7 @@ export const EN_MESSAGES = {
   'access.detail.trialUntil': 'Trial until {date}',
   'access.detail.alreadyRegistered': 'This MAC is already registered. Contact support to release it.',
   'access.detail.code': 'Code: {code}',
+  'access.lockedHint': 'This device cannot be used until its activation is renewed. Renew it on the portal or contact support.',
   'access.playlist.label': 'List:',
   'access.playlist.none': 'None linked yet',
   'access.playlist.linked': 'Linked',

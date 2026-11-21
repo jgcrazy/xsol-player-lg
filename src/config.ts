@@ -23,6 +23,8 @@ export const CONFIG = {
     // The panel allows six registrations an hour per device; never loop on it.
     REGISTER_RETRY_MIN_MS: 60 * 1000,
     HEARTBEAT_INTERVAL_MS: 60 * 1000,
+    // How often a running app re-reads its activation, to notice an expiry or a block.
+    ACTIVATION_RECHECK_INTERVAL_MS: 5 * 60 * 1000,
     ACTIVATION_POLL_INTERVAL_MS: 5000,
     DEVICE_NAME: 'LG webOS TV',
   },
