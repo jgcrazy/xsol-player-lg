@@ -26,7 +26,6 @@ test('opens on the home screen with the sections and the channel count', async (
 
   await expect(page.locator('.tab-bar-item.active')).toHaveAttribute('data-section', 'home');
   await expect(page.locator('#home-greeting')).toHaveText(/^Good (morning|afternoon|evening)$/);
-  await expect(page.locator('#home-status')).toHaveText('2 channels available');
   await expect(page.locator(`${CARD} .home-card-title`))
     .toHaveText(['Live TV', 'Movies', 'Series', 'Access', 'Settings']);
   // The cards carry no counts; an M3U-only setup is told Movies and Series need an account.
@@ -169,13 +168,13 @@ test('uses the bundled typefaces', async ({ page }) => {
     const family = (selector: string) => getComputedStyle(document.querySelector(selector)!).fontFamily;
     return {
       greeting: family('#home-greeting'),
-      status: family('#home-status'),
+      date: family('.home-date-long'),
       loaded: Array.from(document.fonts).filter(face => face.status === 'loaded').map(face => face.family),
     };
   });
 
   expect(fonts.greeting).toContain('Newsreader');
-  expect(fonts.status).toContain('Manrope');
+  expect(fonts.date).toContain('Manrope');
   expect(fonts.loaded).toContain('Newsreader');
   expect(fonts.loaded).toContain('Manrope');
 });

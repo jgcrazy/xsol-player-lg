@@ -311,7 +311,6 @@ export const EN_MESSAGES = {
   'home.sections': 'Sections',
   'home.onAir': 'On air',
   'home.featured': '{count} featured channels',
-  'home.channelsAvailable': '{count} channels available',
   'home.card.live': 'Live TV',
   'home.needsAccount': 'Needs an Xtream account',
   'home.activation': 'Activation:',

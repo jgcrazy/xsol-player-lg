@@ -40,7 +40,6 @@ describe('Home', () => {
     root = document.createElement('div');
     document.body.appendChild(root);
     data = {
-      channelCount: 1959,
       lastWatched: channel(4, 'ch5', 'Group 2'),
       featured: [channel(4, 'ch5', 'Group 2'), channel(0), channel(1), channel(2)],
       hasXtream: true,
@@ -79,13 +78,6 @@ describe('Home', () => {
 
     expect(text('#home-greeting')).toBe(greeting);
     expect(text('.home-date-time')).toBe(`${hour < 10 ? '0' : ''}${hour}:04`);
-  });
-
-  it('reports only the number of channels available', async () => {
-    home.open();
-    await settle();
-
-    expect(text('#home-status')).toBe('1,959 channels available');
   });
 
   it('shows no counts on the section cards', async () => {

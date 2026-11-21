@@ -1409,7 +1409,6 @@ class App {
     for (let i = 0; i < recent.length; i++) add(recent[i].channelIndex);
     for (let i = 0; featured.length < 4 && i < PlaylistService.channels.length; i++) add(i);
     return {
-      channelCount: PlaylistService.channels.length,
       lastWatched: lastIndex >= 0 ? toHome(lastIndex) : null,
       featured,
       hasXtream: this.activeXtreamAccount() !== null,

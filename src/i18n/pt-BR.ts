@@ -308,7 +308,6 @@ export const PT_BR_MESSAGES = {
   'home.sections': 'Seções',
   'home.onAir': 'No ar',
   'home.featured': '{count} canais em destaque',
-  'home.channelsAvailable': '{count} canais disponíveis',
   'home.card.live': 'TV ao Vivo',
   'home.needsAccount': 'Requer uma conta Xtream',
   'home.activation': 'Ativação:',

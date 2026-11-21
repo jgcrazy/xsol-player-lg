@@ -26,7 +26,6 @@ export interface HomeChannel {
 }
 
 export interface HomeData {
-  channelCount: number;
   lastWatched: HomeChannel | null;
   featured: HomeChannel[];
   hasXtream: boolean;
@@ -59,14 +58,6 @@ function localized(date: Date, options: Intl.DateTimeFormatOptions): string {
     return date.toLocaleDateString(getLocale(), options);
   } catch {
     return date.toLocaleDateString();
-  }
-}
-
-function formatCount(value: number): string {
-  try {
-    return value.toLocaleString(getLocale());
-  } catch {
-    return String(value);
   }
 }
 
@@ -239,10 +230,6 @@ export class Home {
               <span class="home-date-long">${longDate.charAt(0).toUpperCase() + longDate.slice(1)}</span>
               <span class="home-date-dot"></span>
               <span class="home-date-time">${formatClock(now.getHours(), now.getMinutes())}</span>
-            </div>
-            <div class="home-status">
-              <span class="home-status-dot"></span>
-              <span id="home-status">${t('home.channelsAvailable', { count: formatCount(data.channelCount) })}</span>
             </div>
           </div>
           <section class="home-last" data-key="last">

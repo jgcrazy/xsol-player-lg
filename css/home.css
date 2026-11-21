@@ -125,26 +125,6 @@
   font-variant-numeric: tabular-nums;
 }
 
-.home-status {
-  margin-top: 40px;
-  display: flex;
-  align-items: center;
-  font-size: 11.5px;
-  font-weight: 700;
-  letter-spacing: 3px;
-  text-transform: uppercase;
-  color: #8f867c;
-}
-
-.home-status-dot {
-  flex-shrink: 0;
-  width: 6px;
-  height: 6px;
-  margin-right: 12px;
-  border-radius: 50%;
-  background: #5fcf7a;
-}
-
 /* "Where you left off" card */
 .home-last {
   position: relative;
