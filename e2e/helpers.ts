@@ -44,6 +44,36 @@ export async function stubUploadService(page: Page): Promise<void> {
 }
 
 /** Serve an M3U body for the configured playlist URL (glob-matched by filename). */
+/**
+ * Stand-in for the activation panel. Matched by path, so no spec ever reaches a
+ * real server; a spec that cares registers its own route afterwards and wins.
+ */
+export async function stubPanel(page: Page): Promise<void> {
+  await page.route('**/api/device/v1/**', (route) => {
+    const path = new URL(route.request().url()).pathname;
+    const serverTime = Math.floor(Date.now() / 1000);
+    const body = path.endsWith('/register')
+      ? {
+          success: true, reissued: false, device_secret: 's'.repeat(64),
+          device_token: 't'.repeat(64), manage_key: '123456', server_time: serverTime,
+          activated: true, status: 'active', expiry_date: '2030-01-01 00:00:00', trial: false, lifetime: false,
+        }
+      : path.endsWith('/check-activation')
+        ? {
+            activated: true, status: 'active', expiry_date: '2030-01-01 00:00:00', trial: false,
+            lifetime: false, domain: '', has_playlist: false, ownership_ok: true,
+            manage_key: '123456', server_time: serverTime,
+          }
+        : { success: true, server_time: serverTime };
+    return route.fulfill({
+      status: 200,
+      contentType: 'application/json',
+      headers: { 'access-control-allow-origin': '*' },
+      body: JSON.stringify(body),
+    });
+  });
+}
+
 export async function routePlaylist(page: Page, body = SAMPLE_M3U): Promise<void> {
   await page.route('**/playlist.m3u', (route) =>
     route.fulfill({ status: 200, contentType: 'application/x-mpegurl', body }));
@@ -96,12 +126,36 @@ export async function seedPlaylist(page: Page, url = PLAYLIST_URL): Promise<void
   }, url);
 }
 
+/**
+ * First run (no source configured) lands on the Access screen. Specs about
+ * Settings itself start from there with the Blue key, the remote's Settings
+ * shortcut, which leaves the pointer where it was.
+ */
+export async function gotoFirstRunSettings(page: Page): Promise<void> {
+  await page.goto('/');
+  await openFirstRunSettings(page);
+}
+
+/** Same as gotoFirstRunSettings, for a spec that reloads to apply a stored preference. */
+export async function reloadFirstRunSettings(page: Page): Promise<void> {
+  await page.reload();
+  await openFirstRunSettings(page);
+}
+
+async function openFirstRunSettings(page: Page): Promise<void> {
+  await expect(page.locator('#view-access')).toBeVisible();
+  await page.evaluate(() => document.dispatchEvent(
+    new KeyboardEvent('keydown', { keyCode: 406, bubbles: true }),
+  ));
+  await expect(page.locator('#view-settings')).toBeVisible();
+}
+
 /** Enter a section via the docked tab bar (always visible for an Xtream account).
  *  Uses a coordinate mouse press so the click carries clientX/clientY for the tab
  *  bar's coordinate hit-test. */
 export async function enterTab(
   page: Page,
-  section: 'live' | 'epg' | 'movies' | 'series' | 'settings' | 'search',
+  section: 'live' | 'epg' | 'movies' | 'series' | 'access' | 'settings' | 'search',
 ): Promise<void> {
   const tab = page.locator(`.tab-bar-item[data-section="${section}"]`);
   await expect(tab).toBeVisible();
@@ -171,6 +225,7 @@ export const test = base.extend<{ livePreviewBaseline: 'off' | 'app-default' }>(
       await page.addInitScript(removeApis, POST_TARGET_APIS);
     }
     await stubUploadService(page);
+    await stubPanel(page);
     await use(page);
   },
 });

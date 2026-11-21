@@ -16,6 +16,7 @@ export const SECTIONS = [
   { id: 'epg', labelKey: 'nav.epg', view: 'epg', xtreamOnly: false },
   { id: 'movies', labelKey: 'nav.movies', view: 'movies', xtreamOnly: true },
   { id: 'series', labelKey: 'nav.series', view: 'series', xtreamOnly: true },
+  { id: 'access', labelKey: 'nav.access', view: 'access', xtreamOnly: false },
   { id: 'settings', labelKey: 'nav.settings', view: 'settings', xtreamOnly: false },
   { id: 'search', labelKey: 'nav.search', view: 'search', xtreamOnly: false },
 ] as const;

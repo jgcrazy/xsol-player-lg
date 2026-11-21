@@ -25,6 +25,7 @@ import { TabBar, type Section, sectionForView } from './components/tab-bar';
 import { Movies } from './components/movies';
 import { Series } from './components/series';
 import { Search } from './components/search';
+import { Access } from './components/access';
 import { showToast } from './components/toast';
 import { showNumberEntry, hideNumberEntry } from './components/number-entry';
 import { ReminderService } from './services/reminder-service';
@@ -52,7 +53,7 @@ import { getLocale, initLocale, resolveLocale, setLocale, t, tp } from './i18n';
 const log = createLogger('App');
 
 type ViewName = 'channels' | 'player' | 'epg' | 'settings' | 'reminders'
-  | 'loading' | 'movies' | 'series' | 'search';
+  | 'loading' | 'movies' | 'series' | 'search' | 'access';
 
 class App {
   private views!: Record<ViewName, HTMLElement>;
@@ -64,6 +65,7 @@ class App {
   private livePreview!: LivePreview;
   private epgGrid!: EpgGrid;
   private settings!: Settings;
+  private access!: Access;
   private sidebar!: Sidebar;
   private menu!: PlayerMenu;
   private reminderPrompt = new ReminderPrompt();
@@ -101,6 +103,7 @@ class App {
       player: $('#view-player')!,
       epg: $('#view-epg')!,
       settings: $('#view-settings')!,
+      access: $('#view-access')!,
       reminders: $('#view-reminders')!,
       movies: $('#view-movies')!,
       series: $('#view-series')!,
@@ -164,6 +167,16 @@ class App {
       () => this.player.syncCurrentIndex(),
       () => this.openReminderManager('settings'),
     );
+
+    this.access = new Access(this.views.access, {
+      onPlaylistChanged: () => { void this.onSettingsSaved('reload'); },
+      onBack: () => this.goLive(),
+      onRevealTabBar: () => {
+        if (!this.tabBar.shown) return false;
+        this.tabBar.focus();
+        return true;
+      },
+    });
 
     this.player.init($('#video-player') as HTMLVideoElement);
     this.livePreview = new LivePreview($('#live-preview')!, {
@@ -798,9 +811,10 @@ class App {
         this.tabBar.setSections(false);
         this.tabBar.setAccounts([], '');
         this.channelList.render();
-        this.showView('settings');
-        this.settings.render();
-        showToast(t('app.welcome'));
+        // First run: the Access screen carries the MAC, key and portal QR code the
+        // customer needs, and picks the playlist up as soon as the portal has one.
+        this.showView('access');
+        this.access.open();
         return;
       }
 
@@ -899,6 +913,7 @@ class App {
 
   private showView(name: ViewName, preserveChannelFocus = false): void {
     this.livePreview?.beforeViewChange(name);
+    if (name !== 'access') this.access?.close();
     if (name !== 'channels' && this.channelList.isEditing) this.channelList.exitEditMode();
     // Re-assert the persisted theme on every view transition. This reverts any
     // unsaved live preview when Settings closes (Back / section switch / Cancel)
@@ -983,6 +998,11 @@ class App {
             err,
           ));
       }
+      return;
+    }
+    if (section === 'access') {
+      this.showView('access');
+      this.access.open();
       return;
     }
     if (section === 'settings') {
@@ -1294,6 +1314,7 @@ class App {
       if (currentView === 'movies') { this.movies.handleAction('back'); return; }
       if (currentView === 'series') { this.series.handleAction('back'); return; }
       if (currentView === 'search') { this.search.handleAction('back'); return; }
+      if (currentView === 'access') { this.access.handleAction('back'); return; }
       if (currentView === 'epg') {
         if (this.epgGrid.isFilterOpen) {
           this.epgGrid.handleAction('back');
@@ -1346,6 +1367,9 @@ class App {
         break;
       case 'search':
         this.search.handleAction(action);
+        break;
+      case 'access':
+        this.access.handleAction(action);
         break;
       case 'player':
         if (this.player.isVod()) {

@@ -35,7 +35,7 @@ import { THEMES, OVERLAY_STYLES, TEXT_SIZES, DEFAULT_TEXT_SIZE, type ThemeMeta, 
 import { previewTheme, applyTextSize } from '../services/theme-service';
 import { showToast } from './toast';
 import { ConfirmationPrompt } from './confirmation-prompt';
-import qrcode from 'qrcode-generator';
+import { qrDataUrl } from '../utils/qr';
 import { createLogger } from '../utils/logger';
 import {
   formatNumber,
@@ -68,14 +68,6 @@ import {
 const log = createLogger('Settings');
 
 type EpgScopePlaylist = Pick<PlaylistEntry, 'id' | 'name' | 'url'>;
-
-/** Generate a PNG data URL containing a QR code for the given text. */
-function qrDataUrl(text: string): string {
-  const qr = qrcode(0, 'M');
-  qr.addData(text);
-  qr.make();
-  return qr.createDataURL(6, 4);
-}
 
 /** "UTC+08:00" / "UTC-05:00" / "UTC" for a feed offset in minutes. */
 function formatOffset(min: number): string {

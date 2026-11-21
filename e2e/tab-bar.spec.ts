@@ -23,7 +23,7 @@ test('the tab bar is docked (always visible) and offsets the content below it', 
 
   // Always visible on the channels view — no pointer reveal needed.
   await expect(page.locator('.tab-bar')).toBeVisible();
-  await expect(page.locator('.tab-bar-item')).toHaveText(['Live', 'Guide', 'Movies', 'Series', 'Settings', '']);
+  await expect(page.locator('.tab-bar-item')).toHaveText(['Live', 'Guide', 'Movies', 'Series', 'Access', 'Settings', '']);
   // Search is the far-right magnifier icon (no text label).
   await expect(page.locator('.tab-bar-item[data-section="search"] svg')).toBeVisible();
   // Docked → the view sits below the bar (top offset applied via the body class).
@@ -157,7 +157,7 @@ test('opening Search does not cancel the catalog loading underneath it', async (
   await expect(page.locator('#view-movies')).toContainText('Movie One');
 });
 
-test('M3U-only shows a docked bar with Live/Guide/Settings/Search only (no Movies/Series)', async ({ page }) => {
+test('M3U-only shows a docked bar with Live/Guide/Access/Settings/Search only (no Movies/Series)', async ({ page }) => {
   await page.route('**/playlist.m3u', (route) =>
     route.fulfill({ status: 200, contentType: 'application/x-mpegurl', body: SAMPLE_M3U }));
   await routeLiveManifest(page);
@@ -171,7 +171,7 @@ test('M3U-only shows a docked bar with Live/Guide/Settings/Search only (no Movie
 
   // The bar is docked, but with the reduced M3U section set.
   await expect(page.locator('.tab-bar')).toBeVisible();
-  await expect(page.locator('.tab-bar-item')).toHaveText(['Live', 'Guide', 'Settings', '']);
+  await expect(page.locator('.tab-bar-item')).toHaveText(['Live', 'Guide', 'Access', 'Settings', '']);
   await expect(page.locator('.tab-bar-item[data-section="movies"]')).toHaveCount(0);
   await expect(page.locator('.tab-bar-item[data-section="series"]')).toHaveCount(0);
   await expect(page.locator('.tab-bar-item[data-section="search"] svg')).toBeVisible();
@@ -185,16 +185,16 @@ test('M3U-only shows a docked bar with Live/Guide/Settings/Search only (no Movie
   expect((inner.x + inner.width) - (icon.x + icon.width)).toBeLessThan(4);
 });
 
-test('no playlist or account configured shows Live/Guide/Settings/Search only (no Movies/Series)', async ({ page }) => {
-  // Seed nothing — first run opens onboarding Settings with the bar docked.
+test('no playlist or account configured shows Live/Guide/Access/Settings/Search only (no Movies/Series)', async ({ page }) => {
+  // Seed nothing — first run opens the Access screen with the bar docked.
   await page.goto('/');
-  await expect(page.locator('#view-settings')).toBeVisible();
+  await expect(page.locator('#view-access')).toBeVisible();
 
   // The docked bar must not offer the Xtream-only Movies/Series sections.
   await expect(page.locator('.tab-bar')).toBeVisible();
   await expect(page.locator('.tab-bar-item[data-section="movies"]')).toHaveCount(0);
   await expect(page.locator('.tab-bar-item[data-section="series"]')).toHaveCount(0);
-  await expect(page.locator('.tab-bar-item')).toHaveText(['Live', 'Guide', 'Settings', '']);
+  await expect(page.locator('.tab-bar-item')).toHaveText(['Live', 'Guide', 'Access', 'Settings', '']);
   await expect(page.locator('.account-avatar')).toHaveCount(0);
 });
 

@@ -213,7 +213,7 @@ test('uploaded-only startup enters channels after background reconciliation', as
   await installStartupHarness(page);
 
   await page.goto('/');
-  await expect(page.locator('#view-settings')).toBeVisible();
+  await expect(page.locator('#view-access')).toBeVisible();
   await releaseServiceStart(page);
 
   await expect(page.locator('#view-channels')).toBeVisible();

@@ -25,6 +25,7 @@ body.tabbar-docked #view-epg,
 body.tabbar-docked #view-movies,
 body.tabbar-docked #view-series,
 body.tabbar-docked #view-search,
+body.tabbar-docked #view-access,
 body.tabbar-docked #view-settings {
   top: 96px;
   height: 984px;

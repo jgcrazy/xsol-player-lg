@@ -1,4 +1,4 @@
-import { test, expect, type Page, routePlaylist, seedPlaylist, PLAYLIST_URL, enterTab } from './helpers';
+import { test, expect, type Page, routePlaylist, seedPlaylist, PLAYLIST_URL, enterTab, gotoFirstRunSettings, reloadFirstRunSettings } from './helpers';
 
 // All Settings coverage: navigation, playlist save/removal, Xtream, and uploads.
 
@@ -18,7 +18,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('an open dropdown closes on an outside click or Back before leaving Settings', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     const dropdown = page.locator('#app-language');
     const trigger = dropdown.locator('.dropdown-trigger');
 
@@ -38,7 +38,7 @@ test.describe('Settings navigation', () => {
   // no hiding of their own and SpatialNav must keep d-pad out on measurement.
   // jsdom has no layout, so a real engine is the only place this can be checked.
   test('a closed dropdown keeps its options out of d-pad navigation', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     const dropdown = page.locator('#app-language');
     const options = dropdown.locator('.dropdown-option');
     await expect(options.first()).not.toBeVisible();
@@ -55,7 +55,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('an open dropdown keeps d-pad inside its own options', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     const dropdown = page.locator('#app-language');
     await dropdown.locator('.dropdown-trigger').click();
     await expect(dropdown).toHaveClass(/open/);
@@ -75,7 +75,7 @@ test.describe('Settings navigation', () => {
   // Pointer hover can move focus to the view behind an open menu. The next
   // keypress must re-enter the menu rather than continue through the background.
   test('an open dropdown recaptures focus after pointer hover escapes', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     const dropdown = page.locator('#app-language');
     const trigger = dropdown.locator('.dropdown-trigger');
     const outside = page.locator('[data-settings-target="appearance"]');
@@ -102,7 +102,7 @@ test.describe('Settings navigation', () => {
   // case no attribute selector on the element could ever catch, and jsdom
   // applies no stylesheets, so this needs a real engine.
   test('entering a category skips a first control hidden by a stylesheet', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
 
     const swatches = page.locator('#settings-appearance .theme-swatch');
@@ -122,7 +122,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('keeps dropdown spacing aligned with adjacent settings', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await expect(page.locator('#os-pref-lang')).toBeAttached();
     await expect(page.locator('#overlay-style')).toBeAttached();
 
@@ -153,7 +153,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('lays out Advanced settings as a continuous three-column matrix', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await page.locator('[data-settings-target="advanced"]').click();
 
     await expect(page.locator('#settings-advanced .settings-section-title')).toHaveText('Advanced');
@@ -199,7 +199,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('persists Essential mode and disables only costly motion', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await page.locator('[data-settings-target="advanced"]').click();
     const animationOptions = page.locator('#animation-mode .toggle-option');
     await expect(animationOptions).toHaveCount(3);
@@ -286,7 +286,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('data-animation CSS owns the navigation scroll policy', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     for (const [mode, expected] of [
       ['essential', 'auto'],
       ['reduced', 'auto'],
@@ -295,7 +295,7 @@ test.describe('Settings navigation', () => {
       await page.evaluate((value) => {
         localStorage.setItem('iptv_animation_mode', JSON.stringify(value));
       }, mode);
-      await page.reload();
+      await reloadFirstRunSettings(page);
       await expect(page.locator('html')).toHaveAttribute('data-animation', mode);
       const policy = await page.locator('.settings-scroll').evaluate((element) => ({
         supported: typeof document.documentElement.style.scrollBehavior === 'string',
@@ -307,13 +307,13 @@ test.describe('Settings navigation', () => {
 
   test('keeps localized animation profile controls on one line', async ({ page }) => {
     const locales = ['en', 'de', 'es', 'fr', 'it', 'pt-BR', 'ru', 'uk', 'zh-CN'];
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
 
     for (const locale of locales) {
       await page.evaluate((value) => {
         localStorage.setItem('iptv_locale', JSON.stringify(value));
       }, locale);
-      await page.reload();
+      await reloadFirstRunSettings(page);
       await page.locator('[data-settings-target="advanced"]').click();
 
       const layout = await page.locator('#animation-mode').evaluate((group) => {
@@ -355,7 +355,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('the action bar sits below the scroll viewport and stays put while scrolling', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     const main = page.locator('.settings-main');
     const scroll = page.locator('.settings-scroll');
     const actions = page.locator('.settings-actions');
@@ -404,7 +404,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('keeps Magic Remote hover separate from the weak scroll-position indicator', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
 
     const general = page.locator('[data-settings-target="general"]');
@@ -431,7 +431,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('scales buttons consistently for pointer and D-pad focus', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     const playback = page.locator('[data-settings-target="playback"]');
 
     await playback.hover();
@@ -453,7 +453,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('keeps scaled dropdown controls inside their scroll containers', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     const dropdown = page.locator('#app-language');
     const trigger = dropdown.locator('.dropdown-trigger');
 
@@ -492,7 +492,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('keeps the clicked indicator and Data title visible after smooth scrolling', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
     await page.evaluate(() => {
       const changes: string[] = [];
@@ -527,7 +527,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('Right enters the selected sidebar category without changing its weak indicator', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
 
     const guide = page.locator('[data-settings-target="guide"]');
@@ -539,7 +539,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('Left returns from a category content boundary to its sidebar item', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
 
     const guide = page.locator('[data-settings-target="guide"]');
@@ -553,13 +553,13 @@ test.describe('Settings navigation', () => {
 
   test('keeps every localized sidebar label on one line', async ({ page }) => {
     const locales = ['en', 'de', 'es', 'fr', 'it', 'pt-BR', 'ru', 'uk', 'zh-CN'];
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
 
     for (const locale of locales) {
       await page.evaluate((value) => {
         localStorage.setItem('iptv_locale', JSON.stringify(value));
       }, locale);
-      await page.reload();
+      await reloadFirstRunSettings(page);
       await expect(page.locator('html')).toHaveAttribute('lang', locale);
 
       const result = await page.locator('.settings-sidebar').evaluate((sidebar) => {
@@ -584,13 +584,13 @@ test.describe('Settings navigation', () => {
 
   test('keeps localized EPG time correction text and controls within the section', async ({ page }) => {
     const locales = ['en', 'de', 'es', 'fr', 'it', 'pt-BR', 'ru', 'uk', 'zh-CN'];
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
 
     for (const locale of locales) {
       await page.evaluate((value) => {
         localStorage.setItem('iptv_locale', JSON.stringify(value));
       }, locale);
-      await page.reload();
+      await reloadFirstRunSettings(page);
       await page.locator('[data-settings-target="guide"]').click();
 
       const layout = await page.locator('.epg-offset-controls').evaluate((controls) => {
@@ -627,7 +627,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('lays out the 15 theme swatches across three full rows', async ({ page }) => {
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await page.locator('[data-settings-target="appearance"]').click();
 
     const rowCounts = await page.locator('.theme-swatch').evaluateAll((swatches) => {
@@ -693,7 +693,7 @@ test.describe('Settings navigation', () => {
 test.describe('Settings playlists', () => {
   test('saving a playlist in settings reloads and shows its channels', async ({ page }) => {
     await routePlaylist(page);
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
 
     // First run with no playlist opens settings.
     await expect(page.locator('#view-settings')).toBeVisible();
@@ -743,11 +743,8 @@ test.describe('Settings playlists', () => {
     });
     await page.keyboard.press('Enter');
 
-    // loadData re-opens settings because there are no playlists now. Wait for
-    // its completion toast before pressing Back; Settings was already visible
-    // before Save, so visibility alone cannot distinguish completion.
-    await expect(page.locator('.toast.visible'))
-      .toContainText('Welcome! Add a playlist URL to get started.');
+    // With no source left, loadData lands on the Access screen, as on first run.
+    await expect(page.locator('#view-access')).toBeVisible();
 
     // Press Back to return to the channel list — it must NOT show the previous
     // playlist's channels (the bug: PlaylistService kept stale in-memory state).
@@ -1157,7 +1154,7 @@ test.describe('Settings phone setup card', () => {
       }),
     }));
 
-    await page.goto('/');
+    await gotoFirstRunSettings(page);
     await page.locator('[data-settings-target="general"]').click();
     await expect(page.locator('.setup-qr')).toBeVisible();
 
