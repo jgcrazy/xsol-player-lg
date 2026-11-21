@@ -62,17 +62,15 @@ body.tabbar-docked #view-epg .epg-view {
   height: 44px;
   margin-right: 14px;
   box-sizing: border-box;
-  display: flex;
-  align-items: center;
-  justify-content: center;
   border: 1px solid rgba(232, 182, 95, .45);
   border-radius: 10px;
-  background: linear-gradient(160deg, rgba(232, 182, 95, .18), rgba(232, 182, 95, .04));
-  color: #e8b65f;
-  font-family: "Newsreader", serif;
-  font-style: italic;
-  font-size: 22px;
-  line-height: 1;
+  background: radial-gradient(circle at 50% 40%, #3a2c1c, #151210 78%);
+}
+
+.tab-bar-logo svg {
+  display: block;
+  width: 100%;
+  height: 100%;
 }
 
 .tab-bar-title {
@@ -84,6 +82,10 @@ body.tabbar-docked #view-epg .epg-view {
   font-size: 27px;
   line-height: 1;
   letter-spacing: .5px;
+}
+
+.tab-bar-title-accent {
+  color: var(--accent);
 }
 
 .tab-bar-items {

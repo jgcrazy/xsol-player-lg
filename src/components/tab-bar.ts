@@ -3,6 +3,7 @@ import { html, raw } from '../utils/dom';
 import { morph } from '../utils/morph';
 import { CONFIG } from '../config';
 import {
+  BRAND_ICON,
   FILM_ICON,
   HOME_ICON,
   SEARCH_ICON,
@@ -352,11 +353,14 @@ export class TabBar {
     const iconFocused = this._focused && this.focusIndex === searchIdx && !this.searchExpanded;
     const activeItem = barItemFor(this.active);
     const now = new Date();
+    const brandSplit = CONFIG.APP_NAME.indexOf(' ');
+    const brandLead = brandSplit < 0 ? CONFIG.APP_NAME : CONFIG.APP_NAME.slice(0, brandSplit);
+    const brandRest = brandSplit < 0 ? '' : CONFIG.APP_NAME.slice(brandSplit);
     morph(this.el, html`
       <div class="tab-bar-inner" data-nav-container>
         <div class="tab-bar-brand" data-key="brand">
-          <span class="tab-bar-logo" aria-hidden="true">${CONFIG.APP_NAME.charAt(0)}</span>
-          <span class="tab-bar-title">${CONFIG.APP_NAME}</span>
+          <span class="tab-bar-logo" aria-hidden="true">${raw(BRAND_ICON)}</span>
+          <span class="tab-bar-title">${brandLead}<span class="tab-bar-title-accent">${brandRest}</span></span>
         </div>
         <div class="tab-bar-items" data-key="items">
           ${this.sections.filter((s) => s.id !== 'search').map((s) => {

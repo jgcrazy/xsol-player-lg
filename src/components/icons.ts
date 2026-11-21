@@ -86,3 +86,11 @@ export const REFRESH_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="curren
 export const BELL_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7 2.5 7h-17S6 15 6 9"/><path d="M10.2 20a2 2 0 0 0 3.6 0"/></svg>';
 export const LOCK_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 export const EYE_OFF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"/><path d="M10.6 5.2A9.8 9.8 0 0 1 12 5c6 0 9.5 7 9.5 7a15 15 0 0 1-3 3.9M6.3 6.4A15 15 0 0 0 2.5 12S6 19 12 19a9.6 9.6 0 0 0 3.6-.7"/><path d="M9.9 9.9a3 3 0 0 0 4.2 4.2"/></svg>';
+
+// The app mark from assets/icon.svg, flattened: fixed brand colours, since it
+// sits on its own dark tile in every theme.
+export const BRAND_ICON = '<svg viewBox="-330 -330 660 660" fill="none" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+  + '<g stroke="#e8b65f" stroke-width="30"><path d="M0-168V-276" transform="rotate(0)"/><path d="M0-168V-276" transform="rotate(22.5)"/><path d="M0-168V-276" transform="rotate(67.5)"/><path d="M0-168V-276" transform="rotate(90)"/><path d="M0-168V-276" transform="rotate(112.5)"/><path d="M0-168V-276" transform="rotate(157.5)"/><path d="M0-168V-276" transform="rotate(180)"/><path d="M0-168V-276" transform="rotate(202.5)"/><path d="M0-168V-276" transform="rotate(247.5)"/><path d="M0-168V-276" transform="rotate(270)"/><path d="M0-168V-276" transform="rotate(292.5)"/><path d="M0-168V-276" transform="rotate(337.5)"/></g>'
+  + '<path d="M0-128V-300" stroke="#f2ece2" stroke-width="48" transform="rotate(-45)"/>'
+  + '<path d="M0-128V-300" stroke="#f2ece2" stroke-width="48" transform="rotate(135)"/>'
+  + '<path d="M-52-84 92 0-52 84z" fill="#94b9cb" stroke="#94b9cb" stroke-width="26"/></svg>';
