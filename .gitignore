@@ -9,3 +9,6 @@ test-output/
 
 # Built JS service for the IPK
 build/
+
+# Store screenshot originals (regenerated, see store/README.md)
+store/raw/
