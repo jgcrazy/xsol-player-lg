@@ -34,7 +34,12 @@ info "Building service..."
 rm -rf build/bundled-service
 npx tsc -p bundled-service/tsconfig.json
 node scripts/service-compat-gate.mjs build/bundled-service
-node scripts/run-service-smoke.mjs
+# The runtime smoke runs the service on a real Node.js 0.12.2, which is
+# published for macOS and Linux only; elsewhere the static gate above stands.
+case "$(uname -s)" in
+  Darwin|Linux) node scripts/run-service-smoke.mjs ;;
+  *) info "Skipping the service runtime smoke: no Node.js 0.12.2 for this host (CI runs it)" ;;
+esac
 cp bundled-service/package.json build/bundled-service/
 cp bundled-service/src/services.json build/bundled-service/
 
