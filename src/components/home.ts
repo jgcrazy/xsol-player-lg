@@ -40,6 +40,8 @@ interface HomeHandlers {
   onAllChannels: () => void;
   onSection: (section: HomeSection) => void;
   onRevealTabBar: () => boolean;
+  /** Tune the channel playing in the card; false when the card has no preview running. */
+  onTuneChannel: (delta: 1 | -1) => boolean;
   onBack: () => void;
 }
 
@@ -149,11 +151,12 @@ export class Home {
     } else if (action === 'down' || action === 'left' || action === 'right') {
       this.nav.move(action);
     } else if (action === 'channel_up' || action === 'channel_down') {
+      if (this.handlers.onTuneChannel(action === 'channel_up' ? 1 : -1)) return;
       this.step(action === 'channel_up' ? -1 : 1);
     }
   }
 
-  // CH+/CH- walk the controls in reading order, like they walk a channel list.
+  // With no preview to tune, CH+/CH- walk the controls in reading order instead.
   private step(delta: number): void {
     const controls = Array.from(this.container.querySelectorAll<HTMLElement>('[data-focusable]'));
     const at = this.nav.focused ? controls.indexOf(this.nav.focused) : -1;

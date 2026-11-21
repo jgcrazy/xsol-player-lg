@@ -26,6 +26,7 @@ describe('Home', () => {
   let onAllChannels: ReturnType<typeof vi.fn>;
   let onSection: ReturnType<typeof vi.fn>;
   let onRevealTabBar: ReturnType<typeof vi.fn>;
+  let onTuneChannel: ReturnType<typeof vi.fn>;
   let onBack: ReturnType<typeof vi.fn>;
 
   const text = (selector: string): string => root.querySelector(selector)?.textContent?.trim() ?? '';
@@ -52,11 +53,12 @@ describe('Home', () => {
     onAllChannels = vi.fn();
     onSection = vi.fn();
     onRevealTabBar = vi.fn(() => true);
+    onTuneChannel = vi.fn(() => false);
     onBack = vi.fn();
     home = new Home(root, {
       getData: () => data,
       loadUserExpiry: async () => userExpiry,
-      onResume, onPlayChannel, onAllChannels, onSection, onRevealTabBar, onBack,
+      onResume, onPlayChannel, onAllChannels, onSection, onRevealTabBar, onTuneChannel, onBack,
     });
   });
 
@@ -126,7 +128,19 @@ describe('Home', () => {
     expect(onAllChannels).toHaveBeenCalledOnce();
   });
 
-  it('steps through the controls with CH+ and CH-, stopping at either end', async () => {
+  it('tunes the card with CH+ and CH- when it has a preview, leaving focus alone', async () => {
+    onTuneChannel.mockReturnValue(true);
+    home.open();
+    await settle();
+
+    home.handleAction('channel_up');
+    expect(onTuneChannel).toHaveBeenLastCalledWith(1);
+    home.handleAction('channel_down');
+    expect(onTuneChannel).toHaveBeenLastCalledWith(-1);
+    expect(focusedKey()).toBe('resume');
+  });
+
+  it('steps through the controls with CH+ and CH- when there is no preview, stopping at either end', async () => {
     home.open();
     await settle();
     expect(focusedKey()).toBe('resume');
@@ -249,7 +263,7 @@ describe('Home', () => {
     home = new Home(root, {
       getData: () => data,
       loadUserExpiry: () => new Promise<number | null | undefined>((resolve) => { release = resolve; }),
-      onResume, onPlayChannel, onAllChannels, onSection, onRevealTabBar, onBack,
+      onResume, onPlayChannel, onAllChannels, onSection, onRevealTabBar, onTuneChannel, onBack,
     });
     home.open();
     home.close();

@@ -288,6 +288,7 @@ class App {
         this.tabBar.focus();
         return true;
       },
+      onTuneChannel: (delta) => this.tuneHomePreview(delta),
       onBack: () => this.confirmExit(),
     });
 
@@ -1324,6 +1325,21 @@ class App {
     }
     this.homePreviewActive = true;
     this.homePresentation?.showPreview();
+  }
+
+  // CH+/CH- on the home screen change what the card is playing, same as in the
+  // player: the card's channel becomes the new "last watched" one.
+  private tuneHomePreview(delta: 1 | -1): boolean {
+    if (!this.homePreviewActive) return false;
+    if (delta > 0) this.player.channelUp();
+    else this.player.channelDown();
+    const now = this.player.getLivePlaybackSnapshot();
+    if (now && !now.muted) {
+      this.player.togglePreviewMute();
+      this.homePreviewMuted = true;
+    }
+    this.home.refresh();
+    return true;
   }
 
   private leaveHomePreview(): void {
