@@ -1,4 +1,5 @@
 import type { Action, PlaylistEntry, ResumeEntry, ResumeKind, VodPlayback } from '../types';
+import { CONFIG } from '../config';
 import { SpatialNav } from '../navigation/spatial-nav';
 import { html, raw, Safe } from '../utils/dom';
 import { morph } from '../utils/morph';
@@ -85,6 +86,10 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
   private featured: I | null = null;
   private loadingCategory = false;
   private loaded = false;
+  // What the browse data in memory was loaded for, and when: reopening the
+  // section within that window shows it again instead of fetching it again.
+  private warmKey = '';
+  private warmAt = 0;
   private gridFocusIndex = 0;
   private readonly gridVirtualizer = new VirtualGrid({
     columnStride: CATALOG_GRID_COLUMN_STRIDE,
@@ -262,7 +267,45 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
     this.searchTimer = null;
   }
 
+  private warmKeyFor(account: PlaylistEntry): string {
+    return [
+      account.id,
+      account.url,
+      account.xtream?.username ?? '',
+      account.xtream?.password ?? '',
+      StorageService.getHiddenCategories(this.hiddenKind).join('\n'),
+    ].join('|');
+  }
+
+  private categoryReady(id: string): boolean {
+    return id === CONTINUE_CATEGORY_ID || id === FAVORITES_CATEGORY_ID || !!this.itemsByCategory[id];
+  }
+
+  // Coming back to a section already loaded for this account: same categories,
+  // same grid, same scroll position, with only the watch state re-read.
+  private reopenWarm(account: PlaylistEntry): boolean {
+    if (!this.loaded || !this.categories.length) return false;
+    if (this.warmKey !== this.warmKeyFor(account)) return false;
+    if (Date.now() - this.warmAt > CONFIG.XTREAM.CATALOG_MEMORY_MS) return false;
+    if (!this.categoryReady(this.activeCategoryId)) return false;
+    const signal = this.beginRequests();
+    this.account = account;
+    this.deepLinkBack = null;
+    this.mode = 'browse';
+    this.loadingCategory = false;
+    this.query = '';
+    this.refreshResume();
+    this.rebuildGrid();
+    this.renderBrowse();
+    const input = this.container.querySelector<HTMLInputElement>('.catalog-search-input');
+    if (input) input.value = '';
+    this.focusInitial();
+    if (!this.allItems) void this.loadWholeCatalog(account, signal);
+    return true;
+  }
+
   async open(account: PlaylistEntry): Promise<void> {
+    if (this.reopenWarm(account)) return;
     const signal = this.beginRequests();
     this.account = account;
     this.deepLinkBack = null;
@@ -275,6 +318,7 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
     this.gridList = [];
     this.featured = null;
     this.loaded = false;
+    this.warmKey = '';
     this.loadingCategory = false;
     this.gridFocusIndex = 0;
     this.categoryVirtualizer.setScrollOffset(0);
@@ -294,6 +338,8 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
       this.activeCategoryId = this.defaultCategoryId();
       await this.ensureCategoryLoaded(this.activeCategoryId, account, signal);
       if (signal.aborted || this.account?.id !== account.id) return;
+      this.warmKey = this.warmKeyFor(account);
+      this.warmAt = Date.now();
     } catch (err) {
       if (signal.aborted) return;
       log.error(
@@ -550,9 +596,9 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
         count: counted !== undefined ? counted : (loaded ? loaded.length : (this.allItems ? 0 : null)),
       });
     }
-    if (!this.query) return list;
-    const needle = fold(this.query);
-    return list.filter((category) => fold(category.name).indexOf(needle) !== -1);
+    // A search narrows the grid only: the categories stay where they are, so
+    // any of them is one press away from the results.
+    return list;
   }
 
   private activeCategoryName(): string {

@@ -23,14 +23,12 @@
   text-align: center;
   cursor: pointer;
   box-shadow: 0 0 0 3px transparent;
-  transition: box-shadow 120ms ease, transform 120ms ease, filter 120ms ease;
 }
 
-/* Pointer feedback (desktop mouse + Magic Remote pointer): a subtle lift that
-   stacks with the D-pad focus ring. */
+/* Pointer feedback (desktop mouse + Magic Remote pointer): a fainter ring than
+   the D-pad focus one. */
 .account-avatar:hover {
-  transform: scale(1.06);
-  filter: brightness(1.12);
+  box-shadow: 0 0 0 3px rgb(var(--accent-rgb) / 0.5);
 }
 
 .account-avatar.focused {
@@ -58,7 +56,6 @@
   border-radius: 8px;
   color: var(--text-secondary);
   cursor: pointer;
-  transition: background 120ms ease, color 120ms ease;
 }
 
 .account-menu-item.focused {

@@ -263,7 +263,9 @@ class App {
     this.access = new Access(this.views.access, {
       // Stay on Access through the reload: the user is watching it for the result.
       onPlaylistChanged: () => {
-        this.returnToAccess = true;
+        // ...unless this is the first list arriving on a fresh install: setup is
+        // done, so the app opens on its start screen like any later launch.
+        this.returnToAccess = PlaylistService.channels.length > 0;
         void this.onSettingsSaved('reload');
       },
       // A locked device has nowhere to go back to: Back offers to exit instead.

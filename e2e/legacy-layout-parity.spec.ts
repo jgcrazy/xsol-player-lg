@@ -278,6 +278,11 @@ const M3U_SCREENS: Screen[] = [
       await expect(p.locator('#view-search .catalog-tile')).toHaveCount(0);
       // No tiles is also true while the search is still running: wait for its verdict.
       await expect(p.locator('#view-search .search-empty')).toHaveText('No results found.');
+      // The digit echo of the previous step fades on a timer the two pages do
+      // not share, like a toast.
+      await p.locator('.number-entry.visible').evaluateAll((echoes) => {
+        echoes.forEach((echo) => echo.classList.remove('visible'));
+      });
     },
   },
   {

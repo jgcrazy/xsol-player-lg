@@ -69,8 +69,10 @@ test('the account avatar shows the active account initial, to the right of Searc
   const avatar = page.locator('.account-avatar');
   await expect(avatar).toBeVisible();
   await expect(avatar).toHaveText('A');
+  // Pointer feedback is a ring, never a scale: nothing on the bar moves.
   await avatar.hover();
-  await expect(avatar).toHaveCSS('transform', 'matrix(1.06, 0, 0, 1.06, 0, 0)');
+  await expect(avatar).toHaveCSS('transform', 'none');
+  await expect(avatar).not.toHaveCSS('box-shadow', 'none');
 
   // It sits to the right of the Search magnifier.
   const avatarBox = await avatar.boundingBox();

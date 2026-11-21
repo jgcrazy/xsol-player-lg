@@ -89,13 +89,13 @@ body.tabbar-docked #view-epg .epg-view {
 .tab-bar-items {
   flex-shrink: 0;
   display: flex;
-  align-items: flex-start;
+  align-items: center;
 }
 
 .tab-bar-item {
   flex-shrink: 0;
-  min-width: 58px;
-  margin-left: 30px;
+  min-width: 72px;
+  margin-left: 22px;
   padding: 0;
   display: flex;
   flex-direction: column;
@@ -112,8 +112,8 @@ body.tabbar-docked #view-epg .epg-view {
 }
 
 .tab-bar-icon {
-  width: 48px;
-  height: 48px;
+  width: 72px;
+  height: 72px;
   box-sizing: border-box;
   display: flex;
   align-items: center;
@@ -121,23 +121,18 @@ body.tabbar-docked #view-epg .epg-view {
   border: 1px solid rgba(255, 255, 255, .1);
   border-radius: 50%;
   background: rgba(255, 255, 255, .025);
-  transition: border-color .2s, background-color .2s, box-shadow .2s;
 }
 
 .tab-bar-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 38px;
+  height: 38px;
   display: block;
 }
 
+/* The sections are told apart by their icons alone; the name stays in the
+   markup for the button's accessible label. */
 .tab-bar-label {
-  margin-top: 8px;
-  font-size: 9.5px;
-  font-weight: 700;
-  line-height: 1.2;
-  letter-spacing: 2.6px;
-  text-transform: uppercase;
-  white-space: nowrap;
+  display: none;
 }
 
 .tab-bar-item.active {
@@ -146,8 +141,7 @@ body.tabbar-docked #view-epg .epg-view {
 
 .tab-bar-item.active .tab-bar-icon {
   border-color: rgba(232, 182, 95, .55);
-  background: radial-gradient(circle at 50% 40%, rgba(232, 182, 95, .28), rgba(232, 182, 95, .06));
-  box-shadow: 0 0 24px -4px rgba(232, 182, 95, .5);
+  background: rgba(232, 182, 95, .16);
 }
 
 /* D-pad focus on the bar: a brighter ring than "active", so the two can differ. */
@@ -156,13 +150,13 @@ body.tabbar-docked #view-epg .epg-view {
 }
 
 .tab-bar-item.focused .tab-bar-icon {
-  border-color: #e8b65f;
-  box-shadow: 0 0 0 2px rgba(232, 182, 95, .35), 0 0 24px -4px rgba(232, 182, 95, .6);
+  border-color: #f0c374;
+  box-shadow: 0 0 0 3px #f0c374;
 }
 
 .tab-bar-search {
   flex-shrink: 0;
-  margin-left: 30px;
+  margin-left: 22px;
   display: flex;
   align-items: center;
   overflow: hidden;
@@ -175,7 +169,7 @@ body.tabbar-docked #view-epg .epg-view {
   margin: 0;
   border: none;
   box-sizing: border-box;
-  height: 48px;
+  height: 72px;
   background: rgba(255, 255, 255, .06);
   color: #f2ece2;
   font-family: inherit;
@@ -195,9 +189,9 @@ body.tabbar-docked #view-epg .epg-view {
 }
 
 .tab-bar-item.search-icon {
-  width: 48px;
-  min-width: 48px;
-  height: 48px;
+  width: 72px;
+  min-width: 72px;
+  height: 72px;
   margin-left: 0;
   box-sizing: border-box;
   flex-direction: row;
@@ -209,8 +203,8 @@ body.tabbar-docked #view-epg .epg-view {
 }
 
 .search-icon svg {
-  width: 19px;
-  height: 19px;
+  width: 38px;
+  height: 38px;
   display: block;
 }
 
@@ -220,9 +214,9 @@ body.tabbar-docked #view-epg .epg-view {
 }
 
 .tab-bar-item.search-icon.focused {
-  border-color: #e8b65f;
+  border-color: #f0c374;
   color: #f0c374;
-  box-shadow: 0 0 0 2px rgba(232, 182, 95, .35);
+  box-shadow: 0 0 0 3px #f0c374;
 }
 
 .tab-bar-clock {

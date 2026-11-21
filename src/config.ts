@@ -92,6 +92,8 @@ export const CONFIG = {
   // Xtream Movies/Series catalog + resume tuning.
   XTREAM: {
     DEFAULT_CATALOG_REFRESH_INTERVAL_MS: 6 * 60 * 60 * 1000,
+    // How long Movies/Series keep their loaded browse data in memory between visits.
+    CATALOG_MEMORY_MS: 30 * 60 * 1000,
     ACCOUNT_MAX_BYTES: 1024 * 1024,      // account/server metadata response budget
     CATEGORY_MAX_BYTES: 2 * 1024 * 1024, // category-list response budget
     CATALOG_MAX_BYTES: 32 * 1024 * 1024, // full or per-category stream-list budget

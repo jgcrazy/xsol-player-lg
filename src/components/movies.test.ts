@@ -103,6 +103,33 @@ describe('Movies browse', () => {
     expect(featuredTitle()).toBe('Movie One');
   });
 
+  it('shows a section it already loaded again without fetching it again', async () => {
+    const { view } = await openWith([{ id: '1', name: 'Cat A' }], [vod('10', 'Movie One'), vod('11', 'Movie Two')]);
+    view.handleAction('right');
+    expect(focused()?.dataset.itemId).toBe('11');
+
+    // Leaving for another section and coming back.
+    view.deactivate();
+    await view.open(account);
+
+    expect(catalogMock.loadVodCategories).toHaveBeenCalledTimes(1);
+    expect(catalogMock.loadVodStreams).toHaveBeenCalledTimes(1);
+    expect(container.querySelector('.catalog-loading')).toBeNull();
+    expect(names()).toEqual(['Movie One', 'Movie Two']);
+    // The whole-catalog request the first visit left unfinished is asked for again.
+    expect(catalogMock.loadAllVodStreams).toHaveBeenCalledTimes(2);
+  });
+
+  it('loads a section again once its hidden categories or its account change', async () => {
+    const { view } = await openWith();
+    storageMock.getHiddenCategories.mockReturnValue(['Cat B']);
+    await view.open(account);
+    expect(catalogMock.loadVodCategories).toHaveBeenCalledTimes(2);
+
+    await view.open({ ...account, xtream: { username: 'u', password: 'p2' } });
+    expect(catalogMock.loadVodCategories).toHaveBeenCalledTimes(3);
+  });
+
   it('follows the focused poster with the featured card: title, rating, year, poster', async () => {
     await openWith([{ id: '1', name: 'Cat A' }], [
       { ...vod('10', 'Movie One'), poster: 'http://host/p1.jpg', rating: '6.24', year: 2017 },
@@ -223,7 +250,7 @@ describe('Movies browse', () => {
     expect(container.querySelector('.catalog-browse')).not.toBeNull();
   });
 
-  it('searches every category for movies and narrows the category list, and Back clears it', async () => {
+  it('searches every category for movies, keeps the category list whole, and Back clears it', async () => {
     vi.useFakeTimers();
     try {
       catalogMock.loadAllVodStreams.mockResolvedValue([
@@ -241,7 +268,7 @@ describe('Movies browse', () => {
 
       // Accents and case do not matter; results come from categories never opened.
       expect(names()).toEqual(['Ação Total', 'Outra acao']);
-      expect(cats().map((c) => c.name)).toEqual(['Ação']);
+      expect(cats().map((c) => c.name)).toEqual(['Cat A', 'Drama', 'Ação']);
       expect(container.querySelector('.catalog-head-name')?.textContent).toBe('Search results');
       expect(input.value).toBe('acao');
 

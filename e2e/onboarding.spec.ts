@@ -74,19 +74,14 @@ test('a playlist saved on the portal reaches the TV while the Access screen is o
   panel.domain = 'http://host/playlist.m3u';
   panel.name = 'N1';
 
-  // The next poll picks it up, with no key press on the TV, and the screen says so.
-  await expect(page.locator('.access-row-name')).toHaveText('N1', { timeout: 15_000 });
-  await expect(page.locator('#view-access')).toBeVisible();
+  // The next poll picks it up, with no key press on the TV. Setup is done, so
+  // the app leaves Access for its start screen instead of coming back to it.
+  await expect(page.locator('#view-channels')).toBeVisible({ timeout: 15_000 });
+  await expect(page.locator('#view-access')).toBeHidden();
+  await expect(page.getByText('Channel One')).toBeVisible();
   await expect(page.locator('.toast.visible')).toContainText('2 channels');
   const sources = await page.evaluate(() => JSON.parse(localStorage.getItem('iptv_playlists') || '[]'));
   expect(sources).toMatchObject([{ id: 'xsol-web-1', name: 'N1', url: 'http://host/playlist.m3u', source: 'url' }]);
-
-  // Back now leads to the channels the playlist brought.
-  await page.evaluate(() => {
-    document.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape', keyCode: 27, bubbles: true }));
-  });
-  await expect(page.locator('#view-channels')).toBeVisible();
-  await expect(page.getByText('Channel One')).toBeVisible();
 });
 
 test('a playlist saved on the portal shows up even before it is set as the active one', async ({ page }) => {

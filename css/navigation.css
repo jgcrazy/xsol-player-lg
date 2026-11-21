@@ -1,12 +1,13 @@
+/* Focus is a solid ring and nothing else: no glow, no fade. Blurred shadows and
+   transitions repaint on every D-pad step, which a TV's GPU cannot keep up with. */
 [data-focusable] {
-  transition: border-color var(--transition), box-shadow var(--transition), background var(--transition);
   outline: none;
   cursor: pointer;
 }
 
 [data-focusable].focused {
   border-color: var(--focus-ring) !important;
-  box-shadow: 0 0 0 3px var(--accent-glow), 0 0 20px var(--accent-glow);
+  box-shadow: 0 0 0 3px var(--focus-ring);
   z-index: 10;
 }
 
@@ -21,9 +22,7 @@
   color: #fff;
   background: var(--danger);
   border-color: var(--danger) !important;
-  box-shadow:
-    0 0 0 3px rgb(var(--danger-rgb) / 0.24),
-    0 0 20px rgb(var(--danger-rgb) / 0.35);
+  box-shadow: 0 0 0 3px rgb(var(--danger-rgb) / 0.45);
 }
 
 .settings-input.focused {

@@ -295,7 +295,8 @@ test.describe('Settings navigation', () => {
       return result;
     });
     expect(durations.search.every(value => value <= 0.000001)).toBe(true);
-    expect(durations.button.some(value => value >= 0.1)).toBe(true);
+    // Focus feedback is instant in every mode: buttons carry no transition at all.
+    expect(durations.button.every(value => value <= 0.000001)).toBe(true);
     expect(durations.liveBadge).toBe('liveBadgeDotPulse');
     expect(durations.playingIndicator).toBe('pulse');
     expect(durations.epgLiveRail).toBe('epgRailPulse');
@@ -429,17 +430,19 @@ test.describe('Settings navigation', () => {
     await expect(page.locator('#view-channels')).toBeHidden();
   });
 
-  test('scales buttons consistently for pointer and D-pad focus', async ({ page }) => {
+  test('marks buttons with a ring, not a scale, for pointer and D-pad focus', async ({ page }) => {
     await gotoFirstRunSettings(page);
     await openSettingsPane(page, 'channels');
     const button = page.locator('#edit-channel-list');
 
     await button.hover();
-    await expect(button).toHaveCSS('transform', 'matrix(1.03, 0, 0, 1.03, 0, 0)');
+    await expect(button).toHaveClass(/focused/);
+    await expect(button).toHaveCSS('transform', 'none');
+    await expect(button).not.toHaveCSS('box-shadow', 'none');
 
     await page.locator('.settings-title').hover();
     await expect(button).not.toHaveClass(/focused/);
-    await expect(button).toHaveCSS('transform', 'none');
+    await expect(button).toHaveCSS('box-shadow', 'none');
 
     // Down resumes from the button the pointer left: past the toggle row to
     // the next button.
@@ -449,7 +452,8 @@ test.describe('Settings navigation', () => {
     const focusedButton = page.locator('#view-settings button.focused');
     await expect(focusedButton).toHaveCount(1);
     await expect(focusedButton).toHaveAttribute('id', 'reset-customization');
-    await expect(focusedButton).toHaveCSS('transform', 'matrix(1.03, 0, 0, 1.03, 0, 0)');
+    await expect(focusedButton).toHaveCSS('transform', 'none');
+    await expect(focusedButton).not.toHaveCSS('box-shadow', 'none');
 
     const toggle = page.locator('#show-hidden .toggle-option').first();
     await toggle.hover();
@@ -457,14 +461,14 @@ test.describe('Settings navigation', () => {
     await expect(toggle).toHaveCSS('transform', 'none');
   });
 
-  test('keeps scaled dropdown controls inside their scroll containers', async ({ page }) => {
+  test('keeps focused dropdown controls inside their scroll containers', async ({ page }) => {
     await gotoFirstRunSettings(page);
     await openSettingsPane(page, 'appearance');
     const dropdown = page.locator('#app-language');
     const trigger = dropdown.locator('.dropdown-trigger');
 
     await trigger.hover();
-    await expect(trigger).toHaveCSS('transform', 'matrix(1.03, 0, 0, 1.03, 0, 0)');
+    await expect(trigger).toHaveClass(/focused/);
     const triggerBounds = await page.evaluate(() => {
       const main = document.querySelector('.settings-main')!.getBoundingClientRect();
       const control = document.querySelector('#app-language .dropdown-trigger')!
@@ -480,7 +484,7 @@ test.describe('Settings navigation', () => {
     await trigger.click();
     const option = dropdown.locator('.dropdown-option').first();
     await option.hover();
-    await expect(option).toHaveCSS('transform', 'matrix(1.03, 0, 0, 1.03, 0, 0)');
+    await expect(option).toHaveClass(/focused/);
     const optionBounds = await page.evaluate(() => {
       const menu = document.querySelector('#app-language .dropdown-menu')!
         .getBoundingClientRect();

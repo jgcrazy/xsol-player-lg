@@ -82,13 +82,12 @@
   color: inherit;
   text-align: left;
   cursor: pointer;
-  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
 }
 .prefs-card:hover { border-color: rgba(232, 182, 95, 0.35); }
 .prefs-card.focused {
-  border-color: rgba(232, 182, 95, 0.6);
+  border-color: #e8b65f;
   background: linear-gradient(160deg, rgba(232, 182, 95, 0.12), rgba(60, 40, 20, 0.22));
-  box-shadow: 0 18px 50px -12px rgba(232, 182, 95, 0.35), inset 0 0 0 1px rgba(232, 182, 95, 0.12);
+  box-shadow: 0 0 0 2px #e8b65f;
 }
 .prefs-card.is-soon { opacity: 0.5; cursor: default; }
 
@@ -201,7 +200,6 @@
   border: 1px solid rgba(255, 255, 255, 0.09);
   border-radius: 22px;
   background: linear-gradient(180deg, #17130f 0%, #0f0c0a 100%);
-  box-shadow: 0 30px 80px -20px rgba(214, 150, 60, 0.3);
   text-align: center;
 }
 .pin-title { margin: 0; font-family: "Newsreader", serif; font-weight: 300; font-size: 38px; color: #f2ece2; }

@@ -40,7 +40,6 @@
 .catalog-tile.focused .catalog-poster-wrap {
   outline: 3px solid var(--catalog-focus);
   outline-offset: 2px;
-  box-shadow: 0 0 0 6px rgb(var(--catalog-focus-rgb) / 0.25), 0 10px 24px rgba(0, 0, 0, 0.6);
 }
 
 .movies-detail { display: flex; gap: 56px; }
@@ -261,7 +260,6 @@
   background:
     radial-gradient(700px 380px at 72% 30%, rgba(40, 80, 60, 0.35), transparent 70%),
     linear-gradient(180deg, #0c100e 0%, #0a0b0a 70%, #1a140e 100%);
-  box-shadow: 0 30px 80px -20px rgba(214, 150, 60, 0.22);
 }
 .catalog-feature-head { position: absolute; top: 30px; left: 32px; right: 260px; }
 .catalog-feature-empty .catalog-feature-eyebrow { position: absolute; top: 30px; left: 32px; }
@@ -323,7 +321,6 @@
   background: linear-gradient(180deg, #f0c374, #e0aa55);
   color: #1b130a;
   font-weight: 700;
-  box-shadow: 0 8px 30px -6px rgba(232, 182, 95, 0.6);
 }
 .catalog-pill-primary.focused {
   border-color: #ffffff;
@@ -338,7 +335,6 @@
   overflow: hidden;
   background: #17130f;
   transform: rotate(1.5deg);
-  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8);
 }
 .catalog-browse .catalog-poster { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
 .catalog-browse .catalog-poster-empty { display: none; }
@@ -438,8 +434,6 @@
   border-radius: 12px;
   overflow: hidden;
   background: #17130f;
-  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
-  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
 }
 .catalog-browse .catalog-tile-name {
   margin-top: 8px;
@@ -460,14 +454,12 @@
   border-radius: 50%;
   background: rgba(232, 182, 95, 0.92);
   color: #1b130a;
-  box-shadow: 0 8px 30px -4px rgba(232, 182, 95, 0.6);
 }
 .catalog-tile-play svg { width: 26px; height: 26px; }
 .catalog-browse .catalog-tile.focused .catalog-poster-wrap {
   outline: none;
-  border-color: rgba(232, 182, 95, 0.7);
-  transform: scale(1.03);
-  box-shadow: 0 24px 60px -14px rgba(232, 182, 95, 0.45);
+  border-color: #e8b65f;
+  box-shadow: 0 0 0 3px #e8b65f;
 }
 .catalog-browse .catalog-tile.focused .catalog-tile-name { color: #e8b65f; }
 .catalog-browse .catalog-tile.focused .catalog-tile-play { display: flex; }
