@@ -126,6 +126,26 @@ describe('Home', () => {
     expect(onAllChannels).toHaveBeenCalledOnce();
   });
 
+  it('steps through the controls with CH+ and CH-, stopping at either end', async () => {
+    home.open();
+    await settle();
+    expect(focusedKey()).toBe('resume');
+
+    home.handleAction('channel_up'); // already first
+    expect(focusedKey()).toBe('resume');
+    home.handleAction('channel_down');
+    expect(focusedKey()).toBe('all');
+    home.handleAction('channel_down');
+    expect(focusedKey()).toBe('section:live');
+    for (let i = 0; i < 5; i++) home.handleAction('channel_down');
+    expect(focusedKey()).toBe('channel:4');
+    for (let i = 0; i < 10; i++) home.handleAction('channel_down');
+    expect(focusedKey()).toBe('channel:2');
+    home.handleAction('channel_up');
+    expect(focusedKey()).toBe('channel:1');
+    expect(onRevealTabBar).not.toHaveBeenCalled();
+  });
+
   it('opens a section from its card and plays a featured channel', async () => {
     home.open();
     await settle();

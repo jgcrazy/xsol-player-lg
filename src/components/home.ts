@@ -148,7 +148,18 @@ export class Home {
       if (!this.nav.move('up')) this.handlers.onRevealTabBar();
     } else if (action === 'down' || action === 'left' || action === 'right') {
       this.nav.move(action);
+    } else if (action === 'channel_up' || action === 'channel_down') {
+      this.step(action === 'channel_up' ? -1 : 1);
     }
+  }
+
+  // CH+/CH- walk the controls in reading order, like they walk a channel list.
+  private step(delta: number): void {
+    const controls = Array.from(this.container.querySelectorAll<HTMLElement>('[data-focusable]'));
+    const at = this.nav.focused ? controls.indexOf(this.nav.focused) : -1;
+    if (at < 0) { this.focusInitial(); return; }
+    const next = controls[Math.max(0, Math.min(controls.length - 1, at + delta))];
+    if (next !== this.nav.focused) this.nav.focus(next);
   }
 
   private async loadAsyncData(): Promise<void> {

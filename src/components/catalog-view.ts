@@ -418,6 +418,7 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
 
   handleAction(action: Action): void {
     if (this.moveExtraFocus(action)) return;
+    if (action === 'green' || action === 'yellow') { this.onColorKey(action); return; }
     if (this.mode === 'browse') {
       const active = document.activeElement;
       const typing = active instanceof HTMLInputElement && this.container.contains(active);
@@ -497,12 +498,34 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
   private toggleFeaturedFavorite(): void {
     const item = this.featured;
     if (!item) return;
+    this.toggleFavoriteOf(item, () => this.focusFeature('favorite'));
+  }
+
+  private toggleFavoriteOf(item: I, restoreFocus: () => unknown): void {
     this.toggleFavorite(item);
     this.sideCache = null;
     // Un-favoriting inside Favorites removes the tile it was showing.
     if (this.showingFavorites()) this.rebuildGrid(this.itemId(item));
     this.renderBrowse();
-    if (!this.nav.focused || !this.container.contains(this.nav.focused)) this.focusFeature('favorite');
+    if (!this.nav.focused || !this.container.contains(this.nav.focused)) restoreFocus();
+  }
+
+  // Green favorites what is in focus (a poster, else the featured title; the
+  // detail screen's own button); yellow steps the sort order. A search field
+  // that is being typed in keeps both keys out of the way.
+  private onColorKey(action: 'green' | 'yellow'): void {
+    const active = document.activeElement;
+    if (active instanceof HTMLInputElement && this.container.contains(active)) return;
+    if (this.mode === 'detail') {
+      const button = this.container.querySelector<HTMLElement>('[data-action="watchlist"]');
+      if (action === 'green' && button) this.selectExtra(button);
+      return;
+    }
+    if (action === 'yellow') { this.cycleSort(); return; }
+    const id = this.nav.focused?.dataset.itemId;
+    const item = id !== undefined ? this.findItem(id) : undefined;
+    if (item) this.toggleFavoriteOf(item, () => this.focusGrid());
+    else this.toggleFeaturedFavorite();
   }
 
   private cycleSort(): void {

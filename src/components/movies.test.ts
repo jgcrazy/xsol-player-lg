@@ -287,6 +287,25 @@ describe('Movies browse', () => {
     }
   });
 
+  it('favorites the focused poster with green and steps the order with yellow', async () => {
+    const { view } = await openWith([{ id: '1', name: 'Cat A' }], [
+      { ...vod('10', 'Bravo'), addedAt: 200 },
+      { ...vod('11', 'alpha'), addedAt: 100 },
+    ]);
+    const sort = () => container.querySelector('.catalog-sort')?.textContent?.trim();
+
+    view.handleAction('right'); // second poster
+    expect(focused()?.dataset.itemId).toBe('11');
+    view.handleAction('green');
+    expect(storageMock.toggleWatchlist).toHaveBeenCalledWith(expect.objectContaining({ itemId: '11' }));
+    expect(own('~favorites').count).toBe('1');
+    expect(focused()?.dataset.itemId).toBe('11');
+
+    view.handleAction('yellow');
+    expect(sort()).toBe('A–Z');
+    expect(names()).toEqual(['alpha', 'Bravo']);
+  });
+
   it('cycles the order: recently added, A-Z, rating, year', async () => {
     const { view } = await openWith([{ id: '1', name: 'Cat A' }], [
       { ...vod('1', 'Bravo'), rating: '5', year: 2001, addedAt: 300 },

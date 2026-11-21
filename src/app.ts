@@ -1566,6 +1566,11 @@ class App {
     // Global shortcuts
     // While the channel list is in edit mode the color keys belong to the editor.
     const editingChannels = currentView === 'channels' && this.channelList.isEditing;
+    // Pressed again where it already leads, a colour key steps back out.
+    if ((action === 'red' && currentView === 'epg') || (action === 'blue' && (currentView === 'settings' || currentView === 'prefs'))) {
+      this.handleKey('back');
+      return;
+    }
     if (action === 'red' && currentView !== 'epg' && !editingChannels) {
       this.sidebar.hide();
       this.menu.hide();

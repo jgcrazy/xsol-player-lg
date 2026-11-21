@@ -61,6 +61,26 @@ test('the guide opens below the docked bar under TV, and Back returns to the lis
   await expect(page.locator('.tab-bar-item[data-section="live"].active')).toHaveCount(1);
 });
 
+test('the Red key leaves the guide and the Blue key leaves Settings', async ({ page }) => {
+  await seedXtream(page);
+  await routeLiveManifest(page);
+  await page.goto('/');
+  await expect(page.locator('#view-channels')).toBeVisible();
+  const press = (code: number) => page.evaluate(
+    (k) => document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: k, bubbles: true })), code);
+
+  await press(403);
+  await expect(page.locator('#view-epg')).toBeVisible();
+  await press(403);
+  await expect(page.locator('#view-channels')).toBeVisible();
+
+  await press(406);
+  await expect(page.locator('#view-prefs')).toBeVisible();
+  await press(406);
+  await expect(page.locator('#view-prefs')).toBeHidden();
+  await expect(page.locator('#view-channels')).toBeVisible();
+});
+
 test('the Settings tab (after Series) opens the settings view', async ({ page }) => {
   await seedXtream(page);
   await routeLiveManifest(page);
