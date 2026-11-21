@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="assets/icon.svg" alt="XSol Player icon">
+  <img src="assets/icon130.png" alt="XSol Player icon">
   <h1>XSol Player</h1>
   <p>An IPTV player for LG webOS TVs. Supports M3U playlists, Xtream Codes accounts, XMLTV program guides, and catch-up/timeshift playback.</p>
   <p>English | <a href="README.zh-CN.md">简体中文</a></p>
