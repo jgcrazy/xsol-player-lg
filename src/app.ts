@@ -21,7 +21,7 @@ import { EpgGrid } from './components/epg-grid';
 import { Settings, type SaveAction } from './components/settings';
 import { Sidebar } from './components/sidebar';
 import { PlayerMenu } from './components/player-menu';
-import { TabBar, type Section, sectionForView } from './components/tab-bar';
+import { TabBar, type LegendItem, type Section, sectionForView } from './components/tab-bar';
 import { Movies } from './components/movies';
 import { Series } from './components/series';
 import { Search } from './components/search';
@@ -83,6 +83,7 @@ class App {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private homePresentation: PlayerPresentation | null = null;
   private homePreviewActive = false;
+  private legendSignature = '';
   private homePreviewMuted = false;
   private sidebar!: Sidebar;
   private menu!: PlayerMenu;
@@ -411,7 +412,10 @@ class App {
     this.tabBar.init();
 
     KeyHandler.init();
-    KeyHandler.setHandler((action, event) => this.handleKey(action, event));
+    KeyHandler.setHandler((action, event) => {
+      this.handleKey(action, event);
+      this.syncLegend();
+    });
     KeyHandler.setChannelCount(() => PlaylistService.channels.length);
 
     this.initSidebarTrigger();
@@ -911,6 +915,48 @@ class App {
     // search box is open — it overlays other views but stays "Search".
     if (section && !this.tabBar.searchOpen) this.tabBar.setActive(section);
     this.livePreview?.refresh();
+    this.syncLegend();
+  }
+
+  // What the colour keys do on this screen (see handleKey); none where the bar is
+  // hidden, a modal owns the keys, or the device is locked to the Access screen.
+  private legendFor(view: ViewName): LegendItem[] {
+    if (ActivationService.locked) return [];
+    const guide: LegendItem = { key: 'red', label: t('nav.epg') };
+    const settings: LegendItem = { key: 'blue', label: t('nav.settings') };
+    const favorite: LegendItem = { key: 'green', label: t('legend.favorite') };
+    switch (view) {
+      case 'home':
+      case 'search':
+      case 'access':
+        return [guide, settings];
+      case 'channels':
+        return this.channelList.isEditing
+          ? []
+          : [guide, favorite, { key: 'yellow', label: t('legend.edit') }, settings];
+      case 'epg':
+        return [
+          { key: 'red', label: t('common.back') },
+          { key: 'yellow', label: t('common.search') },
+          settings,
+        ];
+      case 'movies':
+      case 'series':
+        return [guide, favorite, { key: 'yellow', label: t('legend.sort') }, settings];
+      case 'settings':
+      case 'prefs':
+        return [guide, { key: 'blue', label: t('common.back') }];
+      default:
+        return [];
+    }
+  }
+
+  private syncLegend(): void {
+    const items = this.legendFor(this.viewStack[this.viewStack.length - 1]);
+    const signature = items.map((item) => `${item.key}:${item.label}`).join('|');
+    if (signature === this.legendSignature) return;
+    this.legendSignature = signature;
+    this.tabBar.setLegend(items);
   }
 
   // Map a tab-bar section to its view and show it (Live = the channels view).

@@ -81,6 +81,27 @@ test('the Red key leaves the guide and the Blue key leaves Settings', async ({ p
   await expect(page.locator('#view-channels')).toBeVisible();
 });
 
+test('the legend beside the sections tells what the colour keys do on each screen', async ({ page }) => {
+  await seedXtream(page);
+  await routeLiveManifest(page);
+  await page.goto('/');
+  await expect(page.locator('#view-channels')).toBeVisible();
+  const legend = page.locator('.tab-bar-legend-item');
+
+  await expect(legend).toHaveText(['Guide', 'Favorite', 'Edit', 'Settings']);
+  await enterTab(page, 'movies');
+  await expect(legend).toHaveText(['Guide', 'Favorite', 'Sort', 'Settings']);
+  await enterTab(page, 'epg');
+  await expect(legend).toHaveText(['Back', 'Search', 'Settings']);
+  await enterSettings(page);
+  await expect(legend).toHaveText(['Guide', 'Back']);
+
+  // It stays clear of the sections: nothing overlaps the first icon.
+  const bar = (await page.locator('.tab-bar-legend').boundingBox())!;
+  const first = (await page.locator('.tab-bar-item').first().boundingBox())!;
+  expect(bar.x + bar.width).toBeLessThanOrEqual(first.x);
+});
+
 test('the Settings tab (after Series) opens the settings view', async ({ page }) => {
   await seedXtream(page);
   await routeLiveManifest(page);

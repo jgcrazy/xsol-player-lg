@@ -68,6 +68,11 @@ interface TabBarHandlers {
   onSearchClose: () => void;
 }
 
+export interface LegendItem {
+  key: 'red' | 'green' | 'yellow' | 'blue';
+  label: string;
+}
+
 const CLOCK_REFRESH_MS = 20 * 1000;
 
 // "SEX · 20 NOV": weekday and month abbreviations come from the engine, minus
@@ -100,6 +105,7 @@ export class TabBar {
   private focusIndex = 0;
   private searchExpanded = false;
   private searchBound = false;
+  private legend: readonly LegendItem[] = [];
   private clockTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(handlers: TabBarHandlers) {
@@ -117,6 +123,12 @@ export class TabBar {
   private activeIndex(): number {
     const item = barItemFor(this.active);
     return Math.max(0, this.sections.findIndex((s) => s.id === item));
+  }
+
+  // What the colour keys do on the screen in view, shown beside the sections.
+  setLegend(items: readonly LegendItem[]): void {
+    this.legend = items;
+    if (this._shown) this.render();
   }
 
   setSections(hasXtream: boolean): void {
@@ -326,6 +338,13 @@ export class TabBar {
         <div class="tab-bar-brand" data-key="brand">
           <span class="tab-bar-logo" aria-hidden="true">${raw(BRAND_ICON)}</span>
           <span class="tab-bar-title">${brandLead}<span class="tab-bar-title-accent">${brandRest}</span></span>
+        </div>
+        <div class="tab-bar-legend ${this.searchExpanded ? 'tab-bar-legend--hidden' : ''}" data-key="legend" aria-hidden="true">
+          ${this.legend.map((item) => html`
+            <span class="tab-bar-legend-item" data-key="legend:${item.key}">
+              <span class="tab-bar-legend-dot tab-bar-legend-dot--${item.key}"></span>
+              <span>${item.label}</span>
+            </span>`)}
         </div>
         <div class="tab-bar-items" data-key="items">
           ${this.sections.filter((s) => s.id !== 'search').map((s) => {

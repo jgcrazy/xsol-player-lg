@@ -35,6 +35,18 @@ describe('TabBar', () => {
     expect(document.body.classList.contains('tabbar-docked')).toBe(true);
   });
 
+  it('shows the colour-key legend it is given, in the remote colours', () => {
+    const legend = () => Array.from(document.querySelectorAll('.tab-bar-legend-item'))
+      .map((el) => [el.querySelector('.tab-bar-legend-dot')?.className.split('--')[1], el.textContent?.trim()]);
+    expect(legend()).toEqual([]);
+
+    bar.setLegend([{ key: 'red', label: 'Guide' }, { key: 'blue', label: 'Settings' }]);
+    expect(legend()).toEqual([['red', 'Guide'], ['blue', 'Settings']]);
+
+    bar.setLegend([]);
+    expect(legend()).toEqual([]);
+  });
+
   it('renders only Home/TV/Settings/Search for an M3U-only account', () => {
     bar.setSections(false);
     expect(items()).toEqual(['Home', 'TV', 'Settings', 'Search']);

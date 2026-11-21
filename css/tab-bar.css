@@ -88,6 +88,47 @@ body.tabbar-docked #view-epg .epg-view {
   color: var(--accent);
 }
 
+.tab-bar-legend {
+  flex-shrink: 1;
+  min-width: 0;
+  margin: 0 36px;
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+  white-space: nowrap;
+  font-size: 17px;
+  font-weight: 600;
+  color: #bdb4a7;
+}
+
+.tab-bar-legend--hidden {
+  display: none;
+}
+
+.tab-bar-legend-item {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  margin-left: 26px;
+}
+
+.tab-bar-legend-item:first-child {
+  margin-left: 0;
+}
+
+.tab-bar-legend-dot {
+  flex-shrink: 0;
+  width: 12px;
+  height: 12px;
+  margin-right: 9px;
+  border-radius: 50%;
+}
+
+.tab-bar-legend-dot--red { background: #e74c3c; }
+.tab-bar-legend-dot--green { background: #2ecc71; }
+.tab-bar-legend-dot--yellow { background: #f1c40f; }
+.tab-bar-legend-dot--blue { background: #3498db; }
+
 .tab-bar-items {
   flex-shrink: 0;
   display: flex;
