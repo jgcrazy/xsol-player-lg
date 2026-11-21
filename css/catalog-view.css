@@ -220,16 +220,16 @@
   border: 1px solid transparent;
   border-radius: 8px;
   background: transparent;
-  color: #bdb4a7;
-  font-size: 12px;
-  font-weight: 500;
-  letter-spacing: 1px;
+  color: #e3dbcf;
+  font-size: 15px;
+  font-weight: 600;
+  letter-spacing: 0.6px;
   text-align: left;
   cursor: pointer;
 }
-.catalog-cat-dot { flex: 0 0 auto; width: 4px; height: 4px; border-radius: 50%; background: #4a443e; }
+.catalog-cat-dot { flex: 0 0 auto; width: 4px; height: 4px; border-radius: 50%; background: #6f675f; }
 .catalog-cat-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
-.catalog-cat-count { flex: 0 0 auto; font-family: "Newsreader", serif; font-size: 13px; letter-spacing: 0; color: #5a534c; }
+.catalog-cat-count { flex: 0 0 auto; font-family: "Newsreader", serif; font-size: 16px; letter-spacing: 0; color: #a39a8d; }
 .catalog-cat:hover { background: rgba(255, 255, 255, 0.03); }
 .catalog-cat.focused { background: rgba(255, 255, 255, 0.03); border-color: rgba(232, 182, 95, 0.4); }
 .catalog-cat.is-active {
@@ -240,7 +240,7 @@
 }
 .catalog-cat.is-active.focused { border-color: rgba(232, 182, 95, 0.55); }
 .catalog-cat.is-active .catalog-cat-dot { background: #e8b65f; }
-.catalog-cat.is-active .catalog-cat-count { color: #bdb4a7; }
+.catalog-cat.is-active .catalog-cat-count { color: #e3dbcf; }
 
 .catalog-main {
   flex: 1;
