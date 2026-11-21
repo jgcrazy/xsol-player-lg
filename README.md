@@ -52,7 +52,7 @@ XSol Player is a fork of [webOS IPTV Player](https://github.com/lennylxx/webos-i
 **Playlists & accounts**
 
 - **M3U playlists** — load multiple M3U/M3U8 lists, auto-deduplicated, and temporarily disable a source without deleting its setup
-- **Xtream Codes accounts** — add or temporarily disable accounts, or switch between accounts from the top-bar avatar; playlists and EPG data are derived from their credentials
+- **Xtream Codes accounts** — add or temporarily disable accounts; playlists and EPG data are derived from their credentials
 
 **Live TV & on-demand**
 

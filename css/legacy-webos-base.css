@@ -132,5 +132,4 @@
   .catalog-head > * + * { margin-left: 18px; }
   .catalog-sort > * + * { margin-left: 10px; }
   .catalog-skeleton > * + * { margin-left: 24px; }
-  .account-menu-item > * + * { margin-left: 16px; }
 }

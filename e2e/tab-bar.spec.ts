@@ -178,9 +178,7 @@ test('M3U-only shows a docked bar with Home/TV/Settings/Search only (no Movies/S
   await expect(page.locator('.tab-bar-item[data-section="search"] svg')).toBeVisible();
   await expect(page.locator('body.tabbar-docked')).toHaveCount(1);
 
-  // With no Xtream account the account slot is empty and collapses, so the
-  // search magnifier sits right before the clock's divider (no dangling gap).
-  await expect(page.locator('.account-avatar')).toHaveCount(0);
+  // The search magnifier sits right before the clock's divider.
   const clock = (await page.locator('.tab-bar-clock').boundingBox())!;
   const icon = (await page.locator('.tab-bar-search .search-icon').boundingBox())!;
   expect(clock.x - (icon.x + icon.width)).toBe(34);
@@ -198,7 +196,6 @@ test('no playlist or account configured shows Home/TV/Settings/Search only (no M
   await expect(page.locator('.tab-bar-item[data-section="movies"]')).toHaveCount(0);
   await expect(page.locator('.tab-bar-item[data-section="series"]')).toHaveCount(0);
   await expect(page.locator('.tab-bar-item')).toHaveText(['Home', 'TV', 'Settings', '']);
-  await expect(page.locator('.account-avatar')).toHaveCount(0);
 });
 
 test('Cancel in a Settings category returns to the cards, still under Settings', async ({ page }) => {

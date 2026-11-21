@@ -111,7 +111,6 @@ test('disabling the only Xtream account hides its sections until re-enabled', as
   await page.goto('/');
   await expect(page.locator('[data-section="movies"]')).toBeVisible();
   await expect(page.locator('[data-section="series"]')).toBeVisible();
-  await expect(page.locator('.account-avatar')).toBeVisible();
 
   await enterSettings(page);
   await page.locator('#xtream-entries .source-toggle').click();
@@ -120,7 +119,6 @@ test('disabling the only Xtream account hides its sections until re-enabled', as
   await backToLive(page);
   await expect(page.locator('[data-section="movies"]')).toHaveCount(0);
   await expect(page.locator('[data-section="series"]')).toHaveCount(0);
-  await expect(page.locator('.account-avatar')).toHaveCount(0);
 
   await enterSettings(page);
   await page.locator('#xtream-entries .source-toggle').click();
@@ -129,5 +127,4 @@ test('disabling the only Xtream account hides its sections until re-enabled', as
   await backToLive(page);
   await expect(page.locator('[data-section="movies"]')).toBeVisible();
   await expect(page.locator('[data-section="series"]')).toBeVisible();
-  await expect(page.locator('.account-avatar')).toBeVisible();
 });

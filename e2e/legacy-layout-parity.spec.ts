@@ -388,16 +388,6 @@ const M3U_SCREENS: Screen[] = [
 
 const XTREAM_SCREENS: Screen[] = [
   {
-    name: 'account-switcher',
-    budget: 0,
-    go: async (p) => {
-      await p.locator('.account-avatar').click();
-      await expect(p.locator('.account-menu-item').first()).toBeVisible();
-      await p.locator('.account-avatar').click();
-      await expect(p.locator('.account-menu-item')).toHaveCount(0);
-    },
-  },
-  {
     name: 'movies',
     budget: 0,
     go: async (p) => {
@@ -623,8 +613,8 @@ test('the webOS 4 fallbacks lay out where the modern engine does, with an M3U pl
   await walk(page, browser, prepareM3U, M3U_SCREENS);
 });
 
-// An Xtream account adds the Movies/Series sections and docks the avatar in the
-// tab bar — a second tab-bar layout, and the one that exposed its missing gap.
+// An Xtream account adds the Movies/Series sections — a second tab-bar layout,
+// and the one that exposed its missing gap.
 test('the webOS 4 fallbacks lay out where the modern engine does, with an Xtream account', async ({ page, browser }) => {
   test.skip(isChromium53(), 'this test drives both engines itself, so it runs once');
   test.slow();

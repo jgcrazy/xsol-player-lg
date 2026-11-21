@@ -17,8 +17,7 @@
 //   subtitles.png      self-rendered WebVTT cues — ::cue colors + positioning
 //   subtitle-search.png  online subtitle search overlay — provider-labeled results
 //                      with the right-aligned download-count badge
-//   movies.png         Movies section — cinematic hero + content rails, with the
-//                      account-switcher dropdown open (picks the active Xtream account)
+//   movies.png         Movies section — cinematic hero + content rails
 //   movie-detail.png   Movie detail — plot/cast/rating + Resume / Play
 //   series-detail.png  Series detail — season selector + episode list
 //   search.png         unified Search — Channels · Movies · Series results
@@ -483,8 +482,7 @@ async function setupPage(page, {
 
   // Seed configured playlists, EPG URL and favorites. The Xtream shots swap the
   // two plain-M3U playlists for two Xtream accounts — that enables the
-  // Live · Movies · Series tab bar and the account switcher (its avatar dropdown
-  // picks which account drives Movies / Series / Search). Their get.php resolves
+  // Live · Movies · Series tab bar. Their get.php resolves
   // to the full channel set; the first account (My Xtream) is the active one.
   await page.addInitScript(({ favs, playlists }) => {
     localStorage.setItem('iptv_playlists', JSON.stringify(playlists));
@@ -1133,8 +1131,7 @@ try {
   }
 
   // 8) Movies — the cinematic hero + content rails (Continue Watching +
-  //    per-category rails), with the account-switcher dropdown open (the avatar in
-  //    the tab bar picks which Xtream account drives Movies / Series / Search).
+  //    per-category rails).
   {
     const { context, page } = await newPage({ xtream: true });
     await gotoChannels(page, base);
@@ -1142,14 +1139,6 @@ try {
     await page.locator('#view-movies .catalog-browse').waitFor({ state: 'visible' });
     await page.locator('#view-movies .catalog-tile').first().waitFor({ state: 'visible', timeout: 15_000 });
     await page.waitForTimeout(800); // let the poster SVGs paint
-    // Open the account-switcher dropdown via a coordinate mouseup (Magic Remote OK
-    // fires no click); its circular avatar sits at the right end of the tab bar.
-    const avatar = page.locator('.account-avatar');
-    const box = await avatar.boundingBox();
-    await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
-    await page.mouse.down();
-    await page.mouse.up();
-    await page.locator('.account-menu').waitFor({ state: 'visible' });
     // Drop UA focus so no button focus ring shows in the shot.
     await page.evaluate(() => document.activeElement instanceof HTMLElement && document.activeElement.blur());
     await clearToasts(page);

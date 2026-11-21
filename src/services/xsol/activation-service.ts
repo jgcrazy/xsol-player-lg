@@ -303,9 +303,8 @@ export function settleSingleAccess(): boolean {
 }
 
 /**
- * The accesses to offer wherever one can be picked (the Access screen, the
- * avatar in the top bar): every configured source once the panel delivers any.
- * Null on a setup with no panel list, which keeps its own account switching.
+ * The accesses to offer on the Access screen: every configured source once the
+ * panel delivers any. Null on a setup with no panel list.
  */
 export function accessChoices(): PlaylistEntry[] | null {
   const playlists = StorageService.getPlaylists();

@@ -79,9 +79,8 @@ syncs it into `appinfo.json` and the `__APP_VERSION__` build constant;
   `settings`, `loading`, plus the Xtream `movies`/`series` catalogs and `search`)
   toggled with `show`/`hide` from `src/utils/dom.ts`.
 - **Sections & Xtream catalog** — a persistent `TabBar` (`src/components/tab-bar.ts`)
-  docks the **Live / Guide / Movies / Series / Settings / Search** sections above the views and
-  hosts the multi-account avatar switcher (`account-switcher.ts`); `App` owns section
-  switching and a `viewStack`. Movies/Series (`movies.ts`, `series.ts`) share the
+  docks the **Live / Guide / Movies / Series / Settings / Search** sections above the views;
+  `App` owns section switching and a `viewStack`. Movies/Series (`movies.ts`, `series.ts`) share the
   browse/grid/detail machinery in `CatalogView` (`catalog-view.ts`) over the per-account
   `xtream-catalog` cache, with a **Continue Watching** resume rail. `search.ts` ranks
   channels, programs, movies, and series in one view; Movies/Series require an Xtream

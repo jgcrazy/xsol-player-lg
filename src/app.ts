@@ -34,7 +34,7 @@ import { Home, type HomeChannel, type HomeData, type HomeSection } from './compo
 import { RecentlyWatchedService } from './services/recently-watched';
 import { createXtreamClient } from './services/xtream-client';
 import {
-  ActivationService, accessChoices, settleSingleAccess, useOnlyPlaylist,
+  ActivationService, settleSingleAccess,
 } from './services/xsol/activation-service';
 import { PlayerPresentation } from './components/player-presentation';
 import { PanelClient, type WatchingInfo } from './services/xsol/panel-client';
@@ -97,7 +97,6 @@ class App {
   private panesFromCards = false;
   private movies!: Movies;
   private series!: Series;
-  private lastSearchQuery = '';
   private remindersInitialized = false;
   private playlistRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private playlistRefreshIntervalMs: number | null | undefined;
@@ -407,7 +406,6 @@ class App {
       onSearchQuery: (query) => this.handleSearchQuery(query),
       onSearchLeave: () => this.search.focusFirstResult(),
       onSearchClose: () => this.handleSearchClose(),
-      onSelectAccount: (id) => this.selectXtreamAccount(id),
     });
     this.tabBar.init();
 
@@ -709,7 +707,6 @@ class App {
         .filter((playlist) =>
           playlist.source === 'xtream' && playlist.xtream && isSourceEnabled(playlist));
       this.tabBar.setSections(xtreamAccounts.length > 0);
-      this.syncAccountSwitcher();
       this.channelList.render();
       this.sidebar.refresh();
       this.livePreview?.refresh();
@@ -739,10 +736,9 @@ class App {
         // channels if the user navigates back from settings (e.g. with BACK).
         PlaylistService.reset();
         EpgService.reset();
-        // No account at all: drop Movies/Series (Xtream-only) and any stale
-        // account avatars so the docked tab bar shows Live/Settings/Search only.
+        // No account at all: drop Movies/Series (Xtream-only) so the docked tab
+        // bar shows Live/Settings/Search only.
         this.tabBar.setSections(false);
-        this.tabBar.setAccounts([], '');
         this.channelList.render();
         // First run: the Access screen carries the MAC, key and portal QR code the
         // customer needs, and picks the playlist up as soon as the portal has one.
@@ -786,7 +782,6 @@ class App {
       // With parental control on, a list that just loaded is screened too.
       if (ParentalService.enabled) void this.hideAdultCategories();
       this.tabBar.setSections(hasXtream);
-      this.syncAccountSwitcher();
 
       this.channelList.render();
       if (this.returnToAccess) {
@@ -1000,7 +995,6 @@ class App {
   // The tab bar's search box query changed: show the results view over the
   // current one while non-empty; restore the underlying view when cleared.
   private handleSearchQuery(query: string): void {
-    this.lastSearchQuery = query;
     this.search.scheduleQuery(query);
     const hasQuery = query.trim().length > 0;
     const onSearch = this.viewStack[this.viewStack.length - 1] === 'search';
@@ -1236,68 +1230,6 @@ class App {
       .filter((p) => p.source === 'xtream' && p.xtream && isSourceEnabled(p));
     const selId = StorageService.getSelectedXtreamAccountId();
     return accounts.find((a) => a.id === selId) ?? accounts[0] ?? null;
-  }
-
-  // What the avatar in the top bar offers: every configured access when the
-  // panel delivers them (picking one puts it in use), else the Xtream accounts.
-  private syncAccountSwitcher(): void {
-    const accesses = accessChoices();
-    if (accesses) {
-      const inUse = accesses.filter(isSourceEnabled)[0];
-      this.tabBar.setAccounts(accesses, inUse?.id ?? '');
-      return;
-    }
-    this.tabBar.setAccounts(
-      StorageService.getPlaylists()
-        .filter((p) => p.source === 'xtream' && p.xtream && isSourceEnabled(p)),
-      this.activeXtreamAccount()?.id ?? '',
-    );
-  }
-
-  // A different Xtream account was picked in the avatar dropdown: persist it and
-  // reload whichever account-scoped section is showing. Live/Settings just store.
-  private selectXtreamAccount(id: string): void {
-    if (accessChoices()) {
-      // Same as picking it on the Access screen: it becomes the one in use.
-      if (useOnlyPlaylist(id)) void this.onSettingsSaved('reload');
-      return;
-    }
-    StorageService.setSelectedXtreamAccountId(id);
-    const account = this.activeXtreamAccount();
-    if (!account) return;
-    log.info('Xtream account switched to', account.name);
-    this.tabBar.setAccounts(
-      StorageService.getPlaylists()
-        .filter((p) => p.source === 'xtream' && p.xtream && isSourceEnabled(p)),
-      account.id,
-    );
-    const current = this.viewStack[this.viewStack.length - 1];
-    if (current === 'movies') {
-      this.movies.open(account)
-        .catch((err) => log.error(
-          'Movies reopen failed',
-          'event=xtream.view.open.failed',
-          'operation=movies_reopen',
-          err,
-        ));
-    } else if (current === 'series') {
-      this.series.open(account)
-        .catch((err) => log.error(
-          'Series reopen failed',
-          'event=xtream.view.open.failed',
-          'operation=series_reopen',
-          err,
-        ));
-    } else if (current === 'search') {
-      this.search.open(account)
-        .then(() => this.search.setQuery(this.lastSearchQuery))
-        .catch((err) => log.error(
-          'Search reopen failed',
-          'event=xtream.view.open.failed',
-          'operation=search_reopen',
-          err,
-        ));
-    }
   }
 
   private lockToAccess(): void {
