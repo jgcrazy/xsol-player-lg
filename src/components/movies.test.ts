@@ -11,6 +11,7 @@ const { catalogMock, storageMock, watchlistState, toastMock } = vi.hoisted(() =>
     watchlistState,
     storageMock: {
       getResumeList: vi.fn(() => [] as unknown[]),
+      getHiddenCategories: vi.fn(() => [] as string[]),
       getResume: vi.fn(() => null),
       getWatchlist: vi.fn(() => watchlistState.entries),
       isWatchlisted: vi.fn((_accountId: string, _kind: WatchlistKind, itemId: string) =>
@@ -52,6 +53,7 @@ beforeEach(() => {
   // clearAllMocks clears calls but not implementations; re-establish the default
   // return so a prior test's mockReturnValue override doesn't leak (order-safety).
   storageMock.getResumeList.mockReturnValue([]);
+  storageMock.getHiddenCategories.mockReturnValue([]);
   storageMock.getResume.mockReturnValue(null);
   watchlistState.entries = [];
   container = document.createElement('div');
@@ -455,6 +457,26 @@ describe('Movies browse', () => {
     hover('.catalog-cat[data-category-id="~continue"]');
     view.handleAction('select');
     expect(container.querySelector('.catalog-grid-empty')?.textContent).toBe('Nothing in progress.');
+  });
+
+  it('leaves out a category hidden in Settings: from the list, the counts and the search', async () => {
+    vi.useFakeTimers();
+    try {
+      storageMock.getHiddenCategories.mockReturnValue(['Cat B']);
+      catalogMock.loadAllVodStreams.mockResolvedValue([vod('10', 'Movie One'), vod('20', 'Movie Two', '2')]);
+      await openWith([{ id: '1', name: 'Cat A' }, { id: '2', name: 'Cat B' }]);
+      await vi.advanceTimersByTimeAsync(0);
+      expect(storageMock.getHiddenCategories).toHaveBeenCalledWith('vod');
+      expect(cats().map((c) => c.name)).toEqual(['Cat A']);
+
+      const input = container.querySelector<HTMLInputElement>('.catalog-search-input')!;
+      input.value = 'movie';
+      input.dispatchEvent(new Event('input', { bubbles: true }));
+      await vi.advanceTimersByTimeAsync(300);
+      expect(names()).toEqual(['Movie One']);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it('says so when the account has no movies', async () => {

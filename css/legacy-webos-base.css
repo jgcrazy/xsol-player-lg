@@ -108,6 +108,7 @@
   .prefs-switch > * + * { margin-left: 7px; }
   .prefs-foot > * + * { margin-left: 64px; }
   .prefs-foot-item > * + * { margin-left: 16px; }
+  .prefs-row > * + * { margin-left: 18px; }
   .search-list > * + * { margin-top: 8px; }
   .search-channel-row > * + * { margin-left: 24px; }
   .search-program-list > * + * { margin-top: 8px; }

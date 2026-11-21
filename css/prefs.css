@@ -152,3 +152,34 @@
 .prefs-foot-item { display: flex; align-items: baseline; gap: 16px; }
 .prefs-foot-label { font-size: 11px; font-weight: 700; letter-spacing: 3.5px; text-transform: uppercase; color: #6f675f; }
 .prefs-foot-value { font-family: "Newsreader", serif; font-size: 15px; color: #bdb4a7; }
+
+/* The list a "hide categories" card opens. */
+.prefs-picker-hint {
+  margin: 26px 0 0;
+  font-family: "Newsreader", serif; font-style: italic; font-size: 16px; color: #8a8178;
+}
+.prefs-picker-empty { margin: 40px 0 0; font-size: 20px; color: #bdb4a7; }
+.prefs-rows { margin-top: 18px; max-width: 1100px; }
+.prefs-row {
+  width: 100%;
+  height: 52px;
+  margin-top: 6px;
+  box-sizing: border-box;
+  display: flex; align-items: center; gap: 18px;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.02);
+  color: #e3dbcf;
+  font-size: 17px; font-weight: 600; letter-spacing: 0.4px;
+  text-align: left;
+  cursor: pointer;
+}
+.prefs-row:hover { border-color: rgba(232, 182, 95, 0.35); }
+.prefs-row.focused {
+  border-color: rgba(232, 182, 95, 0.6);
+  background: rgba(232, 182, 95, 0.1);
+  box-shadow: none;
+}
+.prefs-row.is-hidden { color: #8a8178; }
+.prefs-row-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }

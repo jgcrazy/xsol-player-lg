@@ -11,6 +11,7 @@ const { catalogMock, storageMock, watchlistState, toastMock } = vi.hoisted(() =>
     watchlistState,
     storageMock: {
       getResumeList: vi.fn(() => [] as unknown[]),
+      getHiddenCategories: vi.fn(() => [] as string[]),
       getResume: vi.fn(() => null),
       getWatchlist: vi.fn(() => watchlistState.entries),
       isWatchlisted: vi.fn((_accountId: string, _kind: WatchlistKind, itemId: string) =>
@@ -50,6 +51,7 @@ beforeEach(() => {
   // clearAllMocks clears calls but not implementations; re-establish defaults so a
   // prior test's mockReturnValue override doesn't leak (order-safety).
   storageMock.getResumeList.mockReturnValue([]);
+  storageMock.getHiddenCategories.mockReturnValue([]);
   storageMock.getResume.mockReturnValue(null);
   watchlistState.entries = [];
   container = document.createElement('div');

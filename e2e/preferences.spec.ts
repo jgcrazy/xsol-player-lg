@@ -29,8 +29,9 @@ test('the Settings tab opens the card screen, in three columns, with the device 
   const tops = await page.locator('#view-prefs .prefs-group').first().locator('.prefs-card')
     .evaluateAll(cards => cards.map(card => Math.round(card.getBoundingClientRect().top)));
   // The focused card is drawn a pixel bolder, so compare within that.
-  expect(tops).toHaveLength(3);
-  expect(Math.max(...tops) - Math.min(...tops)).toBeLessThanOrEqual(2);
+  const firstRow = tops.slice(0, 3);
+  expect(Math.max(...firstRow) - Math.min(...firstRow)).toBeLessThanOrEqual(2);
+  expect(tops[3]).toBeGreaterThan(tops[0] + 100);
   const title = (await page.locator('#view-prefs .prefs-title').boundingBox())!;
   expect(title.y).toBeGreaterThan(96);
   // Focus starts on the first card.
@@ -126,4 +127,95 @@ test('the stream pane shows a panel access by name only: no server address, no a
   expect(stored).toMatchObject([{
     id: 'xsol-web-1', name: 'N1', url: 'http://host.example.com:8080', xtream: { username: 'u1', password: 'p1' },
   }]);
+});
+
+test('hiding a TV category removes it and its channels, and showing it brings them back', async ({ page }) => {
+  await routePlaylist(page, [
+    '#EXTM3U',
+    '#EXTINF:-1 group-title="Alpha",ch1', 'http://host/ch1.m3u8',
+    '#EXTINF:-1 group-title="Bravo",ch2', 'http://host/ch2.m3u8',
+    '#EXTINF:-1 group-title="Bravo",ch3', 'http://host/ch3.m3u8',
+  ].join('\n'));
+  await seedPlaylist(page);
+  await page.goto('/');
+  await enterTab(page, 'settings');
+
+  const card = page.locator('.prefs-card[data-card-id="hide-live"]');
+  await expect(page.locator('#prefs-value-hide-live')).toHaveText('All visible');
+  await expect(card.locator('.prefs-switch')).toHaveText('Off');
+  await card.click();
+
+  // The list of categories, each one a switch.
+  await expect(page.locator('#view-prefs .prefs-title')).toHaveText('Hide TV categories');
+  await expect(page.locator('.prefs-row .prefs-row-name')).toHaveText(['Alpha', 'Bravo']);
+  await page.locator('.prefs-row[data-row-key="Bravo"]').click();
+  await expect(page.locator('.prefs-row[data-row-key="Bravo"] .prefs-switch')).toHaveText('Hidden');
+
+  // Back returns to the cards, with the card saying what is hidden. The pointer
+  // is parked first: left over the list, it would land on a card and take focus.
+  await page.mouse.move(960, 20);
+  await back(page);
+  await expect(page.locator('#prefs-value-hide-live')).toHaveText('1 category hidden');
+  await expect(card.locator('.prefs-switch')).toHaveText('On');
+  await expect(card).toHaveClass(/focused/);
+
+  await enterTab(page, 'live');
+  await expect(page.locator('#view-channels .group-name')).not.toContainText(['Bravo']);
+  await expect(page.locator('#view-channels .channel-item .channel-name')).toHaveText(['ch1']);
+
+  // Showing it again restores the category and its channels.
+  await enterTab(page, 'settings');
+  await card.click();
+  await page.locator('.prefs-row[data-row-key="Bravo"]').click();
+  await back(page);
+  await expect(page.locator('#prefs-value-hide-live')).toHaveText('All visible');
+  await enterTab(page, 'live');
+  await expect(page.locator('#view-channels .channel-item')).toHaveCount(3);
+});
+
+test('hiding a movie category removes it from Movies; an access without a catalog says so', async ({ page }) => {
+  await page.route('**/get.php*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/x-mpegurl', body: SAMPLE_M3U }));
+  await page.route('**/xmltv.php*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/xml', body: '<tv></tv>' }));
+  await page.route('**/player_api.php*', (route) => {
+    const params = new URL(route.request().url()).searchParams;
+    const action = params.get('action');
+    let body: unknown = [];
+    if (action === 'get_vod_categories') {
+      body = [{ category_id: '1', category_name: 'Cat A' }, { category_id: '2', category_name: 'Cat B' }];
+    } else if (action === 'get_vod_streams') {
+      const all = [
+        { stream_id: 10, name: 'Movie One', stream_icon: '', container_extension: 'mp4', category_id: '1' },
+        { stream_id: 20, name: 'Movie Two', stream_icon: '', container_extension: 'mp4', category_id: '2' },
+      ];
+      const category = params.get('category_id');
+      body = category ? all.filter(movie => movie.category_id === category) : all;
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem('iptv_playlists', JSON.stringify([
+      { id: 'x1', name: 'X Account', url: 'http://host.example.com:8080',
+        source: 'xtream', xtream: { username: 'u', password: 'p' } },
+    ]));
+  });
+  await page.goto('/');
+  await enterTab(page, 'settings');
+
+  await page.locator('.prefs-card[data-card-id="hide-movies"]').click();
+  await expect(page.locator('.prefs-row .prefs-row-name')).toHaveText(['Cat A', 'Cat B']);
+  await page.locator('.prefs-row[data-row-key="Cat A"]').click();
+  await back(page);
+  await expect(page.locator('#prefs-value-hide-movies')).toHaveText('1 category hidden');
+
+  await enterTab(page, 'movies');
+  const provider = page.locator('#view-movies .catalog-cat:not([data-category-id^="~"]) .catalog-cat-name');
+  await expect(provider).toHaveText(['Cat B']);
+  await expect(page.locator('#view-movies .catalog-grid .catalog-tile-name')).toHaveText(['Movie Two']);
+
+  // This account has no series: the list explains instead of staying empty.
+  await enterTab(page, 'settings');
+  await page.locator('.prefs-card[data-card-id="hide-series"]').click();
+  await expect(page.locator('.prefs-picker-empty')).toHaveText('Not available on this access');
 });

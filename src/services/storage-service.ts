@@ -787,6 +787,18 @@ export const StorageService = {
 
   // Where the app lands once channels are loaded. 'home' is the shipped default;
   // 'channels' opens straight on the channel list, as the app did before it had a home screen.
+  // Catalog categories the user chose not to see, by name: a name survives the
+  // provider renumbering its categories, and applies to every account.
+  getHiddenCategories(kind: 'vod' | 'series'): string[] {
+    const all = get<unknown>('hidden_categories', {});
+    const list = all && typeof all === 'object' ? (all as Record<string, unknown>)[kind] : null;
+    return Array.isArray(list) ? list.filter((name): name is string => typeof name === 'string') : [];
+  },
+  setHiddenCategories(kind: 'vod' | 'series', names: string[]): void {
+    const all = get<Record<string, string[]>>('hidden_categories', {});
+    set('hidden_categories', { ...all, [kind]: names });
+  },
+
   // Which Settings the tab opens: the card screen, or straight into the option
   // panes behind it (the classic page).
   getSettingsEntry(): 'cards' | 'panes' {

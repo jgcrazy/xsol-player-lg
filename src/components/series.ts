@@ -28,6 +28,7 @@ export class Series extends CatalogView<SeriesCategory, SeriesItem> {
   protected get emptyMessage(): string { return t('catalog.noSeries'); }
   protected get gridEmptyMessage(): string { return t('catalog.noSeriesCategory'); }
   protected get searchPlaceholder(): string { return t('catalog.searchSeries'); }
+  protected readonly hiddenKind = 'series' as const;
 
   private currentSeries: SeriesItem | null = null;
   private currentInfo: SeriesInfo | null = null;

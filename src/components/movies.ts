@@ -18,6 +18,7 @@ export class Movies extends CatalogView<VodCategory, VodItem> {
   protected get emptyMessage(): string { return t('catalog.noMovies'); }
   protected get gridEmptyMessage(): string { return t('catalog.noMoviesCategory'); }
   protected get searchPlaceholder(): string { return t('catalog.searchMovies'); }
+  protected readonly hiddenKind = 'vod' as const;
 
   private currentVod: VodItem | null = null;
   private currentInfo: VodInfo | null = null;

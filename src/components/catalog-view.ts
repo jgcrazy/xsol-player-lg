@@ -75,6 +75,7 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
   protected itemsByCategory: Record<string, I[]> = {};
   protected deepLinkBack: (() => void) | null = null;
   private allItems: I[] | null = null;
+  private hiddenCategoryIds: Record<string, true> = {};
   private counts: Record<string, number> = {};
   private activeCategoryId = '';
   private query = '';
@@ -167,6 +168,7 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
   protected abstract readonly emptyMessage: string;       // no catalog on the account
   protected abstract readonly gridEmptyMessage: string;   // empty category grid
   protected abstract readonly searchPlaceholder: string;
+  protected abstract readonly hiddenKind: 'vod' | 'series'; // whose hidden-category list applies
   protected abstract loadCategories(
     account: PlaylistEntry,
     signal: AbortSignal,
@@ -282,7 +284,15 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
     try {
       const categories = await this.loadCategories(account, signal);
       if (signal.aborted || this.account?.id !== account.id) return;
-      this.categories = categories;
+      // Categories hidden in Settings are gone from the list, the counts and the search.
+      const hidden = StorageService.getHiddenCategories(this.hiddenKind);
+      this.categories = hidden.length
+        ? categories.filter((category) => hidden.indexOf(category.name) === -1)
+        : categories;
+      this.hiddenCategoryIds = {};
+      categories.forEach((category) => {
+        if (hidden.indexOf(category.name) !== -1) this.hiddenCategoryIds[category.id] = true;
+      });
       this.activeCategoryId = this.defaultCategoryId();
       await this.ensureCategoryLoaded(this.activeCategoryId, account, signal);
       if (signal.aborted || this.account?.id !== account.id) return;
@@ -322,6 +332,8 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
       return;
     }
     if (signal.aborted || this.account?.id !== account.id) return;
+    const hiddenIds = this.hiddenCategoryIds;
+    if (Object.keys(hiddenIds).length) all = all.filter((item) => !hiddenIds[this.itemCategoryId(item)]);
     this.allItems = all;
     const counts: Record<string, number> = {};
     for (let i = 0; i < all.length; i++) {

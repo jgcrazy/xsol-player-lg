@@ -2,6 +2,8 @@ import './polyfills';
 import { CONFIG } from './config';
 import { KeyHandler } from './navigation/key-handler';
 import { PlaylistService } from './services/playlist-service';
+import { ChannelCustomizationService, groupKeyOf } from './services/channel-customization';
+import { loadSeriesCategories, loadVodCategories } from './services/xtream-catalog';
 import { EpgService } from './services/epg-service';
 import { ChannelHealthService } from './services/channel-health';
 import { StorageService } from './services/storage-service';
@@ -206,6 +208,40 @@ class App {
         this.channelList.render();
       },
       reminderCount: () => ReminderService.listManageable().length,
+      liveCategories: () => {
+        const seen: Record<string, true> = {};
+        const rows: Array<{ key: string; label: string; hidden: boolean }> = [];
+        for (const channel of PlaylistService.allChannels) {
+          const key = groupKeyOf(channel);
+          if (seen[key]) continue;
+          seen[key] = true;
+          rows.push({
+            key,
+            label: ChannelCustomizationService.groupLabel(key),
+            hidden: ChannelCustomizationService.isGroupHidden(key),
+          });
+        }
+        return rows;
+      },
+      toggleLiveCategory: (key) => { ChannelCustomizationService.toggleGroupHidden(key); },
+      catalogCategories: async (kind) => {
+        const account = this.activeXtreamAccount();
+        if (!account) return null;
+        const categories = kind === 'vod'
+          ? await loadVodCategories(account)
+          : await loadSeriesCategories(account);
+        return categories.map((category) => category.name);
+      },
+      onCategoriesChanged: (kind) => {
+        if (kind === 'live') {
+          PlaylistService.applyCustomization();
+          this.player.syncCurrentIndex();
+          this.channelList.render();
+          this.sidebar.refresh();
+        }
+        // Movies and Series read the hidden list each time they are opened.
+        this.search.invalidateCatalog();
+      },
     });
 
     this.access = new Access(this.views.access, {
