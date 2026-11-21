@@ -160,14 +160,29 @@
   box-shadow: 0 30px 80px -20px rgba(214, 150, 60, .25);
 }
 
-.home-last::after {
-  content: "";
+/* Where the live preview of the last channel is placed. The video element is
+   fixed at z-index 1 and sized to this box, so everything meant to stay readable
+   over it sits above that. */
+.home-last-video {
   position: absolute;
-  top: 340px;
+  top: 0;
   right: 0;
   bottom: 0;
   left: 0;
-  background: linear-gradient(180deg, rgba(60, 45, 30, 0), rgba(60, 45, 30, .35));
+  border-radius: 21px;
+  pointer-events: none;
+}
+
+.home-last::after {
+  content: "";
+  position: absolute;
+  top: 250px;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  z-index: 2;
+  border-radius: 0 0 21px 21px;
+  background: linear-gradient(180deg, rgba(8, 6, 5, 0), rgba(8, 6, 5, .82) 55%, rgba(8, 6, 5, .92));
   pointer-events: none;
 }
 
@@ -175,7 +190,8 @@
   position: absolute;
   top: 24px;
   left: 24px;
-  z-index: 1;
+  z-index: 3;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, .9);
   color: #efe7da;
 }
 
@@ -194,7 +210,7 @@
   right: 28px;
   bottom: 16px;
   left: 28px;
-  z-index: 1;
+  z-index: 3;
 }
 
 .home-last-group {

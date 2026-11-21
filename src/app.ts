@@ -30,6 +30,7 @@ import { Home, type HomeChannel, type HomeData, type HomeSection } from './compo
 import { RecentlyWatchedService } from './services/recently-watched';
 import { createXtreamClient } from './services/xtream-client';
 import { ActivationService } from './services/xsol/activation-service';
+import { PlayerPresentation } from './components/player-presentation';
 import { PanelClient, type WatchingInfo } from './services/xsol/panel-client';
 import { showToast } from './components/toast';
 import { showNumberEntry, hideNumberEntry } from './components/number-entry';
@@ -74,6 +75,9 @@ class App {
   private home!: Home;
   private returnToAccess = false;
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
+  private homePresentation: PlayerPresentation | null = null;
+  private homePreviewActive = false;
+  private homePreviewMuted = false;
   private sidebar!: Sidebar;
   private menu!: PlayerMenu;
   private reminderPrompt = new ReminderPrompt();
@@ -195,7 +199,7 @@ class App {
     this.home = new Home(this.views.home, {
       getData: () => this.homeData(),
       loadUserExpiry: () => this.homeUserExpiry(),
-      onResume: (index) => this.playChannel(index),
+      onResume: (index) => this.resumeFromHome(index),
       onPlayChannel: (index) => this.playChannel(index),
       onAllChannels: () => this.enterSection('live'),
       onSection: (section: HomeSection) => this.enterSection(section),
@@ -222,7 +226,14 @@ class App {
       isFavorite: channel => StorageService.getFavorites().includes(channelKey(channel)),
       toggleFavorite: channel => this.toggleChannelFavorite(channel),
     });
-    window.addEventListener('resize', () => this.livePreview.refreshLayout());
+    this.homePresentation = new PlayerPresentation(
+      () => this.player.getVideoElement(),
+      () => this.views.home.querySelector<HTMLElement>('.home-last-video'),
+    );
+    window.addEventListener('resize', () => {
+      this.livePreview.refreshLayout();
+      if (this.homePreviewActive) this.homePresentation?.refresh();
+    });
     document.addEventListener('visibilitychange', () => {
       if (document.hidden) {
         this.livePreview.suspend();
@@ -967,7 +978,10 @@ class App {
     }
     this.livePreview?.beforeViewChange(name);
     if (name !== 'access') this.access?.close();
-    if (name !== 'home') this.home?.close();
+    if (name !== 'home') {
+      this.home?.close();
+      this.leaveHomePreview();
+    }
     if (name !== 'channels' && this.channelList.isEditing) this.channelList.exitEditMode();
     // Re-assert the persisted theme on every view transition. This reverts any
     // unsaved live preview when Settings closes (Back / section switch / Cancel)
@@ -1256,9 +1270,64 @@ class App {
   }
 
   private showHome(): void {
-    this.player.stop();
+    // A preview already running in the channel list carries over into the home card.
+    if (!this.player.isInLivePreview()) this.player.stop();
     this.showView('home');
+    // A locked device was sent to Access instead.
+    if (this.viewStack[this.viewStack.length - 1] !== 'home') return;
     this.home.open();
+    this.startHomePreview();
+  }
+
+  // Plays the last channel, muted, inside the "where you left off" card. It
+  // follows the Live preview setting: off means the card stays a still.
+  private startHomePreview(): void {
+    if (this.viewStack[this.viewStack.length - 1] !== 'home') return;
+    const last = this.homeData().lastWatched;
+    const channel = last ? PlaylistService.getByIndex(last.index) : null;
+    if (!StorageService.getLivePreview() || !last || !channel) {
+      if (this.player.isInLivePreview()) this.player.stop();
+      return;
+    }
+    this.player.enterLivePreview();
+    const playing = this.player.getLivePlaybackSnapshot();
+    if (!playing || channelKey(playing.channel) !== channelKey(channel)
+        || playing.channel.url !== channel.url) {
+      this.player.play(last.index);
+    }
+    const now = this.player.getLivePlaybackSnapshot();
+    if (now && !now.muted) {
+      this.player.togglePreviewMute();
+      this.homePreviewMuted = true;
+    }
+    this.homePreviewActive = true;
+    this.homePresentation?.showPreview();
+  }
+
+  private leaveHomePreview(): void {
+    if (!this.homePreviewActive) return;
+    this.homePreviewActive = false;
+    // Hand the video back unstyled: the channel list or the full-screen player lays it out next.
+    this.homePresentation?.showFullscreen();
+    if (this.homePreviewMuted) {
+      this.homePreviewMuted = false;
+      if (this.player.isInLivePreview()) this.player.togglePreviewMute();
+    }
+  }
+
+  // Continue: when the card is already playing that channel, grow it to full
+  // screen instead of starting the stream over.
+  private resumeFromHome(index: number): void {
+    const channel = PlaylistService.getByIndex(index);
+    const playing = this.player.getLivePlaybackSnapshot();
+    if (this.homePreviewActive && channel && playing
+        && channelKey(playing.channel) === channelKey(channel)
+        && playing.channel.url === channel.url) {
+      this.showView('player');
+      this.player.showOSD();
+      return;
+    }
+    this.playChannel(index);
   }
 
   // Back out of a screen that has no parent of its own: to home, or to the

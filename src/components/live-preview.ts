@@ -117,7 +117,10 @@ export class LivePreview {
 
   beforeViewChange(view: PreviewHostView): void {
     const { player } = this.options;
-    if (view !== 'channels' && view !== 'player' && player.isInLivePreview()) player.stop();
+    // The home screen keeps a preview going in its own card; every other view ends it.
+    if (view !== 'channels' && view !== 'player' && view !== 'home' && player.isInLivePreview()) {
+      player.stop();
+    }
     if (view === 'player') player.exitLivePreview();
   }
 
@@ -255,6 +258,14 @@ export class LivePreview {
   private refreshPanel(): void {
     const { channelView, player } = this.options;
     const currentView = this.options.getCurrentView();
+    if (currentView === 'home') {
+      // The home card places the video itself; this panel only has to step back,
+      // without resetting a layout it does not own.
+      channelView.classList.remove('has-live-preview');
+      this.options.channelList.setPreviewFocused(false);
+      this.applyState(null);
+      return;
+    }
     const state = player.getLivePlaybackSnapshot();
     if (state && player.isInLivePreview() && !StorageService.getLivePreview()) {
       player.stop();

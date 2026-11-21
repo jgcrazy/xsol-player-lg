@@ -249,6 +249,7 @@ export class Home {
             </div>
           </div>
           <section class="home-last" data-key="last">
+            <div class="home-last-video" data-key="last-video" aria-hidden="true"></div>
             <div class="home-eyebrow home-last-eyebrow">
               <span class="home-eyebrow-dot"></span>
               <span>${t('home.lastWatched')}</span>

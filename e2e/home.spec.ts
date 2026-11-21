@@ -179,3 +179,123 @@ test('uses the bundled typefaces', async ({ page }) => {
   expect(fonts.loaded).toContain('Newsreader');
   expect(fonts.loaded).toContain('Manrope');
 });
+
+test.describe('live preview in the last-watched card', () => {
+  test.use({ livePreviewBaseline: 'app-default' });
+
+  // Watch a channel full screen, then come back to the home screen.
+  async function watchThenReturnHome(page: Page): Promise<void> {
+    await boot(page);
+    await page.locator('#view-home .home-channel').nth(1).click();
+    await expect(page.locator('#view-player')).toBeVisible();
+    await page.mouse.move(960, 300);
+    await back(page);                       // full screen -> the list, with its own preview
+    await expect(page.locator('#view-channels')).toBeVisible();
+    await page.locator('.tab-bar-item[data-section="home"]').click();
+    await expect(page.locator('#view-home')).toBeVisible();
+    await page.mouse.move(960, 300);
+  }
+
+  const video = (page: Page) => page.locator('#video-player').evaluate((element: HTMLVideoElement) => {
+    const box = element.getBoundingClientRect();
+    return {
+      active: element.classList.contains('active'),
+      muted: element.muted,
+      box: [Math.round(box.left), Math.round(box.top), Math.round(box.width), Math.round(box.height)],
+    };
+  });
+  const card = (page: Page) => page.locator('.home-last').evaluate((element) => {
+    const box = element.getBoundingClientRect();
+    return [Math.round(box.left), Math.round(box.top), Math.round(box.width), Math.round(box.height)];
+  });
+
+  test('plays the last channel, muted, inside the card', async ({ page }) => {
+    await watchThenReturnHome(page);
+
+    await expect(page.locator('#home-last-name')).toHaveText('Channel Two');
+    await expect.poll(async () => (await video(page)).active).toBe(true);
+    const playing = await video(page);
+    const frame = await card(page);
+    expect(playing.muted).toBe(true);
+    // The video fills the card, within the card's one-pixel border.
+    expect(Math.abs(playing.box[0] - frame[0])).toBeLessThanOrEqual(1);
+    expect(Math.abs(playing.box[1] - frame[1])).toBeLessThanOrEqual(1);
+    expect(Math.abs(playing.box[2] - frame[2])).toBeLessThanOrEqual(2);
+    expect(Math.abs(playing.box[3] - frame[3])).toBeLessThanOrEqual(2);
+
+    // The card's text and buttons stay above the picture.
+    const stacking = await page.evaluate(() => {
+      const z = (selector: string) => Number(getComputedStyle(document.querySelector(selector)!).zIndex);
+      return { video: z('#video-player'), body: z('.home-last-body'), eyebrow: z('.home-last-eyebrow') };
+    });
+    expect(stacking.body).toBeGreaterThan(stacking.video);
+    expect(stacking.eyebrow).toBeGreaterThan(stacking.video);
+  });
+
+  test('Continue grows the same stream to full screen, with sound', async ({ page }) => {
+    await page.addInitScript(() => {
+      const counter = window as unknown as { streamLoads: number };
+      counter.streamLoads = 0;
+      const load = HTMLMediaElement.prototype.load;
+      HTMLMediaElement.prototype.load = function () {
+        counter.streamLoads++;
+        return load.call(this);
+      };
+    });
+    await watchThenReturnHome(page);
+    await expect.poll(async () => (await video(page)).active).toBe(true);
+    const loads = await page.evaluate(() => (window as unknown as { streamLoads: number }).streamLoads);
+
+    await expect(page.locator('[data-home-action="resume"]')).toHaveClass(/focused/);
+    await page.keyboard.press('Enter');
+
+    await expect(page.locator('#view-player')).toBeVisible();
+    const full = await video(page);
+    expect(full.box).toEqual([0, 0, 1920, 1080]);
+    expect(full.muted).toBe(false);
+    expect(await page.evaluate(() => (window as unknown as { streamLoads: number }).streamLoads)).toBe(loads);
+  });
+
+  test('leaving the home screen for another section ends the preview', async ({ page }) => {
+    await watchThenReturnHome(page);
+    await expect.poll(async () => (await video(page)).active).toBe(true);
+
+    await page.locator(`${CARD}[data-section="settings"]`).click();
+
+    await expect(page.locator('#view-settings')).toBeVisible();
+    await expect.poll(async () => (await video(page)).active).toBe(false);
+  });
+
+  test('the channel list takes the preview over from the home card', async ({ page }) => {
+    await watchThenReturnHome(page);
+    await expect.poll(async () => (await video(page)).active).toBe(true);
+
+    await page.locator(`${CARD}[data-section="live"]`).click();
+
+    await expect(page.locator('#view-channels #live-preview')).toBeVisible();
+    await expect(page.locator('#live-preview .live-preview-channel')).toHaveText('Channel Two');
+    const inList = await video(page);
+    expect(inList.active).toBe(true);
+    expect(inList.muted).toBe(false);
+    const slot = await page.locator('.live-preview-slot').evaluate((element) => {
+      const box = element.getBoundingClientRect();
+      return [Math.round(box.left), Math.round(box.top)];
+    });
+    expect([inList.box[0], inList.box[1]]).toEqual(slot);
+  });
+
+  test('stays a still card when Live preview is switched off', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('iptv_live_preview', 'false'));
+    await boot(page);
+    await page.locator('#view-home .home-channel').nth(1).click();
+    await expect(page.locator('#view-player')).toBeVisible();
+    await page.mouse.move(960, 300);
+    await back(page);
+    await expect(page.locator('#view-channels')).toBeVisible();
+    await back(page);
+    await expect(page.locator('#view-home')).toBeVisible();
+
+    await expect(page.locator('#home-last-name')).toHaveText('Channel Two');
+    expect((await video(page)).active).toBe(false);
+  });
+});
