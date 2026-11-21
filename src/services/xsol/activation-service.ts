@@ -231,13 +231,26 @@ function applyPanelPlaylist(data: PanelData): { changed: boolean; names: string[
     next.push(update);
     changed = true;
   }
+  const arrived: PlaylistEntry[] = [];
   for (let i = 0; i < wanted.length; i++) {
     if (placed[wanted[i].id]) continue;
-    // One access is in use at a time: a list arriving while another is in use
-    // waits, switched off, until the user picks it on the Access screen.
-    if (next.some(item => item.enabled !== false)) wanted[i].enabled = false;
     next.push(wanted[i]);
+    arrived.push(wanted[i]);
     changed = true;
+  }
+  if (arrived.length) {
+    // A list just added on the portal is what the customer wants to watch: it
+    // goes into use right away, and - one access at a time - the rest are
+    // switched off. When several arrive together, the panel's active one wins.
+    const domain = text(data.domain);
+    const active = domain ? playlistFromDomain(domain, '') : null;
+    const chosen = (active && arrived.filter(item => sameSource(item, active))[0])
+      || arrived[arrived.length - 1];
+    for (let i = 0; i < next.length; i++) {
+      if (next[i] === chosen) delete next[i].enabled;
+      else next[i] = { ...next[i], enabled: false };
+    }
+    if (chosen.source === 'xtream') StorageService.setSelectedXtreamAccountId(chosen.id);
   }
 
   if (changed) {

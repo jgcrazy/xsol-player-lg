@@ -495,19 +495,58 @@ describe('one access in use at a time', () => {
     expect(inUse()).toEqual(['xsol-web-7']);
   });
 
-  it('leaves a list that arrives later switched off, so the one in use stays the only one', async () => {
+  it('puts a list that arrives from the portal into use, switching the previous one off', async () => {
     StorageService.setPlaylists([{ id: 'p1', name: 'P1', url: 'http://host/a' }]);
+    checkReply.data = active({ web_playlists: [{ id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' }] });
+
+    expect(await ActivationService.refresh()).toBe(true);
+
+    expect(StorageService.getPlaylists().map(item => item.id)).toEqual(['p1', 'xsol-web-7']);
+    expect(inUse()).toEqual(['xsol-web-7']);
+
+    // A second one added later takes over in turn; nothing changes while the portal is quiet.
     checkReply.data = active({
       web_playlists: [
         { id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' },
         { id: 9, name: 'N2', m3u_url: 'http://host/b.m3u' },
       ],
     });
-
     expect(await ActivationService.refresh()).toBe(true);
+    expect(inUse()).toEqual(['xsol-web-9']);
+    expect(await ActivationService.refresh()).toBe(false);
+    expect(inUse()).toEqual(['xsol-web-9']);
+  });
 
-    expect(StorageService.getPlaylists().map(item => item.id)).toEqual(['p1', 'xsol-web-7', 'xsol-web-9']);
-    expect(inUse()).toEqual(['p1']);
+  it('prefers the panel active list when several arrive together', async () => {
+    checkReply.data = active({
+      domain: 'http://host/a.m3u', has_playlist: true,
+      web_playlists: [
+        { id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' },
+        { id: 9, name: 'N2', m3u_url: 'http://host/b.m3u' },
+      ],
+    });
+    await ActivationService.refresh();
+    expect(inUse()).toEqual(['xsol-web-7']);
+  });
+
+  it('keeps the choice made on the TV when a list is only renamed or removed on the portal', async () => {
+    checkReply.data = active({
+      web_playlists: [
+        { id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' },
+        { id: 9, name: 'N2', m3u_url: 'http://host/b.m3u' },
+      ],
+    });
+    await ActivationService.refresh();
+    useOnlyPlaylist('xsol-web-7');
+
+    checkReply.data = active({
+      web_playlists: [
+        { id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' },
+        { id: 9, name: 'N2 renamed', m3u_url: 'http://host/b.m3u' },
+      ],
+    });
+    await ActivationService.refresh();
+    expect(inUse()).toEqual(['xsol-web-7']);
   });
 
   it('takes a new list into use when everything configured was switched off', async () => {
