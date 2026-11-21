@@ -32,6 +32,8 @@ export const ParentalService = {
   enable(pin: string): boolean {
     if (!this.isValidPin(pin)) return false;
     StorageService.setParental({ enabled: true, pinHash: digest(pin) });
+    // A fresh start: everything adult is screened again.
+    StorageService.setParentalScreened([]);
     return true;
   },
 

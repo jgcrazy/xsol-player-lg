@@ -28,6 +28,7 @@ import { Search } from './components/search';
 import { Preferences, type PreferencePane } from './components/preferences';
 import { PinPrompt } from './components/pin-prompt';
 import { ParentalService } from './services/parental';
+import { isAdultName } from './utils/adult-content';
 import { Access } from './components/access';
 import { Home, type HomeChannel, type HomeData, type HomeSection } from './components/home';
 import { RecentlyWatchedService } from './services/recently-watched';
@@ -776,6 +777,8 @@ class App {
 
       const hasXtream = StorageService.getPlaylists()
         .some((p) => p.source === 'xtream' && isSourceEnabled(p));
+      // With parental control on, a list that just loaded is screened too.
+      if (ParentalService.enabled) void this.hideAdultCategories();
       this.tabBar.setSections(hasXtream);
       this.syncAccountSwitcher();
 
@@ -1104,6 +1107,63 @@ class App {
     });
   }
 
+  // Playlists carry no rating, so adult content is recognized by the category
+  // name. Those categories are hidden like any other: they show up as hidden
+  // in Settings, where the PIN holder can bring one back. Returns how many
+  // were hidden now.
+  private async hideAdultCategories(): Promise<number> {
+    let count = 0;
+    // What was already hidden once is left alone: the PIN holder may have
+    // chosen to show it again.
+    const screened = StorageService.getParentalScreened();
+    const fresh = (id: string): boolean => {
+      if (screened.indexOf(id) !== -1) return false;
+      screened.push(id);
+      return true;
+    };
+    const seen: Record<string, true> = {};
+    for (const channel of PlaylistService.allChannels) {
+      const key = groupKeyOf(channel);
+      if (seen[key]) continue;
+      seen[key] = true;
+      if (!isAdultName(ChannelCustomizationService.groupLabel(key)) && !isAdultName(key)) continue;
+      if (!fresh(`live:${key}`) || ChannelCustomizationService.isGroupHidden(key)) continue;
+      ChannelCustomizationService.toggleGroupHidden(key);
+      count++;
+    }
+    if (count > 0) {
+      PlaylistService.applyCustomization();
+      this.player.syncCurrentIndex();
+      this.channelList.render();
+      this.sidebar.refresh();
+    }
+
+    const account = this.activeXtreamAccount();
+    if (account) {
+      const kinds: Array<'vod' | 'series'> = ['vod', 'series'];
+      for (const kind of kinds) {
+        try {
+          const categories = kind === 'vod'
+            ? await loadVodCategories(account)
+            : await loadSeriesCategories(account);
+          const hidden = StorageService.getHiddenCategories(kind);
+          const added = categories
+            .map((category) => category.name)
+            .filter((name) => isAdultName(name) && fresh(`${kind}:${name}`) && hidden.indexOf(name) === -1);
+          if (added.length) {
+            StorageService.setHiddenCategories(kind, hidden.concat(added));
+            count += added.length;
+          }
+        } catch (err) {
+          log.warn('Adult category screening failed', 'event=parental.screen.failed', `kind=${kind}`, err);
+        }
+      }
+    }
+    StorageService.setParentalScreened(screened);
+    if (count > 0) this.search.invalidateCatalog();
+    return count;
+  }
+
   private toggleParental(): void {
     const done = (message: string): void => {
       this.pinPrompt.hide();
@@ -1142,7 +1202,13 @@ class App {
                 return undefined;
               }
               ParentalService.enable(first);
-              done(t('parental.enabled'));
+              this.pinPrompt.hide();
+              void this.hideAdultCategories().then((hidden) => {
+                showToast(hidden > 0
+                  ? tp('parental.enabledHidden', hidden)
+                  : t('parental.enabled'));
+                this.preferences.refresh();
+              });
               return undefined;
             },
             onCancel: () => this.pinPrompt.hide(),

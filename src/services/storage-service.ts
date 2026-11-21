@@ -810,6 +810,16 @@ export const StorageService = {
     set('parental', state);
   },
 
+  // Categories parental control already hid on its own. One the PIN holder
+  // shows again is not hidden a second time on the next load.
+  getParentalScreened(): string[] {
+    const list = get<unknown>('parental_screened', []);
+    return Array.isArray(list) ? list.filter((item): item is string => typeof item === 'string') : [];
+  },
+  setParentalScreened(keys: string[]): void {
+    set('parental_screened', keys);
+  },
+
   getTimeFormat(): '24h' | '12h' {
     return get<unknown>('time_format', '24h') === '12h' ? '12h' : '24h';
   },

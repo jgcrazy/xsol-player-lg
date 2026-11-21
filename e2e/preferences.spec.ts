@@ -303,3 +303,39 @@ test('a forgotten PIN is recovered with the device key, which turns parental con
   await expect(page.locator('#view-prefs')).toBeVisible();
   await expect(page.locator('.prefs-card[data-card-id="parental"] .prefs-switch')).toHaveText('Off');
 });
+
+test('turning parental control on hides the adult categories; one shown again stays shown', async ({ page }) => {
+  await routePlaylist(page, [
+    '#EXTM3U',
+    '#EXTINF:-1 group-title="Alpha",ch1', 'http://host/ch1.m3u8',
+    '#EXTINF:-1 group-title="Adultos +18",ch2', 'http://host/ch2.m3u8',
+    '#EXTINF:-1 group-title="XXX",ch3', 'http://host/ch3.m3u8',
+  ].join('\n'));
+  await seedPlaylist(page);
+  await page.goto('/');
+  await enterTab(page, 'settings');
+  await expect(page.locator('#prefs-value-hide-live')).toHaveText('All visible');
+
+  await page.locator('.prefs-card[data-card-id="parental"]').click();
+  await type(page, '1234');
+  await type(page, '1234');
+
+  // Recognized by name, hidden at once, and said so.
+  await expect(page.locator('.toast.visible')).toContainText('2 adult categories hidden');
+  await expect(page.locator('#prefs-value-hide-live')).toHaveText('2 categories hidden');
+  await enterTab(page, 'live');
+  await expect(page.locator('#view-channels .channel-item .channel-name')).toHaveText(['ch1']);
+
+  // The PIN holder shows one again: a reload does not hide it a second time.
+  await enterTab(page, 'settings');
+  await type(page, '1234');
+  await page.locator('.prefs-card[data-card-id="hide-live"]').click();
+  await page.locator('.prefs-row[data-row-key="XXX"]').click();
+  await page.mouse.move(960, 20);
+  await back(page);
+  await expect(page.locator('#prefs-value-hide-live')).toHaveText('1 category hidden');
+  await page.reload();
+  await expect(page.locator('#view-home, #view-channels').first()).toBeVisible();
+  await enterTab(page, 'live');
+  await expect(page.locator('#view-channels .channel-item .channel-name')).toHaveText(['ch1', 'ch3']);
+});

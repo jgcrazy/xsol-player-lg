@@ -286,13 +286,11 @@ export abstract class CatalogView<C extends { id: string; name: string }, I> {
       if (signal.aborted || this.account?.id !== account.id) return;
       // Categories hidden in Settings are gone from the list, the counts and the search.
       const hidden = StorageService.getHiddenCategories(this.hiddenKind);
-      this.categories = hidden.length
-        ? categories.filter((category) => hidden.indexOf(category.name) === -1)
-        : categories;
       this.hiddenCategoryIds = {};
       categories.forEach((category) => {
         if (hidden.indexOf(category.name) !== -1) this.hiddenCategoryIds[category.id] = true;
       });
+      this.categories = categories.filter((category) => !this.hiddenCategoryIds[category.id]);
       this.activeCategoryId = this.defaultCategoryId();
       await this.ensureCategoryLoaded(this.activeCategoryId, account, signal);
       if (signal.aborted || this.account?.id !== account.id) return;
