@@ -268,12 +268,12 @@ function xtreamCard(pl: Partial<PlaylistEntry>) {
         <div class="settings-field xtream-field-private">
           <label>${t('settings.username')}</label>
           <input type="text" class="settings-input xtream-username" data-focusable
-                 aria-label="${t('settings.username')}" placeholder="username" value="${pl.xtream?.username || ''}">
+                 aria-label="${t('settings.username')}" placeholder="${t('settings.username')}" value="${pl.xtream?.username || ''}">
         </div>
         <div class="settings-field xtream-field-private">
           <label>${t('settings.password')}</label>
           <input type="password" class="settings-input xtream-password" data-focusable
-                 aria-label="${t('settings.password')}" placeholder="password" value="${pl.xtream?.password || ''}">
+                 aria-label="${t('settings.password')}" placeholder="${t('settings.password')}" value="${pl.xtream?.password || ''}">
         </div>
         <div class="settings-field xtream-output">
           <label>${t('settings.streamFormat')}</label>
@@ -706,7 +706,7 @@ export class Settings {
                       <div class="settings-field wide">
                         <label><span class="settings-domain">SubDL.com</span> ${t('settings.apiKey')}</label>
                         <input type="text" class="settings-input" data-focusable id="subdl-key"
-                               value="${os.subdl.apiKey}" placeholder="api_key">
+                               value="${os.subdl.apiKey}" placeholder="${t('settings.apiKey')}">
                       </div>
                     </div>
                   </div>
@@ -715,7 +715,7 @@ export class Settings {
                       <div class="settings-field wide">
                         <label><span class="settings-domain">Assrt.net</span> ${t('settings.assrtToken')}</label>
                         <input type="text" class="settings-input" data-focusable id="assrt-key"
-                               value="${os.assrt.apiKey}" placeholder="token">
+                               value="${os.assrt.apiKey}" placeholder="${t('settings.assrtToken')}">
                         <div class="settings-item-hint">${t('settings.assrtDescription')}</div>
                       </div>
                     </div>
@@ -725,17 +725,17 @@ export class Settings {
                       <div class="settings-field">
                         <label><span class="settings-domain">OpenSubtitles.com</span> ${t('settings.apiKey')}</label>
                         <input type="text" class="settings-input" data-focusable id="os-key"
-                               value="${os.opensubtitles.apiKey}" placeholder="api_key">
+                               value="${os.opensubtitles.apiKey}" placeholder="${t('settings.apiKey')}">
                       </div>
                       <div class="settings-field">
                         <label>${t('settings.username')}</label>
                         <input type="text" class="settings-input" data-focusable id="os-user"
-                               value="${os.opensubtitles.username}" placeholder="username">
+                               value="${os.opensubtitles.username}" placeholder="${t('settings.username')}">
                       </div>
                       <div class="settings-field">
                         <label>${t('settings.password')}</label>
                         <input type="password" class="settings-input" data-focusable id="os-pass"
-                               value="${os.opensubtitles.password}" placeholder="password">
+                               value="${os.opensubtitles.password}" placeholder="${t('settings.password')}">
                       </div>
                     </div>
                   </div>

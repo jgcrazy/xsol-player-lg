@@ -34,7 +34,6 @@ export const PT_BR_MESSAGES = {
   'legend.edit': 'Editar',
   'legend.sort': 'Ordenar',
   'nav.search': 'Buscar',
-  'nav.switchAccount': 'Trocar de conta',
   'search.all': 'Buscar canais, filmes e séries…',
   'search.channels': 'Buscar canais…',
   'search.sidebarAll': 'Buscar em todos os canais…',

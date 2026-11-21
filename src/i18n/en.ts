@@ -38,7 +38,6 @@ export const EN_MESSAGES = {
   'legend.favorite': 'Favorite',
   'legend.edit': 'Edit',
   'legend.sort': 'Sort',
-  'nav.switchAccount': 'Switch account',
   'search.all': 'Search channels, movies, and series…',
   'search.channels': 'Search channels…',
   'search.sidebarAll': 'Search all channels…',
