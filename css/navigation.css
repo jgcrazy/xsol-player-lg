@@ -10,11 +10,6 @@
   z-index: 10;
 }
 
-.channel-item.focused {
-  background: var(--bg-tertiary) !important;
-  border-color: var(--focus-ring) !important;
-}
-
 .btn.focused {
   background: var(--accent-dim);
   border-color: var(--accent);

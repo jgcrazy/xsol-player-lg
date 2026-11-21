@@ -274,17 +274,37 @@
   display: flex;
   align-items: center;
   padding: 12px 16px;
-  border-radius: var(--radius);
-  border: 2px solid transparent;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #e3dbcf;
+  font-family: "Manrope", "LG Smart UI", sans-serif;
   cursor: pointer;
   transition: var(--transition);
   gap: 16px;
   height: 84px;
 }
 
+/* Same language as the category column: a quiet outline for the row in use,
+   a gold one for the row in focus. */
+.channel-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.channel-item.focused {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(232, 182, 95, 0.4);
+  box-shadow: none;
+}
+
 .channel-item.playing {
-  background: rgb(var(--accent-rgb) / 0.08);
-  border-color: var(--accent-dim);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
+}
+
+.channel-item.playing.focused {
+  border-color: rgba(232, 182, 95, 0.55);
 }
 
 .channel-item.recent-catchup {
@@ -292,8 +312,9 @@
 }
 
 .channel-number {
-  font-size: 18px;
-  color: var(--text-muted);
+  font-family: "Newsreader", serif;
+  font-size: 20px;
+  color: #a39a8d;
   min-width: 48px;
   text-align: center;
   font-variant-numeric: tabular-nums;
@@ -334,9 +355,10 @@
 }
 
 .channel-name {
-  font-size: 24px;
+  font-size: 22px;
   line-height: 1.25;
-  font-weight: 500;
+  font-weight: 600;
+  letter-spacing: 0.4px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -355,9 +377,9 @@
 }
 
 .channel-now {
-  font-size: 18px;
+  font-size: 17px;
   line-height: 1.25;
-  color: var(--text-secondary);
+  color: #a39a8d;
   margin-top: 2px;
   overflow: hidden;
   text-overflow: ellipsis;
