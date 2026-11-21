@@ -72,7 +72,12 @@ function captureCatalogLoad<T>(promise: Promise<T>): Promise<CatalogLoadResult<T
 // Up from the box reveals the tab bar; Back returns to Live. The global key
 // handler ignores INPUT keydowns, so the box owns its own text input + focus-out
 // keys.
+/** What a search looks through, set by the screen it was opened from. */
+export type SearchScope = 'all' | 'channels' | 'movies' | 'series';
+
 export class Search {
+  private scope: SearchScope = 'all';
+
   private nav: SpatialNav;
   private account: PlaylistEntry | null = null;
   private query = '';
@@ -738,13 +743,27 @@ export class Search {
     }
   }
 
+  /**
+   * Narrows the search to what the screen it was opened from shows: channels
+   * on the TV screen, movies on Movies, series on Series, everything elsewhere.
+   */
+  setScope(scope: SearchScope): void {
+    this.scope = scope;
+  }
+
   private applyQueryResponse(response: SearchQueryResponse): void {
-    this.visibleChannels = itemsAt(PlaylistService.channels, response.channels.indices);
-    this.visiblePrograms = itemsAt(this.programIndex, response.programmes.indices);
-    this.visibleMovies = itemsAt(this.allVod, response.movies.indices);
-    this.visibleSeries = itemsAt(this.allSeries, response.series.indices);
-    this.hasMoreResults = response.channels.hasMore || response.programmes.hasMore
-      || response.movies.hasMore || response.series.hasMore;
+    const scope = this.scope;
+    const all = scope === 'all';
+    const channels = all || scope === 'channels';
+    const movies = all || scope === 'movies';
+    const series = all || scope === 'series';
+    this.visibleChannels = channels ? itemsAt(PlaylistService.channels, response.channels.indices) : [];
+    // Programs belong to the whole-catalog search only: the TV screen asked for channels.
+    this.visiblePrograms = all ? itemsAt(this.programIndex, response.programmes.indices) : [];
+    this.visibleMovies = movies ? itemsAt(this.allVod, response.movies.indices) : [];
+    this.visibleSeries = series ? itemsAt(this.allSeries, response.series.indices) : [];
+    this.hasMoreResults = (channels && response.channels.hasMore) || (all && response.programmes.hasMore)
+      || (movies && response.movies.hasMore) || (series && response.series.hasMore);
   }
 
   private clearResults(): void {

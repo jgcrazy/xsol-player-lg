@@ -68,7 +68,11 @@ async function seedSearch(page: import('@playwright/test').Page): Promise<void> 
 }
 
 // Open the tab bar's search box (results appear once a query is typed).
+// The search covers the whole catalog only when it starts on the home screen;
+// from TV, Movies or Series it looks through that section alone.
 async function enterSearch(page: import('@playwright/test').Page): Promise<void> {
+  await enterTab(page, 'home');
+  await expect(page.locator('#view-home')).toBeVisible();
   await enterTab(page, 'search');
   await expect(page.locator('.tab-bar-search.expanded')).toBeVisible();
 }
@@ -230,4 +234,52 @@ test('a movie result opened by POINTER can then be played by pointer (tab-bar fo
   const streamRequested = page.waitForRequest('**/movie/**', { timeout: 5000 });
   await page.locator('#view-movies .detail-btn-primary').click();
   await streamRequested;
+});
+
+test('the search looks only through the section it was opened from', async ({ page }) => {
+  await seedSearch(page);
+  await routeLiveManifest(page);
+  await page.goto('/');
+  await expect(page.locator('#view-channels')).toBeVisible();
+  const input = page.locator('.tab-bar-search-input');
+  const channel = page.locator('#view-search .catalog-tile[data-channel-index="0"]');
+  const movie = page.locator('#view-search .catalog-tile[data-stream-id="10"]');
+  const series = page.locator('#view-search .catalog-tile[data-series-id="1"]');
+
+  // From the TV screen: channels only.
+  await enterTab(page, 'search');
+  await input.fill('one');
+  await expect(channel).toContainText('Channel One');
+  await expect(movie).toHaveCount(0);
+  await expect(series).toHaveCount(0);
+  await input.fill('');
+
+  // From Movies: movies only.
+  await enterTab(page, 'movies');
+  await expect(page.locator('#view-movies .catalog-browse')).toBeVisible();
+  await enterTab(page, 'search');
+  await input.fill('one');
+  await expect(movie).toContainText('Movie One');
+  await expect(channel).toHaveCount(0);
+  await expect(series).toHaveCount(0);
+  await input.fill('');
+
+  // From Series: series only.
+  await enterTab(page, 'series');
+  await expect(page.locator('#view-series .catalog-browse')).toBeVisible();
+  await enterTab(page, 'search');
+  await input.fill('one');
+  await expect(series).toContainText('Series One');
+  await expect(channel).toHaveCount(0);
+  await expect(movie).toHaveCount(0);
+  await input.fill('');
+
+  // From the home screen: everything.
+  await enterTab(page, 'home');
+  await expect(page.locator('#view-home')).toBeVisible();
+  await enterTab(page, 'search');
+  await input.fill('one');
+  await expect(channel).toContainText('Channel One');
+  await expect(movie).toContainText('Movie One');
+  await expect(series).toContainText('Series One');
 });

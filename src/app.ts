@@ -889,6 +889,14 @@ class App {
     // query is typed (handleSearchQuery). Remember where to return to.
     if (this.viewStack[this.viewStack.length - 1] !== 'search') {
       this.viewBeforeSearch = this.viewStack[this.viewStack.length - 1];
+      // The search looks only through what the screen it started on shows.
+      const from = this.viewBeforeSearch;
+      this.search.setScope(
+        from === 'movies' ? 'movies'
+          : from === 'series' ? 'series'
+            : from === 'channels' || from === 'epg' || from === 'player' ? 'channels'
+              : 'all',
+      );
     }
     // Prep the results (loads the catalog once) into the still-hidden search view.
     this.search.open(this.activeXtreamAccount())
