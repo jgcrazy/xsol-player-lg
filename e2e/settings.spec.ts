@@ -1,4 +1,4 @@
-import { test, expect, type Page, routePlaylist, seedPlaylist, PLAYLIST_URL, enterTab, gotoFirstRunSettings, reloadFirstRunSettings } from './helpers';
+import { test, expect, type Page, routePlaylist, seedPlaylist, PLAYLIST_URL, enterTab, gotoFirstRunSettings, reloadFirstRunSettings, enterSettings, openSettingsPane, backToLive } from './helpers';
 
 // All Settings coverage: navigation, playlist save/removal, and Xtream.
 
@@ -10,7 +10,7 @@ test.describe('Settings navigation', () => {
     await page.goto('/');
     await expect(page.locator('#view-channels')).toBeVisible();
 
-    await enterTab(page, 'settings');
+    await enterSettings(page);
 
     await expect(page.locator('#view-settings')).toBeVisible();
     // The configured playlist URL is populated in the settings form.
@@ -19,12 +19,13 @@ test.describe('Settings navigation', () => {
 
   test('an open dropdown closes on an outside click or Back before leaving Settings', async ({ page }) => {
     await gotoFirstRunSettings(page);
+    await openSettingsPane(page, 'appearance');
     const dropdown = page.locator('#app-language');
     const trigger = dropdown.locator('.dropdown-trigger');
 
     await trigger.click();
     await expect(dropdown).toHaveClass(/open/);
-    await page.locator('[data-settings-target="appearance"]').click();
+    await page.locator('#settings-appearance .settings-item-title').first().click();
     await expect(dropdown).not.toHaveClass(/open/);
 
     await trigger.click();
@@ -39,11 +40,12 @@ test.describe('Settings navigation', () => {
   // jsdom has no layout, so a real engine is the only place this can be checked.
   test('a closed dropdown keeps its options out of d-pad navigation', async ({ page }) => {
     await gotoFirstRunSettings(page);
+    await openSettingsPane(page, 'appearance');
     const dropdown = page.locator('#app-language');
     const options = dropdown.locator('.dropdown-option');
     await expect(options.first()).not.toBeVisible();
 
-    // The trigger is the first control of its pane, so nothing legitimate sits
+    // The trigger is the first control of its pane, so only the header sits
     // above it. A hidden option measures as a zero-sized box at the viewport
     // origin, which is above everything and in the same container, so it is the
     // one thing Up could reach if measurement did not rule it out.
@@ -56,6 +58,7 @@ test.describe('Settings navigation', () => {
 
   test('an open dropdown keeps d-pad inside its own options', async ({ page }) => {
     await gotoFirstRunSettings(page);
+    await openSettingsPane(page, 'appearance');
     const dropdown = page.locator('#app-language');
     await dropdown.locator('.dropdown-trigger').click();
     await expect(dropdown).toHaveClass(/open/);
@@ -76,9 +79,10 @@ test.describe('Settings navigation', () => {
   // keypress must re-enter the menu rather than continue through the background.
   test('an open dropdown recaptures focus after pointer hover escapes', async ({ page }) => {
     await gotoFirstRunSettings(page);
+    await openSettingsPane(page, 'appearance');
     const dropdown = page.locator('#app-language');
     const trigger = dropdown.locator('.dropdown-trigger');
-    const outside = page.locator('[data-settings-target="appearance"]');
+    const outside = page.locator('#settings-back');
 
     await trigger.evaluate(el => el.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true })));
     await page.keyboard.press('Enter');
@@ -105,16 +109,16 @@ test.describe('Settings navigation', () => {
     await gotoFirstRunSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
 
-    const options = page.locator('#overlay-style .toggle-option');
+    // Playback is the category whose first control is a toggle option.
+    const options = page.locator('#auto-play .toggle-option');
     const names = await options.evaluateAll(els => els.map(el => el.getAttribute('data-value')));
     expect(names.length).toBeGreaterThan(1);
 
     await page.addStyleTag({
-      content: `#overlay-style [data-value="${names[0]}"] { display: none; }`,
+      content: `#auto-play [data-value="${names[0]}"] { display: none; }`,
     });
 
-    await page.locator('[data-settings-target="appearance"]').click();
-    await page.keyboard.press('ArrowRight');
+    await openSettingsPane(page, 'playback');
 
     const focused = await page.evaluate(() =>
       document.querySelector('#view-settings .focused')?.getAttribute('data-value') ?? null);
@@ -123,84 +127,104 @@ test.describe('Settings navigation', () => {
 
   test('keeps dropdown spacing aligned with adjacent settings', async ({ page }) => {
     await gotoFirstRunSettings(page);
-    await expect(page.locator('#os-pref-lang')).toBeAttached();
-    await expect(page.locator('#overlay-style')).toBeAttached();
+    await openSettingsPane(page, 'subtitles');
 
-    const gaps = await page.evaluate(() => {
-      const titleGap = (selector: string): number => {
-        const control = document.querySelector<HTMLElement>(selector)!;
-        const title = control.closest('.settings-item')!
-          .querySelector<HTMLElement>('.settings-item-title')!;
-        return control.getBoundingClientRect().top - title.getBoundingClientRect().bottom;
-      };
-      const rows = Array.from(document.querySelectorAll<HTMLElement>(
-        '#settings-subtitles .settings-row',
+    // The dropdown is an option row; the keys below it are stacked fields in
+    // the same panel. Both kinds of row share the panel's inset.
+    const insets = await page.evaluate(() => {
+      const items = Array.from(document.querySelectorAll<HTMLElement>(
+        '#settings-subtitles .settings-panel > .settings-item',
       ));
-      return {
-        dropdownTitle: titleGap('#os-pref-lang'),
-        toggleTitle: titleGap('#overlay-style'),
-        dropdownToNextTitle: rows[0].querySelector('label')!.getBoundingClientRect().top
-          - document.querySelector('#os-pref-lang')!.getBoundingClientRect().bottom,
-        inputToNextTitle: rows[1].querySelector('label')!.getBoundingClientRect().top
-          - document.querySelector('#subdl-key')!.getBoundingClientRect().bottom,
-      };
+      return items.map((item) => {
+        const bounds = item.getBoundingClientRect();
+        const first = item.querySelector<HTMLElement>('.settings-item-title, label')!
+          .getBoundingClientRect();
+        const controls = Array.from(item.querySelectorAll<HTMLElement>('.dropdown, .settings-input'))
+          .map(control => control.getBoundingClientRect());
+        return {
+          option: item.classList.contains('settings-option'),
+          left: first.left - bounds.left,
+          top: first.top - bounds.top,
+          right: bounds.right - Math.max(...controls.map(control => control.right)),
+          bottomGap: bounds.bottom - Math.max(
+            ...Array.from(item.querySelectorAll<HTMLElement>('*'))
+              .map(el => el.getBoundingClientRect().bottom),
+          ),
+        };
+      });
     });
 
-    expect(gaps.dropdownTitle).toBe(gaps.toggleTitle);
-    expect(gaps.dropdownTitle).toBe(10);
-    expect(gaps.dropdownToNextTitle).toBe(gaps.inputToNextTitle);
-    expect(gaps.dropdownToNextTitle).toBe(12);
+    expect(insets).toHaveLength(4);
+    expect(insets[0].option).toBe(true);
+    const fields = insets.slice(1);
+    for (const inset of insets) {
+      expect(inset.left).toBeCloseTo(insets[0].left, 0);
+      expect(inset.right).toBeCloseTo(insets[0].right, 0);
+      expect(inset.left).toBeCloseTo(inset.right, 0);
+    }
+    for (const field of fields) {
+      expect(field.option).toBe(false);
+      expect(field.top).toBeCloseTo(fields[0].top, 0);
+      expect(field.bottomGap).toBeCloseTo(fields[0].bottomGap, 0);
+      // The top inset also holds the hairline between two rows.
+      expect(Math.abs(field.bottomGap - field.top)).toBeLessThanOrEqual(1.5);
+    }
   });
 
-  test('lays out Advanced settings as a continuous three-column matrix', async ({ page }) => {
+  test('lays out option rows with the text on the left and a centred control on the right', async ({ page }) => {
     await gotoFirstRunSettings(page);
-    await page.locator('[data-settings-target="advanced"]').click();
+    await openSettingsPane(page, 'playback');
 
-    await expect(page.locator('#settings-advanced .settings-section-title')).toHaveText('Advanced');
-    const layouts = await page.locator(
-      '#settings-advanced .settings-advanced-row',
-    )
+    const layouts = await page.locator('#settings-playback .settings-option')
       .evaluateAll((rows) => rows.map((row) => {
         const bounds = row.getBoundingClientRect();
-        const group = row.querySelector<HTMLElement>('.settings-advanced-group')!
+        const text = row.querySelector<HTMLElement>('.settings-option-text')!
           .getBoundingClientRect();
         const title = row.querySelector<HTMLElement>('.settings-item-title')!
           .getBoundingClientRect();
         const control = row.querySelector<HTMLElement>('.dropdown, .toggle-group')!
           .getBoundingClientRect();
-        const hint = row.querySelector<HTMLElement>('.settings-item-hint')!
-          .getBoundingClientRect();
+        const hint = row.querySelector<HTMLElement>('.settings-item-hint')
+          ?.getBoundingClientRect() ?? null;
         return {
           rowCenter: bounds.top + bounds.height / 2,
           controlCenter: control.top + control.height / 2,
           controlRightGap: bounds.right - control.right,
-          groupRight: group.right,
-          titleLeft: title.left,
+          controlLeft: control.left,
+          textRight: text.right,
+          titleLeftGap: title.left - bounds.left,
           titleBottom: title.bottom,
-          hintTop: hint.top,
+          hintTop: hint ? hint.top : null,
+          hintLeft: hint ? hint.left : null,
+          titleLeft: title.left,
         };
       }));
 
     expect(layouts).toHaveLength(6);
+    expect(layouts.filter(layout => layout.hintTop !== null).length).toBeGreaterThan(0);
     for (const layout of layouts) {
       expect(Math.abs(layout.controlCenter - layout.rowCenter)).toBeLessThanOrEqual(1);
-      expect(layout.controlRightGap).toBe(20);
-      expect(layout.titleLeft).toBeGreaterThan(layout.groupRight);
-      expect(layout.hintTop).toBeGreaterThan(layout.titleBottom);
+      expect(layout.controlRightGap).toBeCloseTo(layouts[0].controlRightGap, 0);
+      expect(layout.controlRightGap).toBeGreaterThan(0);
+      expect(layout.titleLeftGap).toBeCloseTo(layouts[0].titleLeftGap, 0);
+      expect(layout.titleLeftGap).toBeCloseTo(layout.controlRightGap, 0);
+      expect(layout.textRight).toBeLessThan(layout.controlLeft);
+      if (layout.hintTop !== null) {
+        expect(layout.hintTop).toBeGreaterThan(layout.titleBottom);
+        expect(layout.hintLeft).toBeCloseTo(layout.titleLeft, 0);
+      }
     }
 
     const numberEntry = page.locator('#number-entry-osd-timeout .dropdown-trigger');
     await numberEntry.click();
-    const focusedRow = numberEntry.locator(
-      'xpath=ancestor::*[contains(concat(" ", normalize-space(@class), " "),'
-        + ' " settings-advanced-row ")][1]',
-    );
-    await expect(focusedRow).toHaveClass(/focused/);
+    const currentRow = page.locator('#settings-playback .settings-option.is-current');
+    await expect(currentRow).toHaveCount(1);
+    await expect(currentRow.locator('#number-entry-osd-timeout')).toHaveCount(1);
   });
 
   test('persists Essential mode and disables only costly motion', async ({ page }) => {
     await gotoFirstRunSettings(page);
-    await page.locator('[data-settings-target="advanced"]').click();
+    await openSettingsPane(page, 'appearance');
     const animationOptions = page.locator('#animation-mode .toggle-option');
     await expect(animationOptions).toHaveCount(3);
     expect(await animationOptions.evaluateAll(options => options.map(
@@ -208,16 +232,15 @@ test.describe('Settings navigation', () => {
     )))
       .toEqual(['essential', 'reduced', 'full']);
     const animationRow = await page.evaluate(() => {
-      const row = document.querySelector(
-        '#settings-advanced .settings-advanced-row',
-      )!.getBoundingClientRect();
+      const row = document.querySelector('#animation-mode')!
+        .closest('.settings-option')!.getBoundingClientRect();
       const options = document.querySelector('#animation-mode')!.getBoundingClientRect();
       return {
         rowCenter: row.top + row.height / 2,
         optionsCenter: options.top + options.height / 2,
       };
     });
-    expect(animationRow.optionsCenter).toBeCloseTo(animationRow.rowCenter, 0);
+    expect(Math.abs(animationRow.optionsCenter - animationRow.rowCenter)).toBeLessThanOrEqual(1);
     await page.locator('#animation-mode [data-value="essential"]').click();
     await page.locator('#save-settings').click();
 
@@ -314,15 +337,13 @@ test.describe('Settings navigation', () => {
         localStorage.setItem('iptv_locale', JSON.stringify(value));
       }, locale);
       await reloadFirstRunSettings(page);
-      await page.locator('[data-settings-target="advanced"]').click();
+      await openSettingsPane(page, 'appearance');
 
       const layout = await page.locator('#animation-mode').evaluate((group) => {
         const section = group.closest<HTMLElement>('.settings-section')!;
-        const row = group.closest<HTMLElement>('.settings-advanced-row')!;
+        const row = group.closest<HTMLElement>('.settings-option')!;
         const buttons = Array.from(group.querySelectorAll<HTMLElement>('.toggle-option'));
-        const matrixGroups = Array.from(
-          section.querySelectorAll<HTMLElement>('.settings-advanced-group'),
-        );
+        const rows = Array.from(section.querySelectorAll<HTMLElement>('.settings-option'));
         return {
           buttonCount: buttons.length,
           wrapped: buttons.filter((button) => {
@@ -330,13 +351,18 @@ test.describe('Settings navigation', () => {
             range.selectNodeContents(button);
             return range.getClientRects().length !== 1;
           }).map(button => button.textContent?.trim() ?? ''),
-          groupOverlaps: matrixGroups.filter((matrixGroup) => {
-            if (!matrixGroup.textContent?.trim()) return false;
-            const range = document.createRange();
-            range.selectNodeContents(matrixGroup);
-            const description = matrixGroup.nextElementSibling!.getBoundingClientRect();
-            return range.getBoundingClientRect().right > description.left;
-          }).map(matrixGroup => matrixGroup.textContent?.trim() ?? ''),
+          // The text of a row must stop short of its control.
+          textOverlaps: rows.filter((optionRow) => {
+            const control = optionRow.querySelector<HTMLElement>('.settings-option-control')!
+              .getBoundingClientRect();
+            return Array.from(optionRow.querySelectorAll<HTMLElement>(
+              '.settings-item-title, .settings-item-hint',
+            )).some((text) => {
+              const range = document.createRange();
+              range.selectNodeContents(text);
+              return range.getBoundingClientRect().right > control.left;
+            });
+          }).map(optionRow => optionRow.textContent?.trim() ?? ''),
           groupRight: Math.round(group.getBoundingClientRect().right),
           hintRight: Math.round(
             row.querySelector<HTMLElement>('.settings-item-hint')!
@@ -348,7 +374,7 @@ test.describe('Settings navigation', () => {
 
       expect(layout.buttonCount, locale).toBe(3);
       expect(layout.wrapped, locale).toEqual([]);
-      expect(layout.groupOverlaps, locale).toEqual([]);
+      expect(layout.textOverlaps, locale).toEqual([]);
       expect(layout.groupRight, locale).toBeLessThanOrEqual(layout.sectionRight);
       expect(layout.hintRight, locale).toBeLessThanOrEqual(layout.sectionRight);
     }
@@ -382,71 +408,50 @@ test.describe('Settings navigation', () => {
     expect(scrolled!.y).toBeCloseTo(actionBox!.y, 0);
   });
 
-  test('clicking Cancel in settings (opened via the tab bar) returns to the channel list, not the player', async ({ page }) => {
+  test('clicking Cancel in a category returns to the Settings cards, not a category or the player', async ({ page }) => {
     await routePlaylist(page);
     await seedPlaylist(page);
     await page.goto('/');
     await expect(page.locator('#view-channels')).toBeVisible();
 
     // Open settings via the tab bar, then dismiss with Cancel.
-    await enterTab(page, 'settings');
+    await enterSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
     await page.locator('#cancel-settings').click();
 
     // Give the document-level deferred select (setTimeout 0) a chance to fire,
-    // then assert we still land on the channel list rather than the player.
-    // Before the fix, that second select fired on the channels view and played
-    // the focused channel.
+    // then assert we still sit on the cards: that second select must neither
+    // open the card under the pointer nor play a channel.
     await page.waitForTimeout(50);
-    await expect(page.locator('#view-channels')).toBeVisible();
-    await expect(page.locator('#view-player')).toBeHidden();
+    await expect(page.locator('#view-prefs')).toBeVisible();
     await expect(page.locator('#view-settings')).toBeHidden();
-  });
-
-  test('keeps Magic Remote hover separate from the weak scroll-position indicator', async ({ page }) => {
-    await gotoFirstRunSettings(page);
-    await expect(page.locator('#view-settings')).toBeVisible();
-
-    const general = page.locator('[data-settings-target="general"]');
-    const appearance = page.locator('[data-settings-target="appearance"]');
-    const playback = page.locator('[data-settings-target="playback"]');
-    const data = page.locator('[data-settings-target="data"]');
-
-    await playback.hover();
-    await expect(playback).toHaveClass(/focused/);
-    await expect(general).toHaveClass(/active/);
-
-    await appearance.click();
-    await expect(appearance).toHaveClass(/active/);
-    await page.locator('.settings-scroll').evaluate((main) => {
-      (main as HTMLElement).style.scrollBehavior = 'auto';
-      main.scrollTop = main.scrollHeight;
-      main.dispatchEvent(new Event('scroll'));
-    });
-
-    await expect(data).toHaveClass(/active/);
-    await playback.hover();
-    await expect(playback).toHaveClass(/focused/);
-    await expect(data).toHaveClass(/active/);
+    await expect(page.locator('#view-player')).toBeHidden();
+    await expect(page.locator('#view-channels')).toBeHidden();
   });
 
   test('scales buttons consistently for pointer and D-pad focus', async ({ page }) => {
     await gotoFirstRunSettings(page);
-    const playback = page.locator('[data-settings-target="playback"]');
+    await openSettingsPane(page, 'channels');
+    const button = page.locator('#edit-channel-list');
 
-    await playback.hover();
-    await expect(playback).toHaveCSS('transform', 'matrix(1.03, 0, 0, 1.03, 0, 0)');
+    await button.hover();
+    await expect(button).toHaveCSS('transform', 'matrix(1.03, 0, 0, 1.03, 0, 0)');
 
     await page.locator('.settings-title').hover();
-    await expect(playback).not.toHaveClass(/focused/);
-    await expect(playback).toHaveCSS('transform', 'none');
+    await expect(button).not.toHaveClass(/focused/);
+    await expect(button).toHaveCSS('transform', 'none');
 
+    // Down resumes from the button the pointer left: past the toggle row to
+    // the next button.
+    await page.keyboard.press('ArrowDown');
+    await expect(page.locator('#show-hidden .toggle-option.focused')).toHaveCount(1);
     await page.keyboard.press('ArrowDown');
     const focusedButton = page.locator('#view-settings button.focused');
     await expect(focusedButton).toHaveCount(1);
+    await expect(focusedButton).toHaveAttribute('id', 'reset-customization');
     await expect(focusedButton).toHaveCSS('transform', 'matrix(1.03, 0, 0, 1.03, 0, 0)');
 
-    const toggle = page.locator('.toggle-option').first();
+    const toggle = page.locator('#show-hidden .toggle-option').first();
     await toggle.hover();
     await expect(toggle).toHaveClass(/focused/);
     await expect(toggle).toHaveCSS('transform', 'none');
@@ -454,6 +459,7 @@ test.describe('Settings navigation', () => {
 
   test('keeps scaled dropdown controls inside their scroll containers', async ({ page }) => {
     await gotoFirstRunSettings(page);
+    await openSettingsPane(page, 'appearance');
     const dropdown = page.locator('#app-language');
     const trigger = dropdown.locator('.dropdown-trigger');
 
@@ -491,68 +497,84 @@ test.describe('Settings navigation', () => {
     expect(optionBounds.topInset).toBeGreaterThanOrEqual(0);
   });
 
-  test('keeps the clicked indicator and Data title visible after smooth scrolling', async ({ page }) => {
+  test('sideways moves stay inside the block holding the focus', async ({ page }) => {
     await gotoFirstRunSettings(page);
-    await expect(page.locator('#view-settings')).toBeVisible();
-    await page.evaluate(() => {
-      const changes: string[] = [];
-      (window as typeof window & { __settingsActiveChanges: string[] }).__settingsActiveChanges = changes;
-      new MutationObserver(() => {
-        const active = document.querySelector<HTMLElement>('.settings-nav-item.active')
-          ?.dataset.settingsTarget;
-        if (active && changes[changes.length - 1] !== active) changes.push(active);
-      }).observe(document.querySelector('.settings-nav-list')!, {
-        attributes: true,
-        subtree: true,
-        attributeFilter: ['class'],
-      });
+    await openSettingsPane(page, 'playback');
+
+    const hover = (selector: string) => page.locator(selector).first()
+      .evaluate(el => el.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true })));
+    const focusedBlock = () => page.evaluate(() => {
+      const block = document.querySelector('#view-settings .focused')
+        ?.closest('.settings-category, .settings-actions, .settings-head');
+      return block ? block.id || block.className : null;
     });
 
-    const data = page.locator('[data-settings-target="data"]');
-    await data.hover();
-    await page.evaluate(() => {
-      (window as typeof window & { __settingsActiveChanges: string[] }).__settingsActiveChanges.length = 0;
-    });
-    await data.click();
-    await expect.poll(() => page.evaluate(() => {
-      const main = document.querySelector('.settings-main')!.getBoundingClientRect();
-      const title = document.querySelector('#settings-data .settings-section-title')!
-        .getBoundingClientRect();
-      return title.top >= main.top - 1 && title.bottom <= main.bottom + 1;
-    })).toBe(true);
+    // The row's last option is at the right edge of the category, level with
+    // nothing; the action bar and the header are the nearest things sideways.
+    await hover('#auto-play .toggle-option:last-child');
+    await expect(page.locator('#auto-play .toggle-option').last()).toHaveClass(/focused/);
+    for (let step = 0; step < 3; step++) {
+      await page.keyboard.press('ArrowRight');
+      expect(await focusedBlock()).toBe('settings-playback');
+    }
+    for (let step = 0; step < 4; step++) {
+      await page.keyboard.press('ArrowLeft');
+      expect(await focusedBlock()).toBe('settings-playback');
+    }
 
-    const changes = await page.evaluate(() =>
-      (window as typeof window & { __settingsActiveChanges: string[] }).__settingsActiveChanges);
-    expect(changes).toEqual(['data']);
+    await hover('#save-settings');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#save-settings')).toHaveClass(/focused/);
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('#cancel-settings')).toHaveClass(/focused/);
+    await page.keyboard.press('ArrowLeft');
+    await expect(page.locator('#cancel-settings')).toHaveClass(/focused/);
+
+    await hover('#settings-back');
+    await page.keyboard.press('ArrowRight');
+    await expect(page.locator('#settings-back')).toHaveClass(/focused/);
+
+    // Up and Down are what cross between the blocks.
+    await page.keyboard.press('ArrowDown');
+    expect(await focusedBlock()).toBe('settings-playback');
   });
 
-  test('Right enters the selected sidebar category without changing its weak indicator', async ({ page }) => {
+  test('Left closes an open dropdown and returns to its trigger', async ({ page }) => {
     await gotoFirstRunSettings(page);
-    await expect(page.locator('#view-settings')).toBeVisible();
+    await openSettingsPane(page, 'playback');
+    const dropdown = page.locator('#live-reconnect-attempts');
+    const trigger = dropdown.locator('.dropdown-trigger');
 
-    const guide = page.locator('[data-settings-target="guide"]');
-    await guide.dispatchEvent('nav:hover');
-    await page.keyboard.press('ArrowRight');
-
-    await expect(page.locator('#add-epg-source')).toHaveClass(/focused/);
-    await expect(guide).toHaveClass(/active/);
-  });
-
-  test('Left returns from a category content boundary to its sidebar item', async ({ page }) => {
-    await gotoFirstRunSettings(page);
-    await expect(page.locator('#view-settings')).toBeVisible();
-
-    const guide = page.locator('[data-settings-target="guide"]');
-    await guide.dispatchEvent('nav:hover');
-    await page.keyboard.press('ArrowRight');
-    await expect(page.locator('#add-epg-source')).toHaveClass(/focused/);
+    await trigger.evaluate(el => el.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true })));
+    await page.keyboard.press('Enter');
+    await expect(dropdown).toHaveClass(/open/);
 
     await page.keyboard.press('ArrowLeft');
-    await expect(guide).toHaveClass(/focused/);
+    await expect(dropdown).not.toHaveClass(/open/);
+    await expect(trigger).toHaveClass(/focused/);
+    await expect(page.locator('#view-settings')).toBeVisible();
   });
 
-  test('keeps every localized sidebar label on one line', async ({ page }) => {
+  test('Back from a category returns to the Settings cards', async ({ page }) => {
+    await gotoFirstRunSettings(page);
+    await openSettingsPane(page, 'guide');
+    await expect(page.locator('#settings-pane-title')).toBeVisible();
+
+    await page.evaluate(() => document.dispatchEvent(
+      new KeyboardEvent('keydown', { keyCode: 461, bubbles: true }),
+    ));
+    await expect(page.locator('#view-prefs')).toBeVisible();
+    await expect(page.locator('#view-settings')).toBeHidden();
+
+    await openSettingsPane(page, 'guide');
+    await page.locator('#settings-back').click();
+    await expect(page.locator('#view-prefs')).toBeVisible();
+    await expect(page.locator('#view-settings')).toBeHidden();
+  });
+
+  test('keeps every localized category title and option row within its screen', async ({ page }) => {
     const locales = ['en', 'pt-BR'];
+    const panes = ['sources', 'channels', 'guide', 'appearance', 'playback', 'subtitles', 'data'] as const;
     await gotoFirstRunSettings(page);
 
     for (const locale of locales) {
@@ -562,23 +584,44 @@ test.describe('Settings navigation', () => {
       await reloadFirstRunSettings(page);
       await expect(page.locator('html')).toHaveAttribute('lang', locale);
 
-      const result = await page.locator('.settings-sidebar').evaluate((sidebar) => {
-        const bad = Array.from(sidebar.querySelectorAll<HTMLElement>(
-          '.settings-nav-item, .settings-nav-help-row'))
-          .filter((item) => {
-            const label = item.lastElementChild;
-            if (!label) return true;
-            const range = document.createRange();
-            range.selectNodeContents(label);
-            return range.getClientRects().length !== 1 || item.scrollWidth > item.clientWidth;
-          })
-          .map((item) => item.textContent?.trim() ?? '');
-        return { bad, width: Math.round(sidebar.getBoundingClientRect().width) };
-      });
+      for (const pane of panes) {
+        await openSettingsPane(page, pane);
+        const result = await page.locator('.settings-view').evaluate((view) => {
+          const head = view.querySelector<HTMLElement>('.settings-head')!.getBoundingClientRect();
+          const title = view.querySelector<HTMLElement>('#settings-pane-title')!;
+          const range = document.createRange();
+          range.selectNodeContents(title);
+          const lines = new Set(Array.from(range.getClientRects()).map(rect => Math.round(rect.top)));
+          const rows = Array.from(view.querySelectorAll<HTMLElement>(
+            '.settings-category.is-active .settings-option',
+          ));
+          return {
+            title: title.textContent?.trim() ?? '',
+            titleLines: lines.size,
+            titleFits: range.getBoundingClientRect().right <= head.right + 1,
+            bad: rows.filter((row) => {
+              const bounds = row.getBoundingClientRect();
+              const control = row.querySelector<HTMLElement>('.settings-option-control')!
+                .getBoundingClientRect();
+              const texts = Array.from(row.querySelectorAll<HTMLElement>(
+                '.settings-item-title, .settings-item-hint',
+              ));
+              return control.right > bounds.right + 1
+                || texts.some((text) => {
+                  const textRange = document.createRange();
+                  textRange.selectNodeContents(text);
+                  return text.scrollWidth > text.clientWidth + 1
+                    || textRange.getBoundingClientRect().right > control.left;
+                });
+            }).map(row => row.querySelector('.settings-item-title')?.textContent?.trim() ?? ''),
+          };
+        });
 
-      expect(result.bad, locale).toEqual([]);
-      expect(result.width, locale).toBeGreaterThanOrEqual(252);
-      expect(result.width, locale).toBeLessThanOrEqual(328);
+        expect(result.title, `${locale} ${pane}`).not.toBe('');
+        expect(result.titleLines, `${locale} ${pane}`).toBe(1);
+        expect(result.titleFits, `${locale} ${pane}`).toBe(true);
+        expect(result.bad, `${locale} ${pane}`).toEqual([]);
+      }
     }
   });
 
@@ -591,7 +634,7 @@ test.describe('Settings navigation', () => {
         localStorage.setItem('iptv_locale', JSON.stringify(value));
       }, locale);
       await reloadFirstRunSettings(page);
-      await page.locator('[data-settings-target="guide"]').click();
+      await openSettingsPane(page, 'guide');
 
       const layout = await page.locator('.epg-offset-controls').evaluate((controls) => {
         const item = controls.closest<HTMLElement>('.settings-item')!;
@@ -630,14 +673,14 @@ test.describe('Settings navigation', () => {
     await routePlaylist(page);
     await seedPlaylist(page);
     await page.goto('/');
-    await enterTab(page, 'settings');
+    await enterSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
 
     const title = page.locator('.settings-title');
     const fontSize = () => title.evaluate((el) => parseFloat(getComputedStyle(el).fontSize));
     const base = await fontSize();
 
-    await page.locator('[data-settings-target="appearance"]').click();
+    await openSettingsPane(page, 'appearance');
     await page.locator('#text-size .dropdown-trigger').click();
     const option = page.locator('#text-size .dropdown-option[data-dropdown-value="130"]');
     await expect(option).toBeVisible();
@@ -646,7 +689,7 @@ test.describe('Settings navigation', () => {
     expect(await fontSize()).toBeCloseTo(base * 1.3, 1);
 
     await page.locator('#save-settings').click();
-    await expect(page.locator('#view-channels')).toBeVisible();
+    await backToLive(page);
 
     // Persisted across a relaunch and applied outside Settings, without
     // changing the dimensions of controls.
@@ -713,7 +756,7 @@ test.describe('Settings playlists', () => {
     await expect(page.locator('.channel-main .channel-item')).toHaveCount(2);
 
     // Open settings, remove the only playlist, and save.
-    await enterTab(page, 'settings');
+    await enterSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
     await page.locator('.remove-playlist').first().click();
     await expect(page.locator('#playlist-entries .settings-row')).toHaveCount(0);
@@ -770,7 +813,7 @@ test.describe('Settings playlists', () => {
     async function openSettings(page: Page): Promise<void> {
       await page.goto('/');
       await page.waitForSelector('.tab-bar-item[data-section="settings"]', { timeout: 20000 });
-      await enterTab(page, 'settings');
+      await enterSettings(page);
       await page.waitForSelector('.remove-playlist');
     }
 
@@ -825,7 +868,7 @@ test.describe('Settings Xtream: add -> cancel -> re-enter', () => {
 
   async function openSettings(page: Page): Promise<void> {
     await page.waitForSelector('.tab-bar-item[data-section="settings"]', { timeout: 20000 });
-    await enterTab(page, 'settings');
+    await enterSettings(page);
     await page.waitForSelector('#add-xtream');
   }
 
@@ -844,7 +887,7 @@ test.describe('Settings Xtream: add -> cancel -> re-enter', () => {
 
     // 3) Cancel.
     await page.click('#cancel-settings');
-    await expect(page.locator('#view-channels')).toBeVisible(); // back on channels
+    await expect(page.locator('#view-prefs')).toBeVisible(); // back on the cards
 
     // 4) Re-enter Settings.
     await openSettings(page);
@@ -882,8 +925,7 @@ test.describe('Settings Xtream live output', () => {
         localStorage.setItem('iptv_locale', JSON.stringify(value));
       }, locale);
       await page.reload();
-      await enterTab(page, 'settings');
-      await page.locator('[data-settings-target="sources"]').click();
+      await enterSettings(page, 'sources');
 
       const layout = await page.locator('.xtream-output').evaluate((field) => {
         const label = field.querySelector('label')!;
@@ -941,8 +983,7 @@ test.describe('Settings Xtream live output', () => {
 
     await page.goto('/');
     await expect(page.locator('.channel-main .channel-item')).toContainText('TS Channel');
-    await enterTab(page, 'settings');
-    await page.locator('[data-settings-target="sources"]').click();
+    await enterSettings(page, 'sources');
     await page.locator('#xtream-output-x1 .dropdown-trigger').click();
     await page.locator('#xtream-output-x1 [data-dropdown-value="m3u8"]').click();
 

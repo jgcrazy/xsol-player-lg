@@ -32,7 +32,7 @@
  */
 @supports not (inset: 0) {
   .epg-prog-title > .epg-bell-glyph { margin-left: 18px; }
-  .settings-field > .settings-item-hint { margin-top: 14px; }
+  .settings-field > .settings-item-hint { margin-top: 12px; }
   .live-preview-favorite { margin-right: 20px; }
 }
 

@@ -284,7 +284,7 @@ const M3U_SCREENS: Screen[] = [
     name: 'reminders',
     budget: 0,
     go: async (p) => {
-      await enterSettings(p);
+      await enterSettings(p, 'guide');
       await p.locator('#manage-reminders').click();
       await expect(p.locator('.reminder-manager-view')).toBeVisible();
     },
