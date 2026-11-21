@@ -67,7 +67,7 @@ test('yellow enters edit mode and shows the color-key hints; yellow again leaves
 
 test('the edit toolbar fits every locale with both EPG actions', async ({ page }) => {
   await boot(page);
-  const locales = ['en', 'de', 'es', 'fr', 'it', 'pt-BR', 'ru', 'uk', 'zh-CN'];
+  const locales = ['en', 'pt-BR'];
 
   for (const locale of locales) {
     await page.evaluate(value => {
@@ -352,7 +352,7 @@ ${guideChannels}
   await expect(page.locator('.channel-main .channel-item').first()
     .locator('.epg-offset-badge')).toContainText('+1 h 15 min');
 
-  for (const locale of ['en', 'de', 'es', 'fr', 'it', 'pt-BR', 'ru', 'uk', 'zh-CN']) {
+  for (const locale of ['en', 'pt-BR']) {
     await page.evaluate(value => {
       localStorage.setItem('iptv_locale', JSON.stringify(value));
     }, locale);

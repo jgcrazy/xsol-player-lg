@@ -256,8 +256,8 @@ describe('StorageService', () => {
 
   it('defaults to the system language and round-trips a locale preference', () => {
     expect(StorageService.getLocalePreference()).toBe('system');
-    StorageService.setLocalePreference('zh-CN');
-    expect(StorageService.getLocalePreference()).toBe('zh-CN');
+    StorageService.setLocalePreference('en');
+    expect(StorageService.getLocalePreference()).toBe('en');
   });
 
   it('ignores an unsupported stored locale', () => {

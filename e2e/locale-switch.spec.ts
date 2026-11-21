@@ -1,6 +1,6 @@
 import { test, expect, routePlaylist, seedPlaylist, enterTab } from './helpers';
 
-test('switching through every language refreshes cached Recently Watched labels', async ({ page }) => {
+test('switching between the two languages refreshes cached Recently Watched labels', async ({ page }) => {
   await routePlaylist(page);
   await seedPlaylist(page);
   await page.goto('/');
@@ -11,16 +11,7 @@ test('switching through every language refreshes cached Recently Watched labels'
   await expect(recentLabel).toHaveText('Recently Watched');
 
   const locales = [
-    ['de', 'Zuletzt angesehen'],
-    ['es', 'Vistos recientemente'],
-    ['fr', 'Vus récemment'],
-    ['it', 'Visti di recente'],
-    ['pl', 'Ostatnio oglądane'],
     ['pt-BR', 'Assistidos recentemente'],
-    ['ru', 'Недавно просмотренные'],
-    ['tr', 'Son İzlenenler'],
-    ['uk', 'Нещодавно переглянуті'],
-    ['zh-CN', '最近观看'],
     ['en', 'Recently Watched'],
   ];
   for (const [locale, label] of locales) {

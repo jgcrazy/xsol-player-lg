@@ -101,14 +101,14 @@ describe('ReminderManager', () => {
   });
 
   it('formats date rails with the selected app locale', () => {
-    setLocale('zh-CN');
+    setLocale('pt-BR');
     const startMs = new Date(2030, 0, 5, 12).getTime();
     state.reminders = [reminder({ startMs })];
 
     manager.open(new Date(2030, 0, 1, 12).getTime());
 
     expect(container.querySelector('.reminder-day-label strong')?.textContent)
-      .toBe('周六');
+      .toMatch(/^s[áa]b/i);
   });
 
   it('formats day groups and times in the selected EPG timezone', () => {

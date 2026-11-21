@@ -1392,9 +1392,9 @@ describe('Settings.save', () => {
     state.playlists = [{ id: 'p1', name: 'P', url: 'http://p' }];
     settings.render();
     click('#app-language [data-dropdown-trigger]');
-    click('#app-language [data-dropdown-value="zh-CN"]');
+    click('#app-language [data-dropdown-value="pt-BR"]');
     click('#save-settings');
-    expect(storageMock.setLocalePreference).toHaveBeenCalledWith('zh-CN');
+    expect(storageMock.setLocalePreference).toHaveBeenCalledWith('pt-BR');
     expect(onSave).toHaveBeenCalledWith('apply');
   });
 
@@ -1439,13 +1439,13 @@ describe('Settings.save', () => {
     expect(storageMock.setXtreamCatalogRefreshIntervalHours).toHaveBeenCalledWith(12);
   });
 
-  it('renders the Settings title in Simplified Chinese', () => {
-    setLocale('zh-CN');
+  it('renders the Settings title in Portuguese', () => {
+    setLocale('pt-BR');
     settings.render();
-    expect(container.querySelector('.settings-title')?.textContent).toBe('设置');
+    expect(container.querySelector('.settings-title')?.textContent).toBe('Configurações');
     expect(container.querySelector('#app-language')?.closest('.settings-section')
-      ?.querySelector('h3')?.textContent).toBe('语言 / Language');
-    expect(container.querySelector('#app-language .dropdown-current')?.textContent).toBe('跟随系统');
+      ?.querySelector('h3')?.textContent).toBe('Idioma / Language');
+    expect(container.querySelector('#app-language .dropdown-current')?.textContent).toBe('Sistema');
   });
 
   it('defaults a missing name to "Playlist N"', () => {

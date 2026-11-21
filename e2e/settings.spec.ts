@@ -306,7 +306,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('keeps localized animation profile controls on one line', async ({ page }) => {
-    const locales = ['en', 'de', 'es', 'fr', 'it', 'pt-BR', 'ru', 'uk', 'zh-CN'];
+    const locales = ['en', 'pt-BR'];
     await gotoFirstRunSettings(page);
 
     for (const locale of locales) {
@@ -552,7 +552,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('keeps every localized sidebar label on one line', async ({ page }) => {
-    const locales = ['en', 'de', 'es', 'fr', 'it', 'pt-BR', 'ru', 'uk', 'zh-CN'];
+    const locales = ['en', 'pt-BR'];
     await gotoFirstRunSettings(page);
 
     for (const locale of locales) {
@@ -583,7 +583,7 @@ test.describe('Settings navigation', () => {
   });
 
   test('keeps localized EPG time correction text and controls within the section', async ({ page }) => {
-    const locales = ['en', 'de', 'es', 'fr', 'it', 'pt-BR', 'ru', 'uk', 'zh-CN'];
+    const locales = ['en', 'pt-BR'];
     await gotoFirstRunSettings(page);
 
     for (const locale of locales) {
@@ -893,7 +893,7 @@ test.describe('Settings Xtream live output', () => {
     });
 
     await page.goto('/');
-    for (const locale of ['en', 'de', 'es', 'fr', 'it', 'pt-BR', 'ru', 'uk', 'zh-CN']) {
+    for (const locale of ['en', 'pt-BR']) {
       await page.evaluate((value) => {
         localStorage.setItem('iptv_locale', JSON.stringify(value));
       }, locale);

@@ -1,6 +1,7 @@
 import { beforeEach } from 'vitest';
-import { DEFAULT_LOCALE, setLocale } from '../i18n';
+import { setLocale } from '../i18n';
 
+// The app defaults to Portuguese; the suites assert the English catalog.
 beforeEach(() => {
-  setLocale(DEFAULT_LOCALE);
+  setLocale('en');
 });

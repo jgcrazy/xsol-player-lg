@@ -570,10 +570,10 @@ describe('EpgGrid group and channel filters', () => {
       .dispatchEvent(new MouseEvent('click', { bubbles: true }));
     expect(container.querySelector('.epg-group-option-label')?.textContent).toBe('All');
 
-    setLocale('zh-CN');
+    setLocale('pt-BR');
     grid.render();
 
-    expect(container.querySelector('.epg-group-option-label')?.textContent).toBe('全部');
+    expect(container.querySelector('.epg-group-option-label')?.textContent).toBe('Todos');
   });
 
   it('focuses search with Yellow and exits to results with ArrowDown', async () => {

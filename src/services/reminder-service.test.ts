@@ -254,14 +254,14 @@ describe('ReminderService scheduling', () => {
   });
 
   it('schedules translated retail copy in the active locale', () => {
-    setLocale('zh-CN');
+    setLocale('pt-BR');
     const request = mockLuna();
     const startMs = new Date(2030, 0, 2, 15, 4, 5).getTime();
     ReminderService.add(rem({ startMs, title: 'Alpha' }));
     const [, opts] = request.mock.calls[0];
     const activity = (opts as { parameters: { activity: Record<string, unknown> } }).parameters.activity;
     expect((activity.callback as { params: { message: string } }).params.message)
-      .toBe('A - Alpha 已开始播出，打开应用即可观看');
+      .toBe('A - Alpha está ao vivo agora — abra o aplicativo para assistir');
   });
 
   it('cancels the activity by name on remove', () => {

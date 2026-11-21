@@ -209,12 +209,12 @@ describe('Sidebar', () => {
         .toBe('Recently Watched');
       sidebar.hide();
 
-      setLocale('zh-CN');
+      setLocale('pt-BR');
       sidebar.show();
       sidebar.handleAction('left');
 
       expect(groupItems()[2].querySelector('.sidebar-group-name')?.textContent)
-        .toBe('最近观看');
+        .toBe('Assistidos recentemente');
     });
 
     it('keeps logos blank until decoded and reveals one per frame', async () => {

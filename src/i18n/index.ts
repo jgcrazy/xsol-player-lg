@@ -7,17 +7,8 @@ import {
   type PluralMessageKey,
   type TextMessageKey,
 } from './en';
-import { DE_MESSAGES } from './de';
-import { ES_MESSAGES } from './es';
-import { FR_MESSAGES } from './fr';
-import { IT_MESSAGES } from './it';
-import { PL_MESSAGES } from './pl';
 import { PT_BR_MESSAGES } from './pt-BR';
 import { pseudoLocalize } from './pseudo';
-import { RU_MESSAGES } from './ru';
-import { TR_MESSAGES } from './tr';
-import { UK_MESSAGES } from './uk';
-import { ZH_CN_MESSAGES } from './zh-CN';
 
 export type { MessageKey, PluralMessageKey, TextMessageKey } from './en';
 type Messages = Readonly<MessageCatalog>;
@@ -29,78 +20,26 @@ type LocaleDefinition = {
   systemPrefixes: readonly string[];
 };
 
+// Portuguese is the product's language; English is the one alternative, and
+// what a TV set to English gets under "system".
 const LOCALES = {
-  en: {
-    messages: EN_MESSAGES,
-    displayName: 'English',
-    systemExact: [],
-    systemPrefixes: [],
-  },
-  de: {
-    messages: DE_MESSAGES,
-    displayName: 'Deutsch',
-    systemExact: [],
-    systemPrefixes: ['de'],
-  },
-  es: {
-    messages: ES_MESSAGES,
-    displayName: 'Español',
-    systemExact: [],
-    systemPrefixes: ['es'],
-  },
-  fr: {
-    messages: FR_MESSAGES,
-    displayName: 'Français',
-    systemExact: [],
-    systemPrefixes: ['fr'],
-  },
-  it: {
-    messages: IT_MESSAGES,
-    displayName: 'Italiano',
-    systemExact: [],
-    systemPrefixes: ['it'],
-  },
-  pl: {
-    messages: PL_MESSAGES,
-    displayName: 'Polski',
-    systemExact: [],
-    systemPrefixes: ['pl'],
-  },
   'pt-BR': {
     messages: PT_BR_MESSAGES,
     displayName: 'Português (Brasil)',
     systemExact: [],
     systemPrefixes: ['pt'],
   },
-  ru: {
-    messages: RU_MESSAGES,
-    displayName: 'Русский',
+  en: {
+    messages: EN_MESSAGES,
+    displayName: 'English',
     systemExact: [],
-    systemPrefixes: ['ru'],
-  },
-  tr: {
-    messages: TR_MESSAGES,
-    displayName: 'Türkçe',
-    systemExact: [],
-    systemPrefixes: ['tr'],
-  },
-  uk: {
-    messages: UK_MESSAGES,
-    displayName: 'Українська',
-    systemExact: [],
-    systemPrefixes: ['uk'],
-  },
-  'zh-CN': {
-    messages: ZH_CN_MESSAGES,
-    displayName: '简体中文',
-    systemExact: ['zh'],
-    systemPrefixes: ['zh-cn', 'zh-sg', 'zh-hans'],
+    systemPrefixes: ['en'],
   },
 } as const satisfies Record<string, LocaleDefinition>;
 
 export type SupportedLocale = keyof typeof LOCALES;
 export type LocalePreference = 'system' | SupportedLocale;
-export const DEFAULT_LOCALE: SupportedLocale = 'en';
+export const DEFAULT_LOCALE: SupportedLocale = 'pt-BR';
 
 export function isLocalePreference(value: unknown): value is LocalePreference {
   return value === 'system'
@@ -156,7 +95,7 @@ export function formatNumber(
   options?: Intl.NumberFormatOptions,
 ): string {
   const locale = __ENABLE_PSEUDO_LOCALE__ && pseudoLocaleRequested()
-    ? DEFAULT_LOCALE
+    ? 'en'
     : currentLocale;
   return new Intl.NumberFormat(locale, options).format(value);
 }
@@ -172,7 +111,7 @@ export function t(key: TextMessageKey, params?: Params): string {
 
 export function tp(key: PluralMessageKey, count: number, params?: Params): string {
   const pseudo = __ENABLE_PSEUDO_LOCALE__ && pseudoLocaleRequested();
-  const locale = pseudo ? DEFAULT_LOCALE : currentLocale;
+  const locale = pseudo ? 'en' : currentLocale;
   const forms = LOCALES[locale].messages[key] as PluralMessage;
   const category = new Intl.PluralRules(locale).select(count);
   const message = forms[category] ?? forms.other;

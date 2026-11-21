@@ -380,11 +380,11 @@ describe('ChannelList.render', () => {
     expect(container.querySelector('[data-group="builtin:recently-watched"] .group-name')?.textContent)
       .toBe('Recently Watched');
 
-    setLocale('zh-CN');
+    setLocale('pt-BR');
     list.render();
 
     expect(container.querySelector('[data-group="builtin:recently-watched"] .group-name')?.textContent)
-      .toBe('最近观看');
+      .toBe('Assistidos recentemente');
   });
 
   it('localizes the ungrouped bucket while leaving provider group names alone', () => {
@@ -399,13 +399,13 @@ describe('ChannelList.render', () => {
         .map(g => g.querySelector('.group-name')?.textContent);
       expect(labels).toEqual(['Uncategorized', 'Uncategorized']);
 
-      setLocale('zh-CN');
+      setLocale('pt-BR');
       playlistMock.groupsRevision++;
       list.render();
-      const zh = Array.from(container.querySelectorAll<HTMLElement>('.group-item'))
+      const translated = Array.from(container.querySelectorAll<HTMLElement>('.group-item'))
         .filter(g => g.dataset.group?.indexOf('source:') === 0)
         .map(g => g.querySelector('.group-name')?.textContent);
-      expect(zh).toEqual(['Uncategorized', '未分类']);
+      expect(translated).toEqual(['Uncategorized', 'Sem categoria']);
     } finally {
       setLocale('en');
       playlistMock.getGroupsForPlaylist = original;

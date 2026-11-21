@@ -233,6 +233,8 @@ test('the configured accesses can be selected and removed', async ({ page }) => 
     localStorage.setItem('iptv_playlists', JSON.stringify([{ id: 'p1', name: 'P1', url: 'http://host/playlist.m3u' }]));
   });
   await page.goto('/');
+  // The first check brings the portal playlist and reloads; let that settle first.
+  await expect(page.locator('#view-channels')).toContainText('N1', { timeout: 15_000 });
   await enterTab(page, 'access');
   const names = page.locator('.access-row-name');
   await expect(names).toHaveText(['P1', 'N1'], { timeout: 15_000 });
