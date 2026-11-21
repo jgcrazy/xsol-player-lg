@@ -972,7 +972,8 @@ export const StorageService = {
 
   // Selected color theme id (see src/config/themes.ts). Default = Midnight.
   getTheme(): string {
-    return get<string>('theme', DEFAULT_THEME);
+    // The picker is gone from Settings: a theme saved by an older build must not stick.
+    return DEFAULT_THEME;
   },
   setTheme(id: string): void {
     set('theme', id);

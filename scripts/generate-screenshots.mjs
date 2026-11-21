@@ -11,7 +11,6 @@
 //   epg-guide.png      three-pane program guide, with catch-up resume markers
 //   epg-catchup-resume.png  the Resume / Start Over / Cancel resume prompt
 //   settings.png       settings incl. LAN setup QR and manual pairing
-//   themes.png         Settings Appearance section with the theme picker
 //   reminder-manager.png  date-grouped upcoming reminders with removal controls
 //   player.png         playback overlays: channel switcher + action menu
 //   channel-info.png   channel info bar (the OSD) — live DVR (timeshift) view
@@ -902,24 +901,6 @@ try {
     await page.waitForTimeout(300);
     await shoot(page, 'settings.png');
     console.log('  settings.png');
-    await context.close();
-  }
-
-  // 3b) Theme picker — scroll Settings to Appearance and select a preview swatch.
-  {
-    const { context, page } = await newPage();
-    await gotoChannels(page, base);
-    await remote(page, KEY.BLUE);
-    await page.locator('#view-settings').waitFor({ state: 'visible' });
-    const picker = page.locator('.theme-swatch-grid');
-    await picker.waitFor({ state: 'attached' });
-    await picker.evaluate((el) => el.parentElement?.scrollIntoView({ block: 'start' }));
-    await page.locator('.theme-swatch[data-theme-id="midnight"]').click();
-    await picker.waitFor({ state: 'visible' });
-    await clearToasts(page);
-    await page.waitForTimeout(400);
-    await shoot(page, 'themes.png');
-    console.log('  themes.png');
     await context.close();
   }
 

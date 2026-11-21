@@ -105,19 +105,19 @@ test.describe('Settings navigation', () => {
     await gotoFirstRunSettings(page);
     await expect(page.locator('#view-settings')).toBeVisible();
 
-    const swatches = page.locator('#settings-appearance .theme-swatch');
-    const names = await swatches.evaluateAll(els => els.map(el => el.getAttribute('data-theme')));
+    const options = page.locator('#overlay-style .toggle-option');
+    const names = await options.evaluateAll(els => els.map(el => el.getAttribute('data-value')));
     expect(names.length).toBeGreaterThan(1);
 
     await page.addStyleTag({
-      content: `#settings-appearance [data-theme="${names[0]}"] { display: none; }`,
+      content: `#overlay-style [data-value="${names[0]}"] { display: none; }`,
     });
 
     await page.locator('[data-settings-target="appearance"]').click();
     await page.keyboard.press('ArrowRight');
 
     const focused = await page.evaluate(() =>
-      document.querySelector('#view-settings .focused')?.getAttribute('data-theme') ?? null);
+      document.querySelector('#view-settings .focused')?.getAttribute('data-value') ?? null);
     expect(focused).toBe(names[1]);
   });
 
@@ -624,22 +624,6 @@ test.describe('Settings navigation', () => {
       expect(layout.stepperTop, locale).toBe(layout.dropdownTop);
       expect(layout.controlsRight, locale).toBeLessThanOrEqual(layout.sectionRight);
     }
-  });
-
-  test('lays out the 15 theme swatches across three full rows', async ({ page }) => {
-    await gotoFirstRunSettings(page);
-    await page.locator('[data-settings-target="appearance"]').click();
-
-    const rowCounts = await page.locator('.theme-swatch').evaluateAll((swatches) => {
-      const rows = new Map<number, number>();
-      for (const swatch of swatches) {
-        const top = Math.round(swatch.getBoundingClientRect().top);
-        rows.set(top, (rows.get(top) ?? 0) + 1);
-      }
-      return Array.from(rows.values());
-    });
-
-    expect(rowCounts).toEqual([5, 5, 5]);
   });
 
   test('the text size picker scales only fonts and persists', async ({ page }) => {

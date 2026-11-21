@@ -555,7 +555,7 @@ describe('Settings.render', () => {
   it('left skips a collapsed peer instead of focusing it', () => {
     settings.render();
 
-    const swatches = Array.from(container.querySelectorAll<HTMLElement>('.theme-swatch'));
+    const swatches = Array.from(container.querySelectorAll<HTMLElement>('#overlay-style .toggle-option'));
     expect(swatches.length).toBeGreaterThan(1);
     swatches[1].dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
 
@@ -871,103 +871,18 @@ describe('Settings.render', () => {
 describe('Settings theme picker', () => {
   beforeEach(() => settings.render());
 
-  it('renders a swatch per registered theme with the saved theme active', () => {
-    expect(container.querySelectorAll('.theme-swatch')).toHaveLength(15);
-    expect(container.querySelector('.theme-swatch.active')!.getAttribute('data-theme-id')).toBe('midnight');
-  });
-
-  it('marks the saved theme active on open', () => {
-    state.theme = 'plum-night';
+  it('offers no theme choice: the app has one look', () => {
     settings.render();
-    const active = container.querySelectorAll('.theme-swatch.active');
-    expect(active).toHaveLength(1);
-    expect(active[0].getAttribute('data-theme-id')).toBe('plum-night');
+    expect(container.querySelector('.theme-swatch')).toBeNull();
+    expect(container.querySelector('.theme-swatch-grid')).toBeNull();
+    // The rest of Appearance is still there.
+    expect(container.querySelector('#overlay-style')).not.toBeNull();
   });
 
-  it('selecting a swatch previews it and moves the active marker', () => {
-    click('.theme-swatch[data-theme-id="arctic"]');
-    expect(themeMock.previewTheme).toHaveBeenCalledWith('arctic');
-    const active = container.querySelectorAll('.theme-swatch.active');
-    expect(active).toHaveLength(1);
-    expect(active[0].getAttribute('data-theme-id')).toBe('arctic');
-  });
-
-  it('previews on pointer hover and restores the selected theme when the pointer leaves', () => {
-    // Select Arctic (pending), then hover a different swatch and move the pointer off.
-    click('.theme-swatch[data-theme-id="arctic"]');
-    const amber = container.querySelector<HTMLElement>('.theme-swatch[data-theme-id="vintage-amber"]')!;
-    amber.dispatchEvent(new MouseEvent('mouseover', { bubbles: true }));
-    expect(themeMock.previewTheme).toHaveBeenLastCalledWith('vintage-amber');
-    // Leaving to a non-swatch restores the selected (Arctic), not the saved (midnight).
-    amber.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: document.body }));
-    expect(themeMock.previewTheme).toHaveBeenLastCalledWith('arctic');
-  });
-
-  it('keeps previewing when the pointer moves between swatches', () => {
-    const arctic = container.querySelector<HTMLElement>('.theme-swatch[data-theme-id="arctic"]')!;
-    const amber = container.querySelector<HTMLElement>('.theme-swatch[data-theme-id="vintage-amber"]')!;
-    themeMock.previewTheme.mockClear();
-    arctic.dispatchEvent(new MouseEvent('mouseout', { bubbles: true, relatedTarget: amber }));
-    // Moving swatch→swatch must NOT restore the saved theme.
-    expect(themeMock.previewTheme).not.toHaveBeenCalled();
-  });
-
-  it('persists the selected theme only on Save & Apply', () => {
-    click('.theme-swatch[data-theme-id="vintage-amber"]');
+  it('does not write a theme on Save', () => {
+    settings.render();
+    click('#save-settings');
     expect(storageMock.setTheme).not.toHaveBeenCalled();
-    click('#save-settings');
-    expect(storageMock.setTheme).toHaveBeenCalledWith('vintage-amber');
-  });
-
-  it('reflects the saved overlay style on the toggle', () => {
-    state.overlayStyle = 'frosted';
-    settings.render();
-    expect(container.querySelector('#overlay-style .toggle-option.active')!.getAttribute('data-value')).toBe('frosted');
-  });
-
-  it('labels the theme swatches as a child setting', () => {
-    settings.render();
-    expect(container.querySelector('#settings-appearance .settings-item-title')?.textContent)
-      .toBe('Theme');
-  });
-
-  it('renders preferred subtitles as a child setting', () => {
-    settings.render();
-    const item = container.querySelector('#os-pref-lang')?.closest('.settings-item');
-    expect(item?.querySelector('.settings-item-title')?.textContent)
-      .toBe('Preferred subtitle language');
-    expect(item?.closest('.settings-row')).toBeNull();
-  });
-
-  it('persists the overlay style on Save & Apply', () => {
-    click('#overlay-style .toggle-option[data-value="frosted"]');
-    click('#save-settings');
-    expect(storageMock.setOverlayStyle).toHaveBeenCalledWith('frosted');
-  });
-
-  it('reflects the saved text size on the dropdown', () => {
-    state.textSize = '120';
-    settings.render();
-    const dd = container.querySelector('#text-size')!;
-    expect(dd.getAttribute('data-value')).toBe('120');
-    expect(dd.querySelector('.dropdown-current')!.textContent).toBe('120%');
-  });
-
-  it('offers every percentage step and marks 100% as the default', () => {
-    settings.render();
-    const labels = Array.from(container.querySelectorAll('#text-size .dropdown-option'))
-      .map(o => o.getAttribute('data-dropdown-value'));
-    expect(labels).toEqual(['80', '90', '100', '110', '120', '130', '140', '150']);
-    expect(container.querySelector('#text-size .dropdown-option[data-dropdown-value="100"]')!.textContent)
-      .toBe('100% (Default)');
-  });
-
-  it('previews the text size immediately and persists it on Save & Apply', () => {
-    click('#text-size .dropdown-option[data-dropdown-value="130"]');
-    expect(themeMock.applyTextSize).toHaveBeenCalledWith('130');
-    expect(storageMock.setTextSize).not.toHaveBeenCalled();
-    click('#save-settings');
-    expect(storageMock.setTextSize).toHaveBeenCalledWith('130');
   });
 });
 
@@ -1564,7 +1479,7 @@ describe('Settings.handleAction', () => {
     appearance
       .dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
     settings.handleAction('right');
-    expect(container.querySelector('.theme-swatch.focused')).not.toBeNull();
+    expect(container.querySelector('#settings-appearance .focused')).not.toBeNull();
     container.querySelector('.settings-scroll')!
       .dispatchEvent(new Event('scroll', { bubbles: true }));
     expect(appearance.classList.contains('active')).toBe(true);

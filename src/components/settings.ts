@@ -29,8 +29,8 @@ import { genPlaylistId, isSourceEnabled } from '../utils/playlist';
 import { channelKey, legacyChannelKey } from '../utils/channel';
 import { formatEpgOffset } from '../utils/epg-offset';
 import { CONFIG } from '../config';
-import { THEMES, OVERLAY_STYLES, TEXT_SIZES, DEFAULT_TEXT_SIZE, type ThemeMeta, type OverlayStyle, type TextSize } from '../config/themes';
-import { previewTheme, applyTextSize } from '../services/theme-service';
+import { OVERLAY_STYLES, TEXT_SIZES, DEFAULT_TEXT_SIZE, type OverlayStyle, type TextSize } from '../config/themes';
+import { applyTextSize } from '../services/theme-service';
 import { showToast } from './toast';
 import { ConfirmationPrompt } from './confirmation-prompt';
 import { createLogger } from '../utils/logger';
@@ -94,43 +94,6 @@ function formatBytes(bytes: number): string {
   }
   const digits = unit === 0 || value >= 100 ? 0 : value >= 10 ? 1 : 2;
   return `${value.toFixed(digits)} ${units[unit]}`;
-}
-
-/** One theme swatch tile: a mini mock of the app (tab bar, a focused channel
- *  tile, list rows, status dots) plus the theme name. It carries its own
- *  `data-theme` so every `var(--…)` inside resolves to that theme's colors,
- *  independent of the app's active theme. The mock is decorative (aria-hidden);
- *  the button's aria-label names the theme. */
-function themeSwatch(theme: ThemeMeta, activeId: string): Safe {
-  return html`
-    <button class="theme-swatch ${theme.id === activeId ? 'active' : ''}" data-focusable
-            data-theme-id="${theme.id}" data-theme="${theme.id}" aria-label="${theme.name} theme">
-      <span class="theme-swatch-preview" aria-hidden="true">
-        <span class="tsp-tabs">
-          <span class="tsp-tab active">${t('nav.live')}</span>
-          <span class="tsp-tab">${t('nav.movies')}</span>
-          <span class="tsp-tab">${t('nav.series')}</span>
-        </span>
-        <span class="tsp-tiles">
-          <span class="tsp-tile focus">ch1</span>
-          <span class="tsp-tile">ch2</span>
-          <span class="tsp-tile">ch3</span>
-        </span>
-        <span class="tsp-rows">
-          <span class="tsp-row">${t('settings.previewChannelOne')}</span>
-          <span class="tsp-row muted">${t('settings.previewChannelTwo')}</span>
-        </span>
-        <span class="tsp-foot">
-          <span class="tsp-epg">${t('settings.previewEpgNow')}</span>
-          <span class="tsp-dots">
-            <span class="tsp-dot dn"></span>
-            <span class="tsp-dot su"></span>
-            <span class="tsp-dot wa"></span>
-          </span>
-        </span>
-      </span>
-      <span class="theme-swatch-name">${theme.name}</span>
-    </button>`;
 }
 
 /** A single-select toggle group: connected buttons, the active one filled.
@@ -449,8 +412,6 @@ export class Settings {
   private onSave: (action: SaveAction) => void | Promise<void>;
   private onChannelsChanged: () => void;
   private nav: SpatialNav;
-  // Pending theme selection (persisted on Save; live-previewed while browsing).
-  private selectedTheme = '';
   private epgOffsets: Record<string, number> = {};
   private storedEpgOffsets: Record<string, number> = {};
   private confirmationPrompt = new ConfirmationPrompt();
@@ -522,19 +483,6 @@ export class Settings {
       }
     });
 
-    // Pointer theme preview: hovering a swatch previews that theme app-wide;
-    // moving the pointer off the swatches restores the currently selected theme
-    // immediately (no deferring until focus lands elsewhere).
-    this.container.addEventListener('mouseover', (e: MouseEvent) => {
-      const sw = (e.target as HTMLElement).closest<HTMLElement>('.theme-swatch');
-      if (sw?.dataset.themeId) previewTheme(sw.dataset.themeId);
-    });
-    this.container.addEventListener('mouseout', (e: MouseEvent) => {
-      if (!(e.target as HTMLElement).closest('.theme-swatch')) return;
-      const rel = e.relatedTarget as HTMLElement | null;
-      if (!rel || !rel.closest('.theme-swatch')) previewTheme(this.selectedTheme);
-    });
-
     this.container.addEventListener('scroll', (e: Event) => {
       const target = e.target as HTMLElement;
       if (!target.classList.contains('settings-scroll') || this.ignoreCategoryScroll) return;
@@ -565,8 +513,6 @@ export class Settings {
     const feedTime = StorageService.getTzMode() === 'feed';
     const tzOffset = StorageService.getEpgTzOffset();
     const os = StorageService.getOnlineSubtitleConfig();
-    const theme = StorageService.getTheme();
-    this.selectedTheme = theme;
     const overlayStyle = StorageService.getOverlayStyle();
     const textSize = StorageService.getTextSize();
     const localePreference = StorageService.getLocalePreference();
@@ -739,12 +685,6 @@ export class Settings {
             <div class="settings-category" id="settings-appearance" data-settings-category="appearance">
               <div class="settings-section">
                 <h3 class="settings-section-title">${t('settings.appearance')}</h3>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.theme')}</div>
-                  <div class="theme-swatch-grid">
-                    ${THEMES.map(t => themeSwatch(t, theme))}
-                  </div>
-                </div>
                 <div class="settings-item">
                   <div class="settings-item-title">${t('settings.overlayGlass')}</div>
                   ${toggleGroup('overlay-style', overlayStyles, overlayStyle)}
@@ -1255,8 +1195,6 @@ export class Settings {
       this.adjustEpgOffset(Number(el.dataset.offsetDelta));
     } else if (el.classList.contains('epg-offset-value')) {
       this.setEpgOffset(0);
-    } else if (el.classList.contains('theme-swatch')) {
-      this.selectThemeSwatch(el);
     } else if (el.id === 'save-settings') {
       this.save();
     } else if (el.id === 'cancel-settings') {
@@ -1574,14 +1512,10 @@ export class Settings {
     this.confirmationPrompt.hide();
   }
 
-  // Live theme preview: focusing (D-pad) or hovering (pointer) a swatch previews
-  // that theme app-wide; anything else falls back to the currently selected theme.
   private onNavFocus(el: HTMLElement | null): void {
     this.container.querySelector('.settings-advanced-row.focused')
       ?.classList.remove('focused');
     el?.closest('.settings-advanced-row')?.classList.add('focused');
-    if (el?.dataset.themeId) previewTheme(el.dataset.themeId);
-    else previewTheme(this.selectedTheme);
   }
 
   private setActiveCategory(category: SettingsCategory): void {
@@ -1654,7 +1588,7 @@ export class Settings {
   private leftPeer(el: HTMLElement | null): HTMLElement | null {
     if (!el) return null;
     const group = el.closest<HTMLElement>(
-      '.toggle-group, .theme-swatch-grid, .settings-row, .xtream-fields, .xtream-card-foot, .settings-actions, .epg-offset-controls',
+      '.toggle-group, .settings-row, .xtream-fields, .xtream-card-foot, .settings-actions, .epg-offset-controls',
     );
     if (!group) return null;
     const rect = el.getBoundingClientRect();
@@ -1718,17 +1652,6 @@ export class Settings {
       active = category.id;
     }
     this.setActiveCategory(active);
-  }
-
-  // OK on a swatch: mark it the pending selection (persisted on Save & Apply;
-  // reverted to savedTheme if Settings closes without saving — see App.showView).
-  private selectThemeSwatch(el: HTMLElement): void {
-    const id = el.dataset.themeId;
-    if (!id) return;
-    this.container.querySelectorAll('.theme-swatch').forEach(s => s.classList.remove('active'));
-    el.classList.add('active');
-    this.selectedTheme = id;
-    previewTheme(id);
   }
 
   // Opening moves focus to the active option, or the first one when the stored
@@ -2275,8 +2198,6 @@ export class Settings {
     }
     this.epgOffsets = nextEpgOffsets;
     StorageService.setEpgOffsets(nextEpgOffsets);
-
-    StorageService.setTheme(this.selectedTheme);
 
     const overlayBtn = $('#overlay-style .toggle-option.active', this.container);
     if (overlayBtn?.dataset.value) StorageService.setOverlayStyle(overlayBtn.dataset.value as OverlayStyle);

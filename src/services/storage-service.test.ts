@@ -242,10 +242,10 @@ describe('StorageService', () => {
     expect(StorageService.getEpgOffsets()).toEqual({});
   });
 
-  it('defaults the theme to XSol Gold and round-trips a selection', () => {
+  it('always reports XSol Gold, whatever an older build saved', () => {
     expect(StorageService.getTheme()).toBe('xsol');
     StorageService.setTheme('arctic');
-    expect(StorageService.getTheme()).toBe('arctic');
+    expect(StorageService.getTheme()).toBe('xsol');
   });
 
   it('defaults the overlay style to dark and round-trips a selection', () => {
