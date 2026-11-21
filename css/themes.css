@@ -13,10 +13,37 @@
  * are converted to legacy-compatible colors at build time.
  */
 
-/* Midnight — the default. Mirrors main.css :root so an explicit
-   data-theme="midnight" (and the Midnight swatch) resolve correctly on any
-   element, not just the unset root. Keep in sync with main.css :root. */
+/* XSol Gold — the default. Mirrors main.css :root so an explicit
+   data-theme="xsol" (and its swatch) resolve correctly on any element, not
+   just the unset root. Keep in sync with main.css :root. */
+[data-theme="xsol"] {
+  --bg-primary: #0d0b0a;
+  --catalog-hero-scrim-rgb: 13 11 10;
+  --bg-secondary: #151210;
+  --bg-tertiary: #1f1a16;
+  --bg-card: #221c17;
+  --text-primary: #f2ece2;
+  --text-secondary: #bdb4a7;
+  --text-muted: #6f675f;
+  --accent: #e8b65f;
+  --accent-dim: #a87f3a;
+  --accent-rgb: 232 182 95;
+  --accent-glow: rgb(var(--accent-rgb) / 0.3);
+  --danger: #ff5a5f;
+  --danger-rgb: 255 90 95;
+  --success: #5fcf7a;
+  --warning: #ffb703;
+  --warning-rgb: 255 183 3;
+  --border: #2e2620;
+}
+
+/* Midnight keeps the original blue catalog chrome, which the other themes
+   replace with their own palette (see the group at the end of this file). */
 [data-theme="midnight"] {
+  --catalog-surface: #14161c;
+  --catalog-control: #23262f;
+  --catalog-focus: #5b8cff;
+  --catalog-focus-rgb: 91 140 255;
   --bg-primary: #0a0a0f;
   --catalog-hero-scrim-rgb: 10 10 15;
   --bg-secondary: #12121a;
@@ -35,27 +62,6 @@
   --warning: #ffa502;
   --warning-rgb: 255 165 2;
   --border: #2a2a3e;
-}
-
-[data-theme="ember"] {
-  --bg-primary: #14110f;
-  --catalog-hero-scrim-rgb: 20 17 15;
-  --bg-secondary: #1c1815;
-  --bg-tertiary: #241e19;
-  --bg-card: #26201b;
-  --text-primary: #f0e9e2;
-  --text-secondary: #c2b6aa;
-  --text-muted: #7a6f64;
-  --accent: #ff8c42;
-  --accent-dim: #b35a1e;
-  --accent-rgb: 255 140 66;
-  --accent-glow: rgb(var(--accent-rgb) / 0.3);
-  --danger: #ff5a5f;
-  --danger-rgb: 255 90 95;
-  --success: #4cd07d;
-  --warning: #ffb703;
-  --warning-rgb: 255 183 3;
-  --border: #362e27;
 }
 
 [data-theme="emerald"] {
@@ -338,8 +344,8 @@
 
 /* Scrollbars follow muted text on dark themes. Light themes use a softer
    midpoint so a persistent native scrollbar does not become a dark divider. */
+[data-theme="xsol"],
 [data-theme="midnight"],
-[data-theme="ember"],
 [data-theme="emerald"],
 [data-theme="amethyst"],
 [data-theme="plum-night"],
@@ -365,9 +371,9 @@
   --scrollbar-thumb: #b0b3a9;
 }
 
-/* Non-default themes map catalog chrome onto their own palette. Midnight keeps
-   the original catalog colors declared in main.css. */
-[data-theme="ember"],
+/* Themes map catalog chrome onto their own palette. Midnight is the exception:
+   it declares the original catalog colors in its own block. */
+[data-theme="xsol"],
 [data-theme="emerald"],
 [data-theme="amethyst"],
 [data-theme="daylight"],

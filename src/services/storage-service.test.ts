@@ -242,8 +242,8 @@ describe('StorageService', () => {
     expect(StorageService.getEpgOffsets()).toEqual({});
   });
 
-  it('defaults the theme to midnight and round-trips a selection', () => {
-    expect(StorageService.getTheme()).toBe('midnight');
+  it('defaults the theme to XSol Gold and round-trips a selection', () => {
+    expect(StorageService.getTheme()).toBe('xsol');
     StorageService.setTheme('arctic');
     expect(StorageService.getTheme()).toBe('arctic');
   });

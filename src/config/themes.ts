@@ -8,12 +8,12 @@ export interface ThemeMeta {
   isLight: boolean;
 }
 
-export const DEFAULT_THEME = 'midnight';
+export const DEFAULT_THEME = 'xsol';
 
 // Display order in the picker.
 export const THEMES: ThemeMeta[] = [
+  { id: 'xsol', name: 'XSol Gold', isLight: false },
   { id: 'midnight', name: 'Midnight', isLight: false },
-  { id: 'ember', name: 'Ember', isLight: false },
   { id: 'emerald', name: 'Emerald', isLight: false },
   { id: 'amethyst', name: 'Amethyst', isLight: false },
   { id: 'daylight', name: 'Daylight', isLight: true },
