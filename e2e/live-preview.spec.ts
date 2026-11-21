@@ -355,27 +355,21 @@ test('Back stops the active preview from the list and preview controls', async (
   await expect(page.locator('#view-channels')).not.toHaveClass(/has-live-preview/);
 });
 
-test('mute preserves a cross-day date group and its following program', async ({ page }) => {
+test('mute keeps the day list and its on-air marker', async ({ page }) => {
   await setup(page, { enabled: true, epg: LAYOUT_EPG, now: '2026-09-15T23:30:00Z' });
   await selectFirst(page);
-  const separator = page.locator(`${PANEL} .live-preview-day-separator`);
+  // Only the programme that starts today belongs to the day; the rest begin after midnight.
   const rows = page.locator(`${PANEL} .live-preview-program`);
-  const visibleRows = page.locator(`${PANEL} .live-preview-program:visible`);
-  await expect(separator).toContainText('09/16');
-  await expect(rows).toHaveCount(4);
-  await expect(visibleRows).toHaveCount(3);
-  await expect(visibleRows.last()).toContainText('Program 4');
-  await expect(visibleRows.last()).toHaveClass(/last-visible/);
+  const onAir = page.locator(`${PANEL} .live-preview-program.is-current`);
+  await expect(rows).toHaveCount(1);
+  await expect(onAir).toContainText(LONG_TITLE);
+  await expect(page.locator(`${PANEL} .live-preview-day-title`)).toHaveText("Today's guide");
 
   await page.locator(MUTE).click();
 
   await expect(page.locator(MUTE)).toHaveAttribute('aria-pressed', 'true');
-  await expect(separator).toBeVisible();
-  await expect(separator).toContainText('09/16');
-  await expect(rows).toHaveCount(4);
-  await expect(visibleRows).toHaveCount(3);
-  await expect(visibleRows.last()).toContainText('Program 4');
-  await expect(visibleRows.last()).toHaveClass(/last-visible/);
+  await expect(rows).toHaveCount(1);
+  await expect(onAir).toBeVisible();
 });
 
 test('committed numeric channel entry opens full screen directly', async ({ page }) => {
@@ -574,21 +568,20 @@ test('real desktop MSE attachment survives expand and minimize without reload', 
   expect(await snapshot(page)).toEqual(before);
 });
 
-test('complete future rows fit every theme and text scale without touching the footer', async ({ page }) => {
+test('the on-air row stays whole in every theme and text scale', async ({ page }) => {
   test.setTimeout(120_000);
   await setup(page, { enabled: true, epg: LAYOUT_EPG, now: '2026-09-15T23:30:00Z' });
   await selectFirst(page);
   await expect(page.locator(`${PANEL} .live-preview-title`)).toHaveText(LONG_TITLE);
   await expect(page.locator(`${PANEL} .live-preview-time-range`))
     .toHaveText('23:15–00:15');
-  await expect(page.locator(`${PANEL} .live-preview-day-separator`)).toContainText('09/16');
-  await expect(page.locator(`${PANEL} .live-preview-program time`).first())
-    .toHaveText('00:15–01:15');
+  await expect(page.locator(`${PANEL} .live-preview-program.is-current time`))
+    .toHaveText('23:15–00:15');
   const sizes = TEXT_SIZES.filter(size => Number(size) >= 100);
   for (const theme of THEMES) {
     for (const size of sizes) {
       await test.step(`${theme.id} at ${size}%`, async () => {
-        // ThemeService applies these same root attributes; clicking mute rerenders and refits the panel.
+        // ThemeService applies these same root attributes; clicking mute rerenders the panel.
         await page.evaluate(({ themeId, textSize }) => {
           document.documentElement.dataset.theme = themeId;
           document.documentElement.dataset.textSize = textSize;
@@ -597,41 +590,30 @@ test('complete future rows fit every theme and text scale without touching the f
         await expectPreviewGeometry(page);
         const layout = await page.locator(PANEL).evaluate(panel => {
           const details = panel.querySelector('.live-preview-details')!.getBoundingClientRect();
+          const list = panel.querySelector('.live-preview-upcoming')!.getBoundingClientRect();
           const title = panel.querySelector('.live-preview-title')!;
           const lineHeight = parseFloat(getComputedStyle(title).lineHeight);
-          const rows = Array.from(panel.querySelectorAll<HTMLElement>('.live-preview-program'))
-            .filter(row => row.getBoundingClientRect().height > 0);
+          const row = panel.querySelector<HTMLElement>('.live-preview-program.is-current')!;
+          const box = row.getBoundingClientRect();
           return {
             titleLines: title.getBoundingClientRect().height / lineHeight,
-            count: rows.length,
-            rows: rows.map(row => {
-              const box = row.getBoundingClientRect();
-              return {
-                insideDetails: box.top >= details.top && box.bottom <= details.bottom + 0.5,
-                top: box.top,
-                completeHeight: box.height,
-                children: Array.from(row.children).map(child => {
-                  const content = child.getBoundingClientRect();
-                  return { top: content.top, bottom: content.bottom };
-                }),
-              };
+            listInsideDetails: list.top >= details.top && list.bottom <= details.bottom + 0.5,
+            listInsideScreen: list.bottom <= window.innerHeight + 0.5,
+            rowInsideList: box.top >= list.top - 0.5 && box.bottom <= list.bottom + 0.5,
+            rowHeight: box.height,
+            childrenInsideRow: Array.from(row.children).every(child => {
+              const content = child.getBoundingClientRect();
+              return content.top >= box.top - 0.5 && content.bottom <= box.bottom + 0.5;
             }),
           };
         });
         expect(layout.titleLines).toBeGreaterThanOrEqual(1.9);
         expect(layout.titleLines).toBeLessThanOrEqual(2.1);
-        expect(layout.count).toBeLessThanOrEqual(3);
-        if (size === '100') expect(layout.count).toBeGreaterThan(0);
-        for (const row of layout.rows) {
-          expect(row.insideDetails).toBe(true);
-          expect(row.completeHeight).toBeGreaterThanOrEqual(68);
-          expect(
-            row.children.every(child =>
-              child.top >= row.top - 0.5
-              && child.bottom <= row.top + row.completeHeight + 0.5),
-            JSON.stringify(row),
-          ).toBe(true);
-        }
+        expect(layout.listInsideDetails).toBe(true);
+        expect(layout.listInsideScreen).toBe(true);
+        expect(layout.rowInsideList, JSON.stringify(layout)).toBe(true);
+        expect(layout.rowHeight).toBeGreaterThanOrEqual(68);
+        expect(layout.childrenInsideRow).toBe(true);
       });
     }
   }
@@ -673,15 +655,17 @@ test('waiting or a failed manifest retains the preview slot and channel identity
   expect(await page.locator('.live-preview-slot').boundingBox()).toEqual(before);
 });
 
-test('EPG shows current program, up to four future rows, and favorite action', async ({ page }) => {
+test('EPG shows current program, the rows of the day, and favorite action', async ({ page }) => {
   await setup(page, { enabled: true, epg: true });
   await expect(page.locator(ROW).first()).toContainText('Program 1');
   await selectFirst(page);
   await expect(page.locator(`${PANEL} .live-preview-clock`)).toHaveText('12:00');
   await expect(page.locator(`${PANEL} .live-preview-title`)).toHaveText('Program 1');
   await expect(page.locator(`${PANEL} .live-preview-time-range`)).toHaveText('11:00–13:00');
-  await expect(page.locator(`${PANEL} .live-preview-program`)).toHaveCount(4);
+  await expect(page.locator(`${PANEL} .live-preview-program`)).toHaveCount(5);
+  await expect(page.locator(`${PANEL} .live-preview-program.is-current`)).toHaveCount(1);
   await expect(page.locator(`${PANEL} .live-preview-program`)).toHaveText([
+    /11:00–13:00.*Program 1/s,
     /13:00–14:00.*Program 2/s,
     /14:00–15:00.*Program 3/s,
     /15:00–16:00.*Program 4/s,
@@ -765,7 +749,7 @@ test('Stop removes preview and section returns do not restart it', async ({ page
   await expect(page.locator(PANEL)).toBeHidden();
 });
 
-test('a current program without a following schedule has one concise empty state', async ({ page }) => {
+test('a lone current program is the whole day list', async ({ page }) => {
   await setup(page, {
     enabled: true,
     epg: `<tv><channel id="ch1"><display-name>ch1</display-name></channel>
@@ -775,9 +759,52 @@ test('a current program without a following schedule has one concise empty state
   await expect(page.locator(ROW).first()).toContainText('Program 1');
   await selectFirst(page);
   await expect(page.locator(`${PANEL} .live-preview-title`)).toHaveText('Program 1');
-  await expect(page.locator(`${PANEL} .live-preview-program`)).toHaveCount(0);
-  await expect(page.locator(`${PANEL} .live-preview-empty`)).toHaveText('No upcoming programs');
+  await expect(page.locator(`${PANEL} .live-preview-program`)).toHaveCount(1);
+  await expect(page.locator(`${PANEL} .live-preview-program.is-current`)).toContainText('Program 1');
+  await expect(page.locator(`${PANEL} .live-preview-empty`)).toHaveCount(0);
   await expectPreviewGeometry(page);
+});
+
+test('a channel without guide data says so', async ({ page }) => {
+  await setup(page, { enabled: true });
+  await selectFirst(page);
+  await expect(page.locator(`${PANEL} .live-preview-program`)).toHaveCount(0);
+  await expect(page.locator(`${PANEL} .live-preview-empty`)).toHaveText('No guide for this channel');
+  await expectPreviewGeometry(page);
+});
+
+test('the day list covers the whole day and opens on the programme on air', async ({ page }) => {
+  const hour = (value: number): string => String(value).padStart(2, '0');
+  const programmes = Array.from({ length: 24 }, (_, index) =>
+    `<programme channel="ch1" start="20260915${hour(index)}0000 +0000"
+      stop="20260915${hour(index)}5959 +0000"><title>Program ${index + 1}</title></programme>`);
+  await setup(page, {
+    enabled: true,
+    epg: `<tv><channel id="ch1"><display-name>ch1</display-name></channel>${programmes.join('')}</tv>`,
+    now: '2026-09-15T14:20:00Z',
+  });
+  await expect(page.locator(ROW).first()).toContainText('Program 15');
+  await selectFirst(page);
+
+  const list = page.locator(`${PANEL} .live-preview-upcoming`);
+  await expect(page.locator(`${PANEL} .live-preview-program`)).toHaveCount(24);
+  await expect(page.locator(`${PANEL} .live-preview-program.is-past`)).toHaveCount(14);
+  await expect(page.locator(`${PANEL} .live-preview-program.is-upcoming`)).toHaveCount(9);
+  await expect(page.locator(`${PANEL} .live-preview-program.is-current`)).toHaveText(/14:00–14:59.*Program 15/s);
+
+  // Everything already aired sits above, one scroll away; the list starts on what is playing.
+  const offset = () => list.evaluate(element => {
+    const onAir = element.querySelector('.is-current')!.getBoundingClientRect();
+    return { top: Math.round(onAir.top - element.getBoundingClientRect().top), scrollTop: element.scrollTop };
+  });
+  await expect.poll(async () => (await offset()).top).toBe(0);
+  expect((await offset()).scrollTop).toBeGreaterThan(0);
+
+  // The panel re-renders every second; scrolling back through the day must survive that.
+  await list.evaluate(element => { element.scrollTop = 0; });
+  await page.waitForTimeout(2500);
+  expect((await offset()).scrollTop).toBe(0);
+  await expect(page.locator(`${PANEL} .live-preview-program`).first()).toHaveText(/00:00–00:59.*Program 1/s);
 });
 
 test('background resume restores preview presentation and mute through the normal lifecycle', async ({ page }) => {
@@ -827,7 +854,7 @@ test.describe('display timezone', () => {
     await setup(page, { enabled: true, epg: true });
     await expect(page.locator(ROW).first()).toContainText('Program 1');
     await selectFirst(page);
-    await expect(page.locator(`${PANEL} .live-preview-program time`).first())
+    await expect(page.locator(`${PANEL} .live-preview-program.is-upcoming time`).first())
       .toHaveText('15:00–16:00');
     await expect(page.locator(`${PANEL} .live-preview-title`)).toHaveText('Program 1');
     await expectPreviewGeometry(page);
@@ -836,7 +863,7 @@ test.describe('display timezone', () => {
     await page.locator('#tz-mode [data-value="feed"]').click();
     await page.locator('#save-settings').click();
     await selectFirst(page);
-    await expect(page.locator(`${PANEL} .live-preview-program time`).first())
+    await expect(page.locator(`${PANEL} .live-preview-program.is-upcoming time`).first())
       .toHaveText('13:00–14:00');
     await expect(page.locator(`${PANEL} .live-preview-title`)).toHaveText('Program 1');
     await expect(page.locator(`${PANEL} .live-preview-remaining`)).toHaveText('60 min left');

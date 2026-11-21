@@ -134,6 +134,8 @@ export const IT_MESSAGES = {
   'preview.noUpcoming': 'Nessun programma in arrivo',
   'preview.idleTitle': 'Anteprima live',
   'preview.idleHint': 'Seleziona un canale per guardarlo qui',
+  'preview.today': 'Guida di oggi',
+  'preview.noGuide': 'Nessuna guida per questo canale',
   'preview.sourceUnavailable': 'Sorgente non disponibile',
   'player.playing': 'In riproduzione: {name}',
   'player.guide': 'Guida TV',

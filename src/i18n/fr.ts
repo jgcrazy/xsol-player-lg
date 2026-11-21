@@ -134,6 +134,8 @@ export const FR_MESSAGES = {
   'preview.noUpcoming': 'Aucun programme à venir',
   'preview.idleTitle': 'Aperçu en direct',
   'preview.idleHint': 'Sélectionnez une chaîne pour la regarder ici',
+  'preview.today': 'Programme du jour',
+  'preview.noGuide': 'Aucun guide pour cette chaîne',
   'preview.sourceUnavailable': 'Source indisponible',
   'player.playing': 'Lecture en cours : {name}',
   'player.guide': 'Guide des programmes',

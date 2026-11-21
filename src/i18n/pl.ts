@@ -138,6 +138,8 @@ export const PL_MESSAGES = {
   'preview.noUpcoming': 'Brak kolejnych programów',
   'preview.idleTitle': 'Podgląd na żywo',
   'preview.idleHint': 'Wybierz kanał, aby oglądać go tutaj',
+  'preview.today': 'Program na dziś',
+  'preview.noGuide': 'Brak programu dla tego kanału',
   'preview.sourceUnavailable': 'Źródło niedostępne',
   'player.playing': 'Teraz odtwarzane: {name}',
   'player.guide': 'Program TV',

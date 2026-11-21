@@ -10,13 +10,22 @@ import { setDisplayTz } from '../utils/time';
 import type { ChannelList } from './channel-list';
 import type { Player } from './player';
 
-vi.mock('../services/epg-service', () => ({
-  EpgService: {
+vi.mock('../services/epg-service', () => {
+  const service = {
     findChannelId: vi.fn(() => 'ch1'),
     getNowPlaying: vi.fn(),
     getUpcoming: vi.fn(),
-  },
-}));
+    // The day list is served from the same fixtures the header uses: the programme
+    // on air followed by what comes after it, clipped to the requested day.
+    getProgrammesIntersectingRange: vi.fn((_id: string, from: number, to: number) => {
+      const current = service.getNowPlaying() as Programme | null | undefined;
+      const later = (service.getUpcoming() as Programme[] | undefined) ?? [];
+      return (current ? [current, ...later] : later)
+        .filter(item => item.start.getTime() < to && item.stop.getTime() > from);
+    }),
+  };
+  return { EpgService: service };
+});
 
 const now = new Date('2026-09-15T20:36:00Z');
 function program(start: number, stop: number, title = 'Program 1'): Programme {
@@ -140,7 +149,7 @@ describe('LivePreview', () => {
     setDisplayTz('device', null);
   });
 
-  it('shows current program, bounded progress, four future items and favorite state', () => {
+  it('shows current program, bounded progress, the day list and favorite state', () => {
     view.applyState(state());
     expect(root.querySelector('.live-preview-channel')?.textContent).toBe('Channel 1');
     expect(root.querySelector('.live-preview-clock')?.textContent).toBe('20:36');
@@ -152,9 +161,16 @@ describe('LivePreview', () => {
     expect(root.querySelector('.live-preview-time-range')?.textContent).toBe('20:00–21:00');
     expect(root.querySelector('[role="progressbar"]')?.getAttribute('aria-valuenow')).toBe('60');
     expect(root.querySelector('.live-preview-remaining')?.textContent).toContain('24');
-    expect(root.querySelectorAll('.live-preview-program')).toHaveLength(4);
-    expect(root.querySelector('.live-preview-program time')?.textContent).toBe('21:00–21:50');
-    expect(EpgService.getUpcoming).toHaveBeenCalledWith('ch1', CONFIG.PLAYER.LIVE_PREVIEW_UPCOMING_COUNT);
+    // The programme on air plus the four that follow it; the last one starts
+    // today and ends after midnight, so it still belongs to the day.
+    expect(root.querySelectorAll('.live-preview-program')).toHaveLength(5);
+    const onAir = root.querySelector('.live-preview-program.is-current');
+    expect(onAir?.querySelector('time')?.textContent).toBe('20:00–21:00');
+    expect(root.querySelectorAll('.live-preview-program.is-current')).toHaveLength(1);
+    expect(root.querySelectorAll('.live-preview-program.is-upcoming')).toHaveLength(4);
+    const dayStart = Date.UTC(2026, 8, 15);
+    expect(EpgService.getProgrammesIntersectingRange)
+      .toHaveBeenCalledWith('ch1', dayStart, dayStart + 24 * 60 * 60 * 1000);
     expect(root.querySelectorAll('button')).toHaveLength(3);
     expect(root.querySelector('[data-preview-action="favorite"]')?.getAttribute('aria-pressed'))
       .toBe('false');
@@ -340,29 +356,29 @@ describe('LivePreview', () => {
     expect(root.querySelector('.live-preview-legend')).toBeNull();
   });
 
-  it('keeps a cross-day group through control focus and mute rerenders', () => {
+  it('keeps the day list through control focus and mute rerenders', () => {
     vi.mocked(EpgService.getUpcoming).mockReturnValue([
       program(24, 74, 'Program 2'),
       program(240, 300, 'Program 3'),
     ]);
     view.applyState(state());
     expect(root.querySelectorAll('.live-preview-program')).toHaveLength(2);
-    expect(root.querySelector('.live-preview-day-separator')).not.toBeNull();
+    expect(root.querySelector('.live-preview-program.is-current')).not.toBeNull();
 
     view.focus('mute');
     view.applyState({ ...state(), muted: true });
 
     expect(root.querySelector('.live-preview-slot > .live-preview-legend')).not.toBeNull();
     expect(root.querySelectorAll('.live-preview-program')).toHaveLength(2);
-    expect(root.querySelector('.live-preview-day-separator')).not.toBeNull();
+    expect(root.querySelector('.live-preview-program.is-current')).not.toBeNull();
   });
 
-  it('leaves program details empty when all EPG is absent', () => {
+  it('says there is no guide when all EPG is absent', () => {
     vi.mocked(EpgService.findChannelId).mockReturnValue(null);
     view.applyState(state());
     expect(root.querySelector('.live-preview-title')).toBeNull();
     expect(root.querySelector('.live-preview-upcoming')).toBeNull();
-    expect(root.querySelector('.live-preview-empty')).toBeNull();
+    expect(root.querySelector('.live-preview-empty')?.textContent).toBe('No guide for this channel');
     expect(root.querySelector('[role="progressbar"]')).toBeNull();
   });
 
@@ -382,56 +398,54 @@ describe('LivePreview', () => {
     view.applyState(state());
     const keys = Array.from(root.querySelectorAll('.live-preview-program'))
       .map(row => row.getAttribute('data-key'));
-    expect(new Set(keys).size).toBe(2);
+    expect(new Set(keys).size).toBe(3);
   });
 
-  it('recalculates the last visible program when the layout changes', () => {
-    const rect = (bottom: number, height: number): DOMRect => ({
-      x: 0, y: bottom - height, top: bottom - height, right: 100,
-      bottom, left: 0, width: 100, height, toJSON: () => ({}),
+  it('brings the programme on air to the top once and leaves a manual scroll alone', () => {
+    const rect = (top: number, height: number): DOMRect => ({
+      x: 0, y: top, top, right: 100, bottom: top + height, left: 0, width: 100, height,
+      toJSON: () => ({}),
     });
-    let detailsBottom = 300;
     view.applyState(state());
-    const details = root.querySelector<HTMLElement>('.live-preview-details')!;
-    const rows = Array.from(root.querySelectorAll<HTMLElement>('.live-preview-program'));
-    vi.spyOn(details, 'getBoundingClientRect')
-      .mockImplementation(() => rect(detailsBottom, detailsBottom));
-    rows.forEach((row, index) => {
-      vi.spyOn(row, 'getBoundingClientRect').mockReturnValue(rect(200 + index * 40, 40));
-    });
+    const list = root.querySelector<HTMLElement>('.live-preview-upcoming')!;
+    const onAir = root.querySelector<HTMLElement>('.live-preview-program.is-current')!;
+    vi.spyOn(list, 'getBoundingClientRect').mockReturnValue(rect(100, 300));
+    vi.spyOn(onAir, 'getBoundingClientRect').mockReturnValue(rect(400, 60));
 
-    view.fitPrograms();
-
-    expect(rows[2].classList.contains('last-visible')).toBe(true);
-    expect(rows[3].style.display).toBe('none');
-
-    detailsBottom = 400;
     preview.refreshLayout();
+    expect(list.scrollTop).toBe(300);
 
-    expect(rows[2].classList.contains('last-visible')).toBe(false);
-    expect(rows[3].classList.contains('last-visible')).toBe(true);
-    expect(rows[3].style.display).toBe('');
-  });
-
-  it('adds a date to future programs across midnight', () => {
-    vi.mocked(EpgService.getUpcoming).mockReturnValue([program(240, 300)]);
+    // The panel re-renders every second; a scroll back through the day must survive it.
+    list.scrollTop = 50;
     view.applyState(state());
-    expect(root.querySelector('.live-preview-day-separator')?.textContent).toContain('Tomorrow');
-    expect(root.querySelector('.live-preview-day-separator')?.textContent).toContain('09/16');
-    expect(root.querySelector('.live-preview-program time')?.textContent).toBe('00:36–01:36');
+    preview.refreshLayout();
+    expect(list.scrollTop).toBe(50);
   });
 
-  it('groups three sparse upcoming programs across three display days', () => {
+  it('marks what already aired, what is on air and what is still to come', () => {
+    vi.mocked(EpgService.getProgrammesIntersectingRange).mockReturnValueOnce([
+      program(-200, -140, 'Program 0'),
+      program(-36, 24, 'Program 1'),
+      program(24, 74, 'Program 2'),
+    ]);
+    view.applyState(state());
+    const rows = Array.from(root.querySelectorAll('.live-preview-program'));
+    expect(rows.map(row => row.className.replace('live-preview-program ', '')))
+      .toEqual(['is-past', 'is-current', 'is-upcoming']);
+    expect(rows.map(row => row.querySelector('span')?.textContent))
+      .toEqual(['Program 0', 'Program 1', 'Program 2']);
+    expect(root.querySelector('.live-preview-day-title')?.textContent).toBe("Today's guide");
+  });
+
+  it('leaves out programmes that belong to another day', () => {
     vi.mocked(EpgService.getUpcoming).mockReturnValue([
       program(240, 300, 'Program 2'),
       program(1680, 1740, 'Program 3'),
-      program(3120, 3180, 'Program 4'),
     ]);
     view.applyState(state());
-    const labels = Array.from(root.querySelectorAll('.live-preview-day-separator'))
-      .map(element => element.textContent?.trim());
-    expect(labels).toEqual(['Tomorrow, 09/16', 'Thu, 09/17', 'Fri, 09/18']);
-    expect(root.querySelectorAll('.live-preview-program')).toHaveLength(3);
+    const titles = Array.from(root.querySelectorAll('.live-preview-program span'))
+      .map(element => element.textContent);
+    expect(titles).toEqual(['Program 1']);
   });
 
   it('escapes all channel and programme text', () => {

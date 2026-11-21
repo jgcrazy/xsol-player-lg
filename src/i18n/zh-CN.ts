@@ -132,6 +132,8 @@ export const ZH_CN_MESSAGES = {
   'preview.noUpcoming': '暂无后续节目',
   'preview.idleTitle': '直播预览',
   'preview.idleHint': '选择一个频道即可在此观看',
+  'preview.today': '今日节目',
+  'preview.noGuide': '该频道暂无节目单',
   'preview.sourceUnavailable': '播放源不可用',
   'player.playing': '正在播放：{name}',
   'player.guide': '节目指南',

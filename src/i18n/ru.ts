@@ -138,6 +138,8 @@ export const RU_MESSAGES = {
   'preview.noUpcoming': 'Нет предстоящих программ',
   'preview.idleTitle': 'Предпросмотр эфира',
   'preview.idleHint': 'Выберите канал, чтобы смотреть его здесь',
+  'preview.today': 'Программа на сегодня',
+  'preview.noGuide': 'Нет программы для этого канала',
   'preview.sourceUnavailable': 'Источник недоступен',
   'player.playing': 'Сейчас воспроизводится: {name}',
   'player.guide': 'Телепрограмма',

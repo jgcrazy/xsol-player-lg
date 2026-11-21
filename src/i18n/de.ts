@@ -134,6 +134,8 @@ export const DE_MESSAGES = {
   'preview.noUpcoming': 'Keine kommenden Sendungen',
   'preview.idleTitle': 'Live-Vorschau',
   'preview.idleHint': 'Wähle einen Sender, um ihn hier anzusehen',
+  'preview.today': 'Programm heute',
+  'preview.noGuide': 'Kein Programm für diesen Sender',
   'preview.sourceUnavailable': 'Quelle nicht verfügbar',
   'player.playing': 'Aktuelle Wiedergabe: {name}',
   'player.guide': 'Programmübersicht',

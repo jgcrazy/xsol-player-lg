@@ -138,6 +138,8 @@ export const UK_MESSAGES = {
   'preview.noUpcoming': 'Немає майбутніх програм',
   'preview.idleTitle': 'Попередній перегляд ефіру',
   'preview.idleHint': 'Виберіть канал, щоб дивитися його тут',
+  'preview.today': 'Програма на сьогодні',
+  'preview.noGuide': 'Немає програми для цього каналу',
   'preview.sourceUnavailable': 'Джерело недоступне',
   'player.playing': 'Зараз відтворюється: {name}',
   'player.guide': 'Телепрограма',

@@ -137,6 +137,8 @@ export const EN_MESSAGES = {
   'preview.noUpcoming': 'No upcoming programs',
   'preview.idleTitle': 'Live preview',
   'preview.idleHint': 'Select a channel to watch it here',
+  'preview.today': 'Today\'s guide',
+  'preview.noGuide': 'No guide for this channel',
   'preview.sourceUnavailable': 'Source unavailable',
   'player.playing': 'Now playing: {name}',
   'player.guide': 'Program Guide',

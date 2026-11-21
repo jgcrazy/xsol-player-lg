@@ -134,6 +134,8 @@ export const PT_BR_MESSAGES = {
   'preview.noUpcoming': 'Nenhum programa a seguir',
   'preview.idleTitle': 'Prévia ao vivo',
   'preview.idleHint': 'Selecione um canal para assistir aqui',
+  'preview.today': 'Programação de hoje',
+  'preview.noGuide': 'Sem guia para este canal',
   'preview.sourceUnavailable': 'Fonte indisponível',
   'player.playing': 'Reproduzindo agora: {name}',
   'player.guide': 'Guia de programação',

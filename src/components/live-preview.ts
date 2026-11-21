@@ -15,7 +15,7 @@ import { channelKey } from '../utils/channel';
 import { html, raw, show, hide, type Safe } from '../utils/dom';
 import { morph } from '../utils/morph';
 import { isSourceEnabled } from '../utils/playlist';
-import { addDisplayDays, displayDayKey, formatDayLabel, formatTime } from '../utils/time';
+import { addDisplayDays, formatTime, startOfDisplayDay } from '../utils/time';
 import type { ChannelList } from './channel-list';
 import {
   favoriteIcon,
@@ -61,6 +61,7 @@ export class LivePreview {
   private channelKey = '';
   private channelAvailable = true;
   private managingList = false;
+  private dayAnchor = '';
 
   constructor(
     private readonly container: HTMLElement,
@@ -408,21 +409,17 @@ export class LivePreview {
     return `${formatTime(program.start)}\u2013${formatTime(program.stop)}`;
   }
 
-  private renderUpcoming(upcoming: Programme[], now: Date): Safe {
-    let previousDay = displayDayKey(now);
-    const tomorrow = displayDayKey(addDisplayDays(now, 1));
-    return html`${upcoming.map(item => {
-      const day = displayDayKey(item.start);
-      const showDay = day !== previousDay;
-      previousDay = day;
-      const label = formatDayLabel(item.start);
+  // The whole display day, not just what is next: rows already aired stay in the
+  // list (dimmed) and the one on air is marked, so the guide can be read against
+  // what is playing.
+  private renderDay(programmes: Programme[], now: number): Safe {
+    return html`${programmes.map(item => {
+      const start = item.start.getTime();
+      const stop = item.stop.getTime();
+      const phase = stop <= now ? 'is-past' : start <= now ? 'is-current' : 'is-upcoming';
       return html`
-        ${showDay ? html`
-          <div class="live-preview-day-separator" data-key="day:${day}">
-            <span>${day === tomorrow ? t('common.tomorrow') : label.weekday}, ${label.date}</span>
-          </div>` : ''}
-        <div class="live-preview-program"
-             data-key="program:${item.start.getTime()}:${item.stop.getTime()}">
+        <div class="live-preview-program ${phase}"
+             data-key="program:${start}:${stop}">
           <time>${this.programTimeRange(item)}</time><span>${item.title}</span>
         </div>`;
     })}`;
@@ -434,9 +431,11 @@ export class LivePreview {
     const now = new Date();
     const epgId = EpgService.findChannelId(state.channel);
     const program = epgId ? EpgService.getNowPlaying(epgId) : null;
-    const upcoming = epgId
-      ? EpgService.getUpcoming(epgId, CONFIG.PLAYER.LIVE_PREVIEW_UPCOMING_COUNT)
-          .filter(item => item.stop.getTime() > item.start.getTime())
+    const dayStart = startOfDisplayDay(now);
+    const today = epgId
+      ? EpgService.getProgrammesIntersectingRange(
+          epgId, dayStart.getTime(), addDisplayDays(dayStart, 1).getTime(),
+        ).filter(item => item.stop.getTime() > item.start.getTime())
       : [];
     const length = program ? program.stop.getTime() - program.start.getTime() : 0;
     const fraction = program && length > 0
@@ -494,55 +493,36 @@ export class LivePreview {
                aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(fraction * 100)}">
             <div style="width:${fraction * 100}%"></div>
           </div>` : ''}
-        ${upcoming.length ? html`
-          <div class="live-preview-upcoming">
-            <h3>${t('player.upNext')}</h3>
-            ${this.renderUpcoming(upcoming, now)}
-          </div>` : program ? html`<p class="live-preview-empty">${t('preview.noUpcoming')}</p>` : ''}
+        ${today.length ? html`
+          <h3 class="live-preview-day-title" data-key="preview-day-title">${t('preview.today')}</h3>
+          <div class="live-preview-upcoming" data-key="preview-day">
+            ${this.renderDay(today, now.getTime())}
+          </div>` : html`<p class="live-preview-empty" data-key="preview-empty">${t('preview.noGuide')}</p>`}
       </div>
     `);
     this.fitPrograms();
   }
 
+  // Brings the programme on air to the top of the day list. Only when the channel
+  // or the current programme changes: the list re-renders every second, and a user
+  // who scrolled back through the day must not be yanked forward each time.
   private fitPrograms(): void {
-    const details = this.container.querySelector<HTMLElement>('.live-preview-details');
-    const upcoming = this.container.querySelector<HTMLElement>('.live-preview-upcoming');
-    if (!details || !upcoming) return;
-    const bounds = details.getBoundingClientRect();
-    if (bounds.height <= 0) return;
-    let visible = 0;
-    let lastVisible: HTMLElement | null = null;
-    const rows = Array.from(upcoming.querySelectorAll<HTMLElement>('.live-preview-program'));
-    const separators = Array.from(
-      upcoming.querySelectorAll<HTMLElement>('.live-preview-day-separator'),
-    );
-    upcoming.style.display = '';
-    for (const row of rows) {
-      row.classList.remove('last-visible');
-      row.style.display = '';
+    const list = this.container.querySelector<HTMLElement>('.live-preview-upcoming');
+    const state = this.state;
+    if (!list || !state) {
+      this.dayAnchor = '';
+      return;
     }
-    for (const separator of separators) separator.style.display = '';
-    for (const row of rows) {
-      if (row.getBoundingClientRect().bottom > bounds.bottom) row.style.display = 'none';
-      else {
-        visible++;
-        lastVisible = row;
-      }
+    const current = list.querySelector<HTMLElement>('.live-preview-program.is-current')
+      ?? list.querySelector<HTMLElement>('.live-preview-program.is-upcoming');
+    const anchor = `${channelKey(state.channel)}|${current?.dataset.key ?? ''}`;
+    if (anchor === this.dayAnchor) return;
+    if (list.getBoundingClientRect().height <= 0) return;
+    this.dayAnchor = anchor;
+    if (!current) {
+      list.scrollTop = list.scrollHeight;
+      return;
     }
-    lastVisible?.classList.add('last-visible');
-    for (const separator of separators) {
-      let sibling = separator.nextElementSibling;
-      let hasVisibleProgram = false;
-      while (sibling && !sibling.classList.contains('live-preview-day-separator')) {
-        if (sibling.classList.contains('live-preview-program')
-            && (sibling as HTMLElement).style.display !== 'none') {
-          hasVisibleProgram = true;
-          break;
-        }
-        sibling = sibling.nextElementSibling;
-      }
-      if (!hasVisibleProgram) separator.style.display = 'none';
-    }
-    if (!visible) upcoming.style.display = 'none';
+    list.scrollTop += current.getBoundingClientRect().top - list.getBoundingClientRect().top;
   }
 }
