@@ -35,7 +35,7 @@ test('the Settings tab opens the card screen, in three columns, with the device 
   const title = (await page.locator('#view-prefs .prefs-title').boundingBox())!;
   expect(title.y).toBeGreaterThan(96);
   // Focus starts on the first card.
-  await expect(page.locator('#view-prefs .prefs-card.focused')).toHaveAttribute('data-card-id', 'language');
+  await expect(page.locator('#view-prefs .prefs-card.focused')).toHaveAttribute('data-card-id', 'parental');
 });
 
 test('a switch card flips and keeps its value, and the language card changes the language at once', async ({ page }) => {
@@ -218,4 +218,88 @@ test('hiding a movie category removes it from Movies; an access without a catalo
   await enterTab(page, 'settings');
   await page.locator('.prefs-card[data-card-id="hide-series"]').click();
   await expect(page.locator('.prefs-picker-empty')).toHaveText('Not available on this access');
+});
+
+test('the time format card switches every clock between 24 and 12 hours, and it sticks', async ({ page }) => {
+  await openCards(page);
+  const clock = page.locator('.tab-bar-time');
+  await expect(clock).toHaveText(/^\d{2}:\d{2}$/);
+  await expect(page.locator('#prefs-value-time-format')).toHaveText('24 hours');
+
+  await page.locator('.prefs-card[data-card-id="time-format"]').click();
+
+  await expect(page.locator('#prefs-value-time-format')).toHaveText('12 hours');
+  await expect(clock).toHaveText(/^\d{1,2}:\d{2} (AM|PM)$/);
+
+  await page.reload();
+  await expect(page.locator('.tab-bar-time')).toHaveText(/^\d{1,2}:\d{2} (AM|PM)$/);
+});
+
+const type = async (page: Page, digits: string): Promise<void> => {
+  for (const digit of digits) await page.locator(`.pin-prompt [data-pin-key="${digit}"]`).click();
+};
+
+test('parental control asks for a PIN twice to turn on, then guards Settings and Access', async ({ page }) => {
+  await openCards(page);
+  const card = page.locator('.prefs-card[data-card-id="parental"]');
+  await expect(card.locator('.prefs-switch')).toHaveText('Off');
+
+  // Two different entries are refused; the same PIN twice turns it on.
+  await card.click();
+  await expect(page.locator('#pin-title')).toHaveText('Create a PIN');
+  await type(page, '1234');
+  await expect(page.locator('#pin-title')).toHaveText('Repeat the PIN');
+  await type(page, '9999');
+  await expect(page.locator('#pin-title')).toHaveText('Create a PIN');
+  await expect(page.locator('#pin-hint')).toHaveText('The two PINs were different. Start again.');
+  await type(page, '1234');
+  await type(page, '1234');
+  await expect(page.locator('.pin-prompt')).toBeHidden();
+  await expect(card.locator('.prefs-switch')).toHaveText('On');
+  // Only a digest is kept.
+  expect(await page.evaluate(() => localStorage.getItem('iptv_parental'))).not.toContain('1234');
+
+  // Leaving and coming back to Settings now needs the PIN; a wrong one stays out.
+  await enterTab(page, 'home');
+  await expect(page.locator('#view-home')).toBeVisible();
+  await enterTab(page, 'settings');
+  await expect(page.locator('#pin-title')).toHaveText('Enter the PIN');
+  await expect(page.locator('#view-prefs')).toBeHidden();
+  await type(page, '0000');
+  await expect(page.locator('#pin-hint')).toHaveText('Wrong PIN. Try again.');
+  await expect(page.locator('#view-prefs')).toBeHidden();
+  await type(page, '1234');
+  await expect(page.locator('#view-prefs')).toBeVisible();
+
+  // The Access screen is guarded the same way; Cancel leaves things as they were.
+  await enterTab(page, 'home');
+  await page.locator('#view-home [data-section="access"]').click();
+  await expect(page.locator('#pin-title')).toHaveText('Enter the PIN');
+  await page.locator('.pin-prompt [data-pin-key="cancel"]').click();
+  await expect(page.locator('.pin-prompt')).toBeHidden();
+  await expect(page.locator('#view-home')).toBeVisible();
+
+  // TV, Movies and Series are never asked for it.
+  await enterTab(page, 'live');
+  await expect(page.locator('#view-channels')).toBeVisible();
+  await expect(page.locator('.pin-prompt')).toBeHidden();
+});
+
+test('a forgotten PIN is recovered with the device key, which turns parental control off', async ({ page }) => {
+  await openCards(page);
+  await page.locator('.prefs-card[data-card-id="parental"]').click();
+  await type(page, '1234');
+  await type(page, '1234');
+  await enterTab(page, 'home');
+  await enterTab(page, 'settings');
+
+  await page.locator('.pin-prompt [data-pin-key="link"]').click();
+  await expect(page.locator('#pin-title')).toHaveText('Enter the device key');
+  await expect(page.locator('.pin-dot')).toHaveCount(6);
+  await type(page, '000000');
+  await expect(page.locator('#pin-hint')).toContainText('not this device');
+  await type(page, '123456');
+
+  await expect(page.locator('#view-prefs')).toBeVisible();
+  await expect(page.locator('.prefs-card[data-card-id="parental"] .prefs-switch')).toHaveText('Off');
 });

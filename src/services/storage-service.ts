@@ -799,6 +799,24 @@ export const StorageService = {
     set('hidden_categories', { ...all, [kind]: names });
   },
 
+  getParental(): { enabled: boolean; pinHash: string } {
+    const stored = get<unknown>('parental', null) as { enabled?: unknown; pinHash?: unknown } | null;
+    return {
+      enabled: !!stored && stored.enabled === true,
+      pinHash: stored && typeof stored.pinHash === 'string' ? stored.pinHash : '',
+    };
+  },
+  setParental(state: { enabled: boolean; pinHash: string }): void {
+    set('parental', state);
+  },
+
+  getTimeFormat(): '24h' | '12h' {
+    return get<unknown>('time_format', '24h') === '12h' ? '12h' : '24h';
+  },
+  setTimeFormat(format: '24h' | '12h'): void {
+    set('time_format', format);
+  },
+
   // Which Settings the tab opens: the card screen, or straight into the option
   // panes behind it (the classic page).
   getSettingsEntry(): 'cards' | 'panes' {

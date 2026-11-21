@@ -12,6 +12,7 @@ import {
 } from './icons';
 import { AccountSwitcher } from './account-switcher';
 import { getLocale, t } from '../i18n';
+import { formatClock } from '../utils/time';
 
 // Cap for the expanded inline search box.
 export const SEARCH_INPUT_MAX_WIDTH = 600;
@@ -70,10 +71,6 @@ interface TabBarHandlers {
 }
 
 const CLOCK_REFRESH_MS = 20 * 1000;
-
-function pad(value: number): string {
-  return (value < 10 ? '0' : '') + value;
-}
 
 // "SEX · 20 NOV": weekday and month abbreviations come from the engine, minus
 // the trailing dot some locales add.
@@ -185,7 +182,7 @@ export class TabBar {
     const date = this.el?.querySelector<HTMLElement>('.tab-bar-date');
     if (!time || !date) return;
     const now = new Date();
-    time.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    time.textContent = formatClock(now.getHours(), now.getMinutes());
     date.textContent = shortDate(now);
   }
 
@@ -377,7 +374,7 @@ export class TabBar {
         <div class="tab-bar-search ${this.searchExpanded ? 'expanded' : ''}" data-key="search-slot" data-morph-preserve></div>
         <div class="tab-bar-account" data-key="account-slot" data-morph-preserve></div>
         <div class="tab-bar-clock" data-key="clock">
-          <span class="tab-bar-time">${pad(now.getHours())}:${pad(now.getMinutes())}</span>
+          <span class="tab-bar-time">${formatClock(now.getHours(), now.getMinutes())}</span>
           <span class="tab-bar-date">${shortDate(now)}</span>
         </div>
       </div>

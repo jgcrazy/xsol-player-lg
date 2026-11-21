@@ -80,9 +80,28 @@ export function parseXmltvOffsetMinutes(str: string | null): number | null {
   return sign * (parseInt(m[2], 10) * 60 + parseInt(m[3], 10));
 }
 
+export type TimeFormat = '24h' | '12h';
+let timeFormat: TimeFormat = '24h';
+
+/** The clock style every time on screen is written in. */
+export function setTimeFormat(format: TimeFormat): void {
+  timeFormat = format;
+}
+
+export function getTimeFormat(): TimeFormat {
+  return timeFormat;
+}
+
+/** "14:05", or "2:05 PM" under the 12-hour clock. */
+export function formatClock(hours: number, minutes: number): string {
+  if (timeFormat === '24h') return `${pad2(hours)}:${pad2(minutes)}`;
+  const hour = hours % 12 === 0 ? 12 : hours % 12;
+  return `${hour}:${pad2(minutes)} ${hours < 12 ? 'AM' : 'PM'}`;
+}
+
 export function formatTime(date: Date): string {
   const p = displayParts(date);
-  return `${pad2(p.hours)}:${pad2(p.minutes)}`;
+  return formatClock(p.hours, p.minutes);
 }
 
 // Weekday + MM/DD label for a day, in the active display timezone.

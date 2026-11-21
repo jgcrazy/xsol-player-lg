@@ -26,6 +26,8 @@ import { Movies } from './components/movies';
 import { Series } from './components/series';
 import { Search } from './components/search';
 import { Preferences, type PreferencePane } from './components/preferences';
+import { PinPrompt } from './components/pin-prompt';
+import { ParentalService } from './services/parental';
 import { Access } from './components/access';
 import { Home, type HomeChannel, type HomeData, type HomeSection } from './components/home';
 import { RecentlyWatchedService } from './services/recently-watched';
@@ -40,7 +42,7 @@ import { showNumberEntry, hideNumberEntry } from './components/number-entry';
 import { ReminderService } from './services/reminder-service';
 import { ReminderPrompt } from './components/reminder-prompt';
 import { ReminderManager } from './components/reminder-manager';
-import { setDisplayTz } from './utils/time';
+import { setDisplayTz, setTimeFormat } from './utils/time';
 import { initTheme, applyTheme, applyOverlayStyle, applyTextSize } from './services/theme-service';
 import { applyAnimationMode } from './services/motion-service';
 import { channelKey } from './utils/channel';
@@ -84,6 +86,7 @@ class App {
   private sidebar!: Sidebar;
   private menu!: PlayerMenu;
   private reminderPrompt = new ReminderPrompt();
+  private pinPrompt = new PinPrompt();
   private reminderManager!: ReminderManager;
   private reminderManagerOrigin: 'settings' | 'epg' = 'settings';
   private tabBar!: TabBar;
@@ -112,6 +115,7 @@ class App {
     const initialLoadingText = $('#loading-text');
     if (initialLoadingText) initialLoadingText.textContent = t('common.loading');
     initTheme();
+    setTimeFormat(StorageService.getTimeFormat());
     this.views = {
       channels: $('#view-channels')!,
       player: $('#view-player')!,
@@ -199,6 +203,13 @@ class App {
         setLocale(locale);
         this.tabBar.refresh();
         ReminderService.reschedulePending();
+      },
+      parentalEnabled: () => ParentalService.enabled,
+      onToggleParental: () => this.toggleParental(),
+      onTimeFormatChanged: () => {
+        setTimeFormat(StorageService.getTimeFormat());
+        this.tabBar.refresh();
+        this.channelList.render();
       },
       onRefreshChanged: () => {
         this.scheduleEpgRefresh();
@@ -382,7 +393,9 @@ class App {
       },
     });
     this.tabBar = new TabBar({
-      onSwitch: (section) => this.switchSection(section),
+      // Moving along the bar previews each section; a guarded one stays shut
+      // until it is actually entered and the PIN is given.
+      onSwitch: (section) => { if (!this.isGuarded(section)) this.switchSection(section); },
       onEnter: (section) => this.enterSection(section),
       onSearchQuery: (query) => this.handleSearchQuery(query),
       onSearchLeave: () => this.search.focusFirstResult(),
@@ -1032,8 +1045,114 @@ class App {
 
   // Down/Select from the bar: switch to the section and drop focus into content.
   private enterSection(section: Section): void {
+    if (this.isGuarded(section)) {
+      this.askPin(() => {
+        this.tabBar.setActive(section);
+        this.switchSection(section);
+      });
+      return;
+    }
     this.tabBar.setActive(section);
     this.switchSection(section);
+  }
+
+  // With parental control on, Settings and Access open only with the PIN: they
+  // are where hidden categories can be shown again and the access changed. An
+  // expired or blocked device is sent to Access by the app itself, not through here.
+  private isGuarded(section: Section): boolean {
+    if (!ParentalService.enabled) return false;
+    if (section !== 'settings' && section !== 'access') return false;
+    const current = this.viewStack[this.viewStack.length - 1];
+    // Already inside: moving between the cards and their panes asks nothing.
+    if (section === 'settings' && (current === 'prefs' || current === 'settings')) return false;
+    return !(section === 'access' && current === 'access');
+  }
+
+  private askPin(onUnlocked: () => void): void {
+    this.pinPrompt.show({
+      title: t('parental.enterPin'),
+      hint: t('parental.enterPinHint'),
+      length: ParentalService.PIN_LENGTH,
+      onSubmit: (pin) => {
+        if (!ParentalService.matches(pin)) return t('parental.wrongPin');
+        this.pinPrompt.hide();
+        onUnlocked();
+        return undefined;
+      },
+      onCancel: () => this.pinPrompt.hide(),
+      link: { label: t('parental.forgot'), onSelect: () => this.askDeviceKey(onUnlocked) },
+    });
+  }
+
+  // The way out of a forgotten PIN: the device key, which the customer can
+  // read on the portal and support can read on the panel.
+  private askDeviceKey(onUnlocked: () => void): void {
+    this.pinPrompt.show({
+      title: t('parental.enterKey'),
+      hint: t('parental.enterKeyHint'),
+      length: 6,
+      onSubmit: (key) => {
+        const expected = StorageService.getDeviceLink().manageKey ?? '';
+        if (!expected || key !== expected) return t('parental.wrongKey');
+        ParentalService.disable();
+        this.pinPrompt.hide();
+        showToast(t('parental.disabled'));
+        onUnlocked();
+        return undefined;
+      },
+      onCancel: () => this.pinPrompt.hide(),
+    });
+  }
+
+  private toggleParental(): void {
+    const done = (message: string): void => {
+      this.pinPrompt.hide();
+      showToast(message);
+      this.preferences.refresh();
+    };
+    if (ParentalService.enabled) {
+      this.pinPrompt.show({
+        title: t('parental.enterPin'),
+        hint: t('parental.disableHint'),
+        length: ParentalService.PIN_LENGTH,
+        onSubmit: (pin) => {
+          if (!ParentalService.matches(pin)) return t('parental.wrongPin');
+          ParentalService.disable();
+          done(t('parental.disabled'));
+          return undefined;
+        },
+        onCancel: () => this.pinPrompt.hide(),
+        link: { label: t('parental.forgot'), onSelect: () => this.askDeviceKey(() => this.preferences.refresh()) },
+      });
+      return;
+    }
+    const askNew = (error = ''): void => {
+      this.pinPrompt.show({
+        title: t('parental.newPin'),
+        hint: error || t('parental.newPinHint'),
+        length: ParentalService.PIN_LENGTH,
+        onSubmit: (first) => {
+          this.pinPrompt.show({
+            title: t('parental.confirmPin'),
+            hint: t('parental.confirmPinHint'),
+            length: ParentalService.PIN_LENGTH,
+            onSubmit: (second) => {
+              if (second !== first) {
+                askNew(t('parental.mismatch'));
+                return undefined;
+              }
+              ParentalService.enable(first);
+              done(t('parental.enabled'));
+              return undefined;
+            },
+            onCancel: () => this.pinPrompt.hide(),
+          });
+          return undefined;
+        },
+        onCancel: () => this.pinPrompt.hide(),
+      });
+    };
+    askNew();
   }
 
   private goLive(): void {
@@ -1400,6 +1519,11 @@ class App {
     }
 
     // A reminder prompt overlays every view and consumes input first.
+    // The PIN entry is modal over everything else.
+    if (this.pinPrompt.visible) {
+      this.pinPrompt.handleAction(action, event);
+      return;
+    }
     if (this.reminderPrompt.visible) {
       this.reminderPrompt.handleAction(action);
       return;
@@ -1458,8 +1582,7 @@ class App {
       this.sidebar.hide();
       this.menu.hide();
       this.player.stop();
-      this.settings.render();
-      this.showView('settings');
+      this.enterSection('settings');
       return;
     }
     if (action === 'green' && currentView === 'player' && (this.sidebar.visible || this.menu.visible)) {

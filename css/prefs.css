@@ -183,3 +183,62 @@
 }
 .prefs-row.is-hidden { color: #8a8178; }
 .prefs-row-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+
+/* The PIN entry: a modal keypad for remotes without number keys. */
+.pin-prompt {
+  position: fixed;
+  top: 0; left: 0; right: 0; bottom: 0;
+  z-index: 3000;
+  display: flex; align-items: center; justify-content: center;
+  background: rgba(8, 6, 5, 0.86);
+  font-family: "Manrope", "LG Smart UI", sans-serif;
+}
+.pin-prompt.hidden { display: none; }
+.pin-dialog {
+  width: 520px;
+  box-sizing: border-box;
+  padding: 40px 44px 36px;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 22px;
+  background: linear-gradient(180deg, #17130f 0%, #0f0c0a 100%);
+  box-shadow: 0 30px 80px -20px rgba(214, 150, 60, 0.3);
+  text-align: center;
+}
+.pin-title { margin: 0; font-family: "Newsreader", serif; font-weight: 300; font-size: 38px; color: #f2ece2; }
+.pin-hint { margin: 10px 0 0; min-height: 44px; font-size: 16px; line-height: 1.35; color: #8a8178; }
+.pin-hint.is-error { color: #ff7a7f; }
+.pin-dots { margin-top: 18px; display: flex; justify-content: center; gap: 18px; }
+.pin-dot {
+  width: 18px; height: 18px;
+  box-sizing: border-box;
+  border: 2px solid rgba(232, 182, 95, 0.5);
+  border-radius: 50%;
+}
+.pin-dot.is-filled { background: #e8b65f; border-color: #e8b65f; }
+.pin-keys { margin-top: 26px; }
+.pin-row { display: flex; justify-content: center; gap: 12px; }
+.pin-row + .pin-row { margin-top: 12px; }
+.pin-prompt .pin-key {
+  width: 132px; height: 64px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.09);
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.03);
+  color: #f2ece2;
+  font-family: inherit;
+  font-size: 26px; font-weight: 600;
+  cursor: pointer;
+  transform: none;
+}
+.pin-prompt .pin-key.focused,
+.pin-prompt .pin-key:hover {
+  border-color: rgba(232, 182, 95, 0.7);
+  background: rgba(232, 182, 95, 0.14);
+  color: #e8b65f;
+  box-shadow: none;
+  transform: none;
+}
+.pin-key-text { font-size: 15px; font-weight: 600; }
+.pin-key-icon { width: 24px; height: 24px; display: flex; }
+.pin-key-icon svg { width: 100%; height: 100%; }
+.pin-prompt .pin-row-link .pin-key { width: 420px; height: 48px; border-color: transparent; background: transparent; color: #bdb4a7; }

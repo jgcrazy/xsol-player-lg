@@ -5,6 +5,7 @@ import { ActivationService } from '../services/xsol/activation-service';
 import { html, raw, type Safe } from '../utils/dom';
 import { morph } from '../utils/morph';
 import { getLocale, t, type TextMessageKey } from '../i18n';
+import { formatClock } from '../utils/time';
 import {
   ACCESS_ICON,
   ARROW_RIGHT_ICON,
@@ -52,10 +53,6 @@ const SECTION_CARDS: ReadonlyArray<{ id: HomeSection; titleKey: TextMessageKey; 
   { id: 'access', titleKey: 'nav.access', icon: ACCESS_ICON },
   { id: 'settings', titleKey: 'nav.settings', icon: SETTINGS_ICON },
 ];
-
-function pad(value: number): string {
-  return (value < 10 ? '0' : '') + value;
-}
 
 function localized(date: Date, options: Intl.DateTimeFormatOptions): string {
   try {
@@ -241,7 +238,7 @@ export class Home {
             <div class="home-date">
               <span class="home-date-long">${longDate.charAt(0).toUpperCase() + longDate.slice(1)}</span>
               <span class="home-date-dot"></span>
-              <span class="home-date-time">${pad(now.getHours())}:${pad(now.getMinutes())}</span>
+              <span class="home-date-time">${formatClock(now.getHours(), now.getMinutes())}</span>
             </div>
             <div class="home-status">
               <span class="home-status-dot"></span>

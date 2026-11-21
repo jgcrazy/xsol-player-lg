@@ -8,8 +8,8 @@ import { morph } from '../utils/morph';
 import { localeOptions, t, tp, type TextMessageKey } from '../i18n';
 import { ConfirmationPrompt } from './confirmation-prompt';
 import {
-  APPEARANCE_ICON, BELL_ICON, CAPTIONS_ICON, CHEVRON_LEFT_ICON, CLOCK_ICON, CLOUD_ICON, DATABASE_ICON,
-  EYE_OFF_ICON, GLOBE_ICON, GUIDE_ICON, PLAYBACK_ICON, REFRESH_ICON, SOURCES_ICON, TRASH_ICON,
+  APPEARANCE_ICON, BELL_ICON, CAPTIONS_ICON, CHECK_ICON, CHEVRON_LEFT_ICON, CLOCK_ICON, CLOUD_ICON, DATABASE_ICON,
+  EYE_OFF_ICON, GLOBE_ICON, GUIDE_ICON, LOCK_ICON, PLAYBACK_ICON, REFRESH_ICON, SOURCES_ICON, TRASH_ICON,
 } from './icons';
 
 /** The detailed option panes a card can open (the classic Settings page). */
@@ -23,6 +23,11 @@ export interface PreferencesHandlers {
   onOpenReminders: () => void;
   /** The language changed: everything already on screen has to be redrawn. */
   onLocaleChanged: () => void;
+  parentalEnabled: () => boolean;
+  /** Asks for the PIN (new, or the current one) and flips parental control. */
+  onToggleParental: () => void;
+  /** The clock style changed: every time on screen has to be redrawn. */
+  onTimeFormatChanged: () => void;
   /** The automatic refresh was switched: timers have to be rescheduled. */
   onRefreshChanged: () => void;
   /** A history was cleared: the lists built from it are stale. */
@@ -319,6 +324,14 @@ export class Preferences {
         title: 'prefs.group.privacy',
         cards: [
           {
+            id: 'parental',
+            icon: LOCK_ICON,
+            title: 'prefs.parental',
+            subtitle: () => t(this.handlers.parentalEnabled() ? 'prefs.parentalOn' : 'prefs.parentalOff'),
+            on: () => this.handlers.parentalEnabled(),
+            run: () => this.handlers.onToggleParental(),
+          },
+          {
             id: 'language',
             icon: GLOBE_ICON,
             title: 'prefs.language',
@@ -330,13 +343,6 @@ export class Preferences {
             icon: CAPTIONS_ICON,
             title: 'prefs.subtitles',
             subtitle: () => subtitles.preferredLanguage || t('prefs.subtitlesAny'),
-            run: () => this.handlers.onOpenPane('subtitles'),
-          },
-          {
-            id: 'online-subtitles',
-            icon: CAPTIONS_ICON,
-            title: 'settings.onlineSubtitles',
-            subtitle: () => t(subtitlesReady ? 'prefs.configured' : 'prefs.notConfigured'),
             run: () => this.handlers.onOpenPane('subtitles'),
           },
           this.hideCard('hide-live', 'prefs.hideLive', 'live'),
@@ -375,6 +381,17 @@ export class Preferences {
         title: 'prefs.group.playback',
         cards: [
           {
+            id: 'time-format',
+            icon: CLOCK_ICON,
+            title: 'prefs.timeFormat',
+            subtitle: () => t(StorageService.getTimeFormat() === '12h' ? 'prefs.time12' : 'prefs.time24'),
+            run: () => {
+              StorageService.setTimeFormat(StorageService.getTimeFormat() === '12h' ? '24h' : '12h');
+              this.handlers.onTimeFormatChanged();
+              this.render();
+            },
+          },
+          {
             id: 'auto-refresh',
             icon: REFRESH_ICON,
             title: 'prefs.autoRefresh',
@@ -388,6 +405,13 @@ export class Preferences {
             title: 'settings.playback',
             subtitle: () => t('prefs.playbackHint'),
             run: () => this.handlers.onOpenPane('playback'),
+          },
+          {
+            id: 'online-subtitles',
+            icon: CAPTIONS_ICON,
+            title: 'settings.onlineSubtitles',
+            subtitle: () => t(subtitlesReady ? 'prefs.configured' : 'prefs.notConfigured'),
+            run: () => this.handlers.onOpenPane('subtitles'),
           },
           {
             id: 'cloud',
@@ -407,6 +431,13 @@ export class Preferences {
             icon: SOURCES_ICON,
             title: 'settings.sources',
             subtitle: () => t('prefs.streamHint'),
+            run: () => this.handlers.onOpenPane('sources'),
+          },
+          {
+            id: 'health',
+            icon: CHECK_ICON,
+            title: 'settings.channelHealth',
+            subtitle: () => t('prefs.healthHint'),
             run: () => this.handlers.onOpenPane('sources'),
           },
           {

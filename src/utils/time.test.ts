@@ -13,6 +13,9 @@ import {
   isNow,
   getProgress,
   setDisplayTz,
+  formatClock,
+  getTimeFormat,
+  setTimeFormat,
 } from './time';
 
 // Display state is module-global; keep tests in the default 'device' mode.
@@ -104,6 +107,28 @@ describe('formatTime', () => {
   it('renders midnight as 00:xx, never 24:xx', () => {
     expect(formatTime(new Date(2024, 0, 2, 0, 0))).toBe('00:00');
     expect(formatTime(new Date(2024, 0, 2, 0, 30))).toBe('00:30');
+  });
+});
+
+describe('formatClock', () => {
+  afterEach(() => setTimeFormat('24h'));
+
+  it('writes the 24-hour clock by default', () => {
+    expect(getTimeFormat()).toBe('24h');
+    expect([formatClock(0, 5), formatClock(9, 30), formatClock(14, 5), formatClock(23, 59)])
+      .toEqual(['00:05', '09:30', '14:05', '23:59']);
+  });
+
+  it('writes the 12-hour clock with AM and PM, midnight and noon as 12', () => {
+    setTimeFormat('12h');
+    expect([formatClock(0, 5), formatClock(9, 30), formatClock(12, 0), formatClock(14, 5), formatClock(23, 59)])
+      .toEqual(['12:05 AM', '9:30 AM', '12:00 PM', '2:05 PM', '11:59 PM']);
+  });
+
+  it('is what formatTime uses', () => {
+    setTimeFormat('12h');
+    const date = new Date(2030, 0, 5, 15, 7);
+    expect(formatTime(date)).toBe('3:07 PM');
   });
 });
 
