@@ -165,7 +165,11 @@ class App {
     () => !this.sidebar.visible && !this.menu.visible,
     () => {
       this.sidebar.refresh();
-    }, () => this.livePreview?.refresh(),
+    }, () => {
+      this.livePreview?.refresh();
+      // A reconnect swaps in a fresh, unstyled <video>; put it back in the card.
+      if (this.homePreviewActive) this.homePresentation?.refresh();
+    },
     () => this.livePreview?.canResumePlayback() ?? true);
     this.epgGrid = new EpgGrid(
       this.views.epg,

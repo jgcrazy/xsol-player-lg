@@ -232,6 +232,25 @@ test.describe('live preview in the last-watched card', () => {
     expect(stacking.eyebrow).toBeGreaterThan(stacking.video);
   });
 
+  test('a reconnect keeps the picture inside the card', async ({ page }) => {
+    await watchThenReturnHome(page);
+    await expect.poll(async () => (await video(page)).active).toBe(true);
+
+    // A failed stream is retried on a fresh <video> element.
+    await page.locator('#video-player').evaluate((element) => {
+      element.setAttribute('data-before-reconnect', '');
+      element.dispatchEvent(new Event('error'));
+    });
+    await expect(page.locator('#video-player[data-before-reconnect]')).toHaveCount(0);
+
+    const playing = await video(page);
+    const frame = await card(page);
+    expect(Math.abs(playing.box[0] - frame[0])).toBeLessThanOrEqual(1);
+    expect(Math.abs(playing.box[1] - frame[1])).toBeLessThanOrEqual(1);
+    expect(Math.abs(playing.box[2] - frame[2])).toBeLessThanOrEqual(2);
+    expect(Math.abs(playing.box[3] - frame[3])).toBeLessThanOrEqual(2);
+  });
+
   test('Continue grows the same stream to full screen, with sound', async ({ page }) => {
     await page.addInitScript(() => {
       const counter = window as unknown as { streamLoads: number };
