@@ -11,9 +11,7 @@ import {
   clearCachedPlaylist,
   flushCacheWrites,
 } from './services/idb-cache';
-import { SetupClient } from './services/setup-client';
-import { setServicePort } from './services/service-http';
-import { isLunaAvailable, lunaRequest, type LunaRequestHandle } from './services/luna';
+import { isLunaAvailable, lunaRequest } from './services/luna';
 import { ChannelList } from './components/channel-list';
 import { Player } from './components/player';
 import { LivePreview } from './components/live-preview';
@@ -88,11 +86,7 @@ class App {
   private movies!: Movies;
   private series!: Series;
   private lastSearchQuery = '';
-  private enterChannelsAfterUploadSync = false;
   private remindersInitialized = false;
-  private bundledServiceStarting = false;
-  private serviceEventsSubscription: LunaRequestHandle | null = null;
-  private deviceSetupSync = Promise.resolve();
   private playlistRefreshTimer: ReturnType<typeof setTimeout> | null = null;
   private playlistRefreshIntervalMs: number | null | undefined;
   private playlistRefreshPromise: Promise<void> | null = null;
@@ -333,8 +327,7 @@ class App {
     this.initSidebarTrigger();
 
     done();
-    this.enterChannelsAfterUploadSync = StorageService.getPlaylists().length === 0;
-    this.bindBundledServiceLifecycle();
+    this.bindBackgroundFlush();
     this.bindReminderLifecycle();
     this.bindActivationGuard();
     // Register a retail-safe callback immediately. If Developer Mode is
@@ -343,43 +336,23 @@ class App {
     await this.loadData();
     // Cold launch from a "Watch now" alert: channels are loaded now, so tune.
     this.handleLaunchParams(this.coldLaunchParams());
-    // Spawning the service process can synchronously stall Luna on a cold TV.
-    // Keep LAN setup off the critical path so cached channels render first.
-    const bundledServiceReady = this.startBundledService();
-    void bundledServiceReady
-      .then((started) => started ? this.finishBundledServiceInit() : undefined)
-      .catch(err => log.error('Bundled service initialization failed:', err));
+    // Asking the bundled service spawns its process, which can stall Luna on a
+    // cold TV. Keep it off the critical path so cached channels render first.
+    void this.initReminderMode();
   }
 
-  /**
-   * Tie the bundled service's lifetime to the app's foreground state. The
-   * service holds an open LAN HTTP port and a Luna keepAlive activity, so we
-   * stop it when the app is backgrounded (visibility → hidden) so neither
-   * the port nor the service process lingers across the rest of webOS. On
-   * visibility → visible we restart it and resubscribe.
-   *
-   * visibilitychange is reliable on this firmware (verified empirically; the
-   * Player module's suspend/resume listens to the same event).
-   */
-  private bindBundledServiceLifecycle(): void {
+  // Backgrounding is the last reliable moment to persist: webOS may discard the
+  // suspended app without another event. Coming back is also when a dev-mode
+  // probe that timed out on a cold TV gets its second chance.
+  private bindBackgroundFlush(): void {
     let lastVisibility = document.visibilityState;
     document.addEventListener('visibilitychange', () => {
       if (document.visibilityState === lastVisibility) return;
       lastVisibility = document.visibilityState;
       if (document.visibilityState === 'hidden') {
         void this.flushUserData('background');
-        log.info('App backgrounded — stopping bundled service');
-        this.stopBundledService();
-      } else if (document.visibilityState === 'visible') {
-        if (this.bundledServiceStarting) {
-          log.info('App foregrounded while bundled service start is pending');
-          return;
-        }
-
-        log.info('App foregrounded — restarting bundled service');
-        void this.startBundledService()
-          .then((started) => started ? this.finishBundledServiceInit() : undefined)
-          .catch(err => log.error('Bundled service restart failed:', err));
+      } else if (document.visibilityState === 'visible' && !this.remindersInitialized) {
+        void this.initReminderMode();
       }
     });
   }
@@ -412,146 +385,15 @@ class App {
       showToast(t('app.saveFailed'));
       return;
     }
-    this.stopBundledService();
     window.close();
   }
 
-  private cancelServiceEventsSubscription(): void {
-    if (!this.serviceEventsSubscription) return;
-    try {
-      this.serviceEventsSubscription.cancel();
-    } catch (e) {
-      log.warn('serviceEvents cancellation threw:', e);
-    }
-    this.serviceEventsSubscription = null;
-  }
-
-  /**
-   * Fire-and-forget Luna call to gracefully shut down the bundled service.
-   * The service closes its HTTP listener, releases its keepAlive activity,
-   * and lets the Node process exit so neither the port nor the process
-   * persists in the background.
-   */
-  private stopBundledService(): void {
-    this.cancelServiceEventsSubscription();
-    if (!isLunaAvailable()) {
-      setServicePort(null);
-      return;
-    }
-    try {
-      lunaRequest(`luna://${CONFIG.SERVICE_ID}`, {
-        method: 'stop',
-        parameters: {},
-        onSuccess: (resp: unknown) => log.info('Bundled service stop onSuccess:', JSON.stringify(resp)),
-        onFailure: (err: unknown) => log.warn('Bundled service stop onFailure:', JSON.stringify(err)),
-      });
-    } catch (e) {
-      log.warn('stopBundledService threw:', e);
-    }
-    // Forget the runtime port — next start will set it again via setServicePort.
-    setServicePort(null);
-  }
-
-  /**
-   * Ask the webOS Luna service bus to start the bundled webOS JS service
-   * (see bundled-service/). On non-webOS environments (desktop preview, e2e)
-   * this is a no-op — the bundled service is only available on device.
-   *
-   * We log onSuccess/onFailure explicitly so device logs (ares-inspect or
-   * ares-monitor-log) show what happened, instead of guessing from silence.
-   */
-  private async startBundledService(): Promise<boolean> {
-    if (this.bundledServiceStarting) return false;
-    this.bundledServiceStarting = true;
-    if (!isLunaAvailable()) {
-      this.bundledServiceStarting = false;
-      log.debug('webOS Luna service bus not available — skipping bundled service start');
-      return false;
-    }
-    log.info('Calling luna://' + CONFIG.SERVICE_ID + '/start ...');
-    return new Promise<boolean>((resolve) => {
-      let settled = false;
-      const finish = (started: boolean, why: string): void => {
-        if (settled) return;
-        settled = true;
-        this.bundledServiceStarting = false;
-        log.info('startBundledService settled:', why);
-        resolve(started);
-      };
-      const timer = setTimeout(() => finish(false, 'timeout after 3s'), 3000);
-      // NOTE: no trailing '/' on the URI — the Luna client appends '/' + method,
-      // so a trailing slash here produces 'luna://.../service//start' (double
-      // slash) which Luna treats as a missing method and returns onFailure.
-      try {
-        lunaRequest(`luna://${CONFIG.SERVICE_ID}`, {
-          method: 'start',
-          parameters: {},
-          onSuccess: (resp: unknown) => {
-            clearTimeout(timer);
-            const lateSuccess = settled;
-            if (document.visibilityState === 'hidden') {
-              log.info('Bundled service started after app was hidden — stopping it');
-              this.stopBundledService();
-              finish(false, 'stopped after app hidden');
-              return;
-            }
-            if (resp && typeof resp === 'object' && 'port' in resp) {
-              const p = (resp as { port?: unknown }).port;
-              if (typeof p === 'number') setServicePort(p);
-            }
-            log.info('Bundled service start onSuccess:', JSON.stringify(resp));
-            finish(true, 'onSuccess');
-            if (lateSuccess) {
-              void this.finishBundledServiceInit()
-                .catch(err => log.error('Late bundled service initialization failed:', err));
-            }
-          },
-          onFailure: (err: unknown) => {
-            clearTimeout(timer);
-            log.error('Bundled service start onFailure:', JSON.stringify(err));
-            finish(false, 'onFailure');
-          },
-        });
-      } catch (e) {
-        clearTimeout(timer);
-        log.error('Bundled service start threw:', e);
-        finish(false, 'threw');
-      }
-    });
-  }
-
-  private async finishBundledServiceInit(): Promise<void> {
-    if (document.visibilityState === 'hidden') return;
-    this.subscribeToServiceEvents();
-    if (!this.remindersInitialized) {
-      const initialized = await this.queryDevMode();
-      ReminderService.reschedulePending();
-      this.remindersInitialized = initialized;
-    }
-    await this.queueDeviceSetupSync();
-    void SetupClient.publishState();
-    await this.settings.refreshSetupInfo();
-    await this.settings.refreshUploads();
-    await this.loadChannelsAfterFirstUpload();
-  }
-
-  private queueDeviceSetupSync(): Promise<void> {
-    this.deviceSetupSync = this.deviceSetupSync
-      .then(async () => {
-        if (await SetupClient.applyPendingActions()) {
-          await this.onSettingsSaved('reload');
-        }
-      })
-      .catch(err => log.error('Device setup sync failed:', err));
-    return this.deviceSetupSync;
-  }
-
-  private async loadChannelsAfterFirstUpload(): Promise<void> {
-    if (this.enterChannelsAfterUploadSync &&
-        StorageService.getPlaylists().length > 0) {
-      this.enterChannelsAfterUploadSync = false;
-      await this.loadData();
-    }
+  // The bundled service only answers two things now: whether the TV is in
+  // Developer Mode, and the reminder alert it raises there.
+  private async initReminderMode(): Promise<void> {
+    const initialized = await this.queryDevMode();
+    ReminderService.reschedulePending();
+    this.remindersInitialized = initialized;
   }
 
   /**
@@ -607,49 +449,6 @@ class App {
         finish(false);
       }
     });
-  }
-
-  /**
-   * Subscribe to the bundled service's `serviceEvents` push channel. Upload
-   * changes refresh the managed upload list; phone setup changes consume the
-   * queued Playlist, Xtream, or EPG action and reload channel data. No polling.
-   *
-   * Subscription is best-effort: if Luna isn't available (desktop/e2e) or
-   * the subscribe call fails, we silently fall back to the explicit
-   * refresh calls that bundled-service initialization runs on open.
-   */
-  private subscribeToServiceEvents(): void {
-    if (!isLunaAvailable()) {
-      log.debug('Luna unavailable — service event subscription skipped');
-      return;
-    }
-    this.cancelServiceEventsSubscription();
-    log.info('Subscribing to luna://' + CONFIG.SERVICE_ID + '/serviceEvents ...');
-    try {
-      this.serviceEventsSubscription = lunaRequest(`luna://${CONFIG.SERVICE_ID}`, {
-        method: 'serviceEvents',
-        subscribe: true,
-        parameters: {},
-        onSuccess: (resp: unknown) => {
-          log.info('serviceEvents push:', JSON.stringify(resp));
-          if (resp && typeof resp === 'object' &&
-              (resp as { subscribed?: unknown }).subscribed === true) return;
-          if (resp && typeof resp === 'object' &&
-              (resp as { event?: unknown }).event === 'setup-changed') {
-            void this.queueDeviceSetupSync();
-            return;
-          }
-          void this.settings.refreshUploads()
-            .then(() => this.loadChannelsAfterFirstUpload())
-            .catch(err => log.error('Upload event refresh failed:', err));
-        },
-        onFailure: (err: unknown) => {
-          log.warn('serviceEvents subscription failed:', JSON.stringify(err));
-        },
-      });
-    } catch (e) {
-      log.warn('serviceEvents subscribe threw:', e);
-    }
   }
 
   /**
@@ -1789,10 +1588,6 @@ class App {
         this.tabBar.refresh();
         ReminderService.reschedulePending();
       }
-      // Republish on 'apply' too: subtitle credentials and other display-only
-      // settings never reach the phone page otherwise. Advisory, so it never
-      // holds up closing Settings.
-      void SetupClient.publishState();
     }
     if (action === 'reload') {
       this.search.invalidateCatalog();

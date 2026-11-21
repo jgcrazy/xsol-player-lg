@@ -45,24 +45,12 @@
 | --- | --- |
 | ![主题选择器](https://github.com/user-attachments/assets/2e5ed981-c01b-48ab-a681-9a0ecd6431b8) | ![节目提醒](https://github.com/user-attachments/assets/1d9bd762-def1-4e57-82cd-52eb70834b1a) |
 
-<table>
-  <tr>
-    <th width="50%">局域网设置</th>
-    <th width="50%"></th>
-  </tr>
-  <tr>
-    <td width="50%"><img src="https://github.com/user-attachments/assets/fda1f741-bf92-45fd-b7c5-e2ed555cdc92" alt="局域网设置"></td>
-    <td width="50%"></td>
-  </tr>
-</table>
-
 ## 功能
 
 **播放列表和账号**
 
 - **M3U 播放列表** — 支持加载多个 M3U/M3U8 播放列表并自动去重；播放源可临时停用，无需删除原有配置
 - **Xtream Codes 账号** — 支持添加、临时停用账号，并可通过顶部栏头像快速切换；播放列表和 EPG 数据将根据账号凭据自动获取
-- **局域网设置** — 扫描二维码后，即可通过同一局域网内的手机配置播放源和在线字幕，或上传 `.m3u` 文件（[局域网服务](docs/lan-service.md)）
 
 **直播与视频点播**
 
@@ -249,10 +237,8 @@ mpegts.js 和 Shaka 播放相应格式的视频。
 各项功能如下：
 
 - **语言** — 默认跟随电视的系统语言，也可手动指定界面语言。
-- **使用手机或电脑设置** — 扫描二维码后通过手机配置应用，或在电脑上打开页面并输入配对码。
 - **Xtream 账号** — 添加、编辑、删除或临时停用账号；检查登录信息、连接占用和到期时间；为直播流选择 TS、HLS 或自动格式。保存后，应用会根据账号信息自动获取播放列表和 EPG。
 - **播放列表** — 添加、编辑、删除或临时停用 M3U 播放列表地址；更改将在保存后生效。
-- **上传播放列表** — 显示通过“设备设置”页面上传的播放列表，并可临时停用或删除。新的上传会通过 Luna 消息自动同步到列表中。
 - **频道** — 检查直播流健康状态；调整频道顺序，隐藏、重命名或重新分组频道；手动匹配 XMLTV 频道，或校正单个频道的 EPG 时间；还可显示隐藏频道或重置所有自定义设置。
 - **XMLTV 网址** — 设置节目指南地址；应用也会自动读取 M3U 播放列表中的 `url-tvg`、`x-tvg-url` 或 `tvg-url`。
 - **节目指南时区** — 选择以电视的**设备**时区或节目指南的**节目源**时区显示节目时间。
@@ -298,4 +284,3 @@ mpegts.js 和 Shaka 播放相应格式的视频。
 - [`docs/mpeg-dash.md`](docs/mpeg-dash.md) — DASH 格式检测、原生播放、字幕和直播 DVR 的实现
 - [`docs/vod-subtitles.md`](docs/vod-subtitles.md) — Xtream 电影与剧集的字幕实现，包括容器内字幕、外挂 SRT/WebVTT/ASS 字幕，以及 SubDL、OpenSubtitles 和 Assrt 在线搜索
 - [`docs/storage-and-data.md`](docs/storage-and-data.md) — 应用的数据存储范围与位置，以及用户数据和临时缓存的隔离方式
-- [`docs/lan-service.md`](docs/lan-service.md) — 通过内置局域网服务完成手机端设置和 M3U 文件上传

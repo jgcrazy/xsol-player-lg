@@ -1,6 +1,6 @@
 import { type Browser, type Page } from '@playwright/test';
 import { LEGACY_HEADER, postTargetApis, removeApis } from '../scripts/chromium-53-simulation.mjs';
-import { stubPanel, stubUploadService } from './helpers';
+import { stubPanel } from './helpers';
 
 const POST_TARGET_APIS = postTargetApis();
 
@@ -27,7 +27,6 @@ export async function newLegacyPage(browser: Browser): Promise<{ page: Page; clo
       localStorage.setItem('iptv_start_view', '"channels"');
     }
   });
-  await stubUploadService(page);
   await stubPanel(page);
   return { page, close: () => context.close() };
 }

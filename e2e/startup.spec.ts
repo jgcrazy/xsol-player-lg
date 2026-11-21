@@ -3,68 +3,39 @@ import {
   expect,
   routePlaylist,
   seedPlaylist,
-  SAMPLE_M3U,
   type Page,
 } from './helpers';
 
+// What the app asks of the bundled service at startup. The service has two
+// jobs left, both for program reminders: reporting Developer Mode, and raising
+// the interactive alert there. It no longer hosts anything on the LAN.
+
 interface StartupProbe {
-  starts: number;
-  loadingAtStart: boolean[];
-  subscriptions: number;
-  subscriptionCancellations: number;
+  methods: string[];
+  loadingAtDevModeQuery: boolean[];
   activities: Array<{ name: string; method: string; replace: boolean }>;
 }
 
-async function installStartupHarness(
-  page: Page,
-  options: { visibility?: DocumentVisibilityState; devMode?: boolean } = {},
-): Promise<void> {
-  await page.route('http://127.0.0.1:9999/setup-state', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '{"updated":true}' }));
-  await page.addInitScript(({ initialVisibility, devMode }) => {
+async function installStartupHarness(page: Page, devMode: boolean): Promise<void> {
+  await page.addInitScript((isDevMode) => {
     type Cb = (resp: unknown) => void;
     type LunaParameters = {
       activity?: { name?: string; callback?: { method?: string } };
       replace?: boolean;
     };
-    const probe: StartupProbe = {
-      starts: 0,
-      loadingAtStart: [],
-      subscriptions: 0,
-      subscriptionCancellations: 0,
-      activities: [],
-    };
-    const pendingStarts: Cb[] = [];
-    let visibility = initialVisibility;
-    Object.defineProperty(document, 'visibilityState', {
-      configurable: true,
-      get: () => visibility,
-    });
-
+    const probe: StartupProbe = { methods: [], loadingAtDevModeQuery: [], activities: [] };
+    const pendingDevMode: Cb[] = [];
     const win = window as unknown as {
       __startupProbe__?: StartupProbe;
-      __releaseServiceStart__?: () => void;
-      __showApp__?: () => void;
-      __hideApp__?: () => void;
+      __releaseDevMode__?: () => void;
       PalmServiceBridge?: unknown;
     };
     win.__startupProbe__ = probe;
-    win.__releaseServiceStart__ = () => {
-      for (const callback of pendingStarts.splice(0)) {
-        callback({ running: true, port: 9999 });
-      }
-    };
-    win.__showApp__ = () => {
-      visibility = 'visible';
-      document.dispatchEvent(new Event('visibilitychange'));
-    };
-    win.__hideApp__ = () => {
-      visibility = 'hidden';
-      document.dispatchEvent(new Event('visibilitychange'));
+    win.__releaseDevMode__ = () => {
+      for (const callback of pendingDevMode.splice(0)) callback({ devmode: isDevMode });
     };
     class FakePalmServiceBridge {
       onservicecallback: ((message: string) => void) | null = null;
-      private subscription = false;
       private cancelled = false;
 
       private respond(response: unknown): void {
@@ -76,19 +47,11 @@ async function installStartupHarness(
       call(uri: string, payload: string): void {
         const method = uri.slice(uri.lastIndexOf('/') + 1);
         const parameters = JSON.parse(payload) as LunaParameters;
-        this.subscription = method === 'serviceEvents';
-        if (method === 'start') {
-          probe.starts++;
+        probe.methods.push(method);
+        if (method === 'getDevMode') {
           const loading = document.querySelector<HTMLElement>('#view-loading');
-          probe.loadingAtStart.push(loading !== null
-            && loading.style.display !== 'none'
-            && !loading.classList.contains('hidden'));
-          pendingStarts.push((response) => this.respond(response));
-        } else if (method === 'serviceEvents') {
-          probe.subscriptions++;
-          this.respond({ subscribed: true });
-        } else if (method === 'getDevMode') {
-          this.respond({ devmode: devMode });
+          probe.loadingAtDevModeQuery.push(loading !== null && !loading.classList.contains('hidden'));
+          pendingDevMode.push((response) => this.respond(response));
         } else if (method === 'create') {
           const activity = parameters.activity;
           probe.activities.push({
@@ -97,28 +60,22 @@ async function installStartupHarness(
             replace: parameters.replace === true,
           });
           this.respond({ returnValue: true });
-        } else if (method !== 'stop') {
+        } else {
           this.respond({ returnValue: false, errorText: `unmocked method: ${method}` });
         }
       }
 
       cancel(): void {
-        if (this.cancelled) return;
         this.cancelled = true;
-        if (this.subscription) probe.subscriptionCancellations++;
       }
     }
     win.PalmServiceBridge = FakePalmServiceBridge;
-  }, {
-    initialVisibility: options.visibility ?? 'visible',
-    devMode: options.devMode ?? false,
-  });
+  }, devMode);
 }
 
-async function releaseServiceStart(page: Page): Promise<void> {
+async function releaseDevMode(page: Page): Promise<void> {
   await page.evaluate(() => {
-    (window as unknown as { __releaseServiceStart__: () => void })
-      .__releaseServiceStart__();
+    (window as unknown as { __releaseDevMode__: () => void }).__releaseDevMode__();
   });
 }
 
@@ -127,104 +84,7 @@ async function startupProbe(page: Page): Promise<StartupProbe> {
     (window as unknown as { __startupProbe__: StartupProbe }).__startupProbe__);
 }
 
-test('channels render while service startup is pending without duplicate work', async ({ page }) => {
-  let uploadLists = 0;
-  await page.route('http://127.0.0.1:9999/uploads', (route) => {
-    uploadLists++;
-    return route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: '[]',
-    });
-  });
-  await routePlaylist(page);
-  await seedPlaylist(page);
-  await installStartupHarness(page, { visibility: 'hidden' });
-
-  await page.goto('/');
-  await expect(page.locator('#view-channels')).toBeVisible();
-  expect(await startupProbe(page)).toMatchObject({
-    starts: 1,
-    loadingAtStart: [false],
-    subscriptions: 0,
-  });
-
-  await page.evaluate(() => {
-    (window as unknown as { __showApp__: () => void }).__showApp__();
-  });
-  expect(await startupProbe(page)).toMatchObject({ starts: 1, subscriptions: 0 });
-
-  await releaseServiceStart(page);
-  await expect.poll(async () => (await startupProbe(page)).subscriptions).toBe(1);
-  await expect.poll(() => uploadLists).toBe(1);
-  await page.waitForTimeout(250);
-  expect(await startupProbe(page)).toMatchObject({ starts: 1, subscriptions: 1 });
-  expect(uploadLists).toBe(1);
-});
-
-test('service event subscription is replaced across background restarts', async ({ page }) => {
-  await page.route('http://127.0.0.1:9999/uploads', route =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-  await routePlaylist(page);
-  await seedPlaylist(page);
-  await installStartupHarness(page);
-
-  await page.goto('/');
-  await expect.poll(async () => (await startupProbe(page)).starts).toBe(1);
-  await releaseServiceStart(page);
-  await expect.poll(async () => (await startupProbe(page)).subscriptions).toBe(1);
-
-  await page.evaluate(() => {
-    (window as unknown as { __hideApp__: () => void }).__hideApp__();
-  });
-  await expect.poll(async () =>
-    (await startupProbe(page)).subscriptionCancellations).toBe(1);
-
-  await page.evaluate(() => {
-    (window as unknown as { __showApp__: () => void }).__showApp__();
-  });
-  await expect.poll(async () => (await startupProbe(page)).starts).toBe(2);
-  await releaseServiceStart(page);
-  await expect.poll(async () => (await startupProbe(page)).subscriptions).toBe(2);
-  expect(await startupProbe(page)).toMatchObject({
-    subscriptionCancellations: 1,
-  });
-});
-
-test('uploaded-only startup enters channels after background reconciliation', async ({ page }) => {
-  await page.route('http://127.0.0.1:9999/uploads', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/json',
-      body: JSON.stringify([{
-        id: 'ch1',
-        name: 'Playlist 1',
-        count: 2,
-        createdAt: 1,
-        url: 'http://127.0.0.1:9999/uploads/ch1.m3u',
-      }]),
-    }));
-  await page.route('http://127.0.0.1:9999/uploads/ch1.m3u', (route) =>
-    route.fulfill({
-      status: 200,
-      contentType: 'application/x-mpegurl',
-      body: SAMPLE_M3U,
-    }));
-  await installStartupHarness(page);
-
-  await page.goto('/');
-  await expect(page.locator('#view-access')).toBeVisible();
-  await releaseServiceStart(page);
-
-  await expect(page.locator('#view-channels')).toBeVisible();
-  await expect(page.locator('.channel-item')).toHaveCount(2);
-});
-
-test('dev-mode query replaces the reminder fallback activity', async ({ page }) => {
-  await page.route('http://127.0.0.1:9999/uploads', (route) =>
-    route.fulfill({ status: 200, contentType: 'application/json', body: '[]' }));
-  await routePlaylist(page);
-  await seedPlaylist(page);
+async function seedReminder(page: Page): Promise<void> {
   await page.addInitScript(() => {
     const now = Date.now();
     localStorage.setItem('iptv_reminders', JSON.stringify([{
@@ -235,18 +95,82 @@ test('dev-mode query replaces the reminder fallback activity', async ({ page }) 
       stopMs: now + 120000,
     }]));
   });
-  await installStartupHarness(page, { devMode: true });
+}
+
+test('channels render before the service is asked anything', async ({ page }) => {
+  await routePlaylist(page);
+  await seedPlaylist(page);
+  await installStartupHarness(page, false);
+
+  await page.goto('/');
+
+  await expect(page.locator('#view-channels')).toBeVisible();
+  await expect(page.locator('.channel-main .channel-item')).toHaveCount(2);
+  // The probe is off the critical path: by the time it goes out, loading is over.
+  await expect.poll(async () => (await startupProbe(page)).loadingAtDevModeQuery).toEqual([false]);
+});
+
+test('the app never starts, stops or subscribes to a LAN service', async ({ page }) => {
+  await routePlaylist(page);
+  await seedPlaylist(page);
+  await installStartupHarness(page, false);
+  const lanRequests: string[] = [];
+  page.on('request', (request) => {
+    if (/^http:\/\/127\.0\.0\.1[:/]/.test(request.url())) lanRequests.push(request.url());
+  });
+
+  await page.goto('/');
+  await expect(page.locator('#view-channels')).toBeVisible();
+  await expect.poll(async () => (await startupProbe(page)).methods).toContain('getDevMode');
+  await releaseDevMode(page);
+  // Backgrounding and returning used to stop and restart the LAN server.
+  await page.evaluate(() => {
+    let state: DocumentVisibilityState = 'hidden';
+    Object.defineProperty(document, 'visibilityState', { configurable: true, get: () => state });
+    document.dispatchEvent(new Event('visibilitychange'));
+    state = 'visible';
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+
+  const methods = (await startupProbe(page)).methods;
+  for (const method of ['start', 'stop', 'heartbeat', 'serviceEvents']) {
+    expect(methods).not.toContain(method);
+  }
+  expect(lanRequests).toEqual([]);
+});
+
+test('dev-mode query replaces the reminder fallback activity', async ({ page }) => {
+  await routePlaylist(page);
+  await seedPlaylist(page);
+  await seedReminder(page);
+  await installStartupHarness(page, true);
 
   await page.goto('/');
   await expect.poll(async () => (await startupProbe(page)).activities.length).toBe(1);
   expect((await startupProbe(page)).activities[0].method)
     .toBe('luna://com.webos.notification/createToast');
 
-  await releaseServiceStart(page);
+  await releaseDevMode(page);
   await expect.poll(async () => (await startupProbe(page)).activities.length).toBe(2);
   const [fallback, devAlert] = (await startupProbe(page)).activities;
   expect(devAlert.name).toBe(fallback.name);
   expect(fallback.replace).toBe(true);
   expect(devAlert.replace).toBe(true);
   expect(devAlert.method).toBe('luna://com.xsol.player.service/fireReminderAlert');
+});
+
+test('a retail TV keeps the toast reminder', async ({ page }) => {
+  await routePlaylist(page);
+  await seedPlaylist(page);
+  await seedReminder(page);
+  await installStartupHarness(page, false);
+
+  await page.goto('/');
+  await expect.poll(async () => (await startupProbe(page)).activities.length).toBe(1);
+  await releaseDevMode(page);
+
+  await expect.poll(async () => (await startupProbe(page)).activities.length).toBe(2);
+  const activities = (await startupProbe(page)).activities;
+  expect(activities.every(activity => activity.method === 'luna://com.webos.notification/createToast'))
+    .toBe(true);
 });

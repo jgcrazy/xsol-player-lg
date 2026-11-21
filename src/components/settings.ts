@@ -18,8 +18,6 @@ import {
   getCacheUsage,
   type CacheUsageSummary,
 } from '../services/idb-cache';
-import { UploadClient, uploadIdFromUrl } from '../services/upload-client';
-import { SetupClient } from '../services/setup-client';
 import { ReminderService } from '../services/reminder-service';
 import {
   ChannelHealthService,
@@ -35,7 +33,6 @@ import { THEMES, OVERLAY_STYLES, TEXT_SIZES, DEFAULT_TEXT_SIZE, type ThemeMeta, 
 import { previewTheme, applyTextSize } from '../services/theme-service';
 import { showToast } from './toast';
 import { ConfirmationPrompt } from './confirmation-prompt';
-import { qrDataUrl } from '../utils/qr';
 import { createLogger } from '../utils/logger';
 import {
   formatNumber,
@@ -97,14 +94,6 @@ function formatBytes(bytes: number): string {
   }
   const digits = unit === 0 || value >= 100 ? 0 : value >= 10 ? 1 : 2;
   return `${value.toFixed(digits)} ${units[unit]}`;
-}
-
-/** "MyList — 12 channels" when count is known, otherwise just the name. */
-function uploadLabel(pl: PlaylistEntry): string {
-  if (typeof pl.count === 'number') {
-    return `${pl.name} — ${tp('channel.count', pl.count)}`;
-  }
-  return pl.name;
 }
 
 /** One theme swatch tile: a mini mock of the app (tab bar, a focused channel
@@ -333,20 +322,6 @@ function sourceToggle(enabled: boolean): Safe {
     </button>`;
 }
 
-function uploadRow(pl: PlaylistEntry, enabled = isSourceEnabled(pl)): Safe {
-    return html`
-      <div class="settings-row ${enabled ? '' : 'source-disabled'}"
-           data-key="${pl.url}" data-id="${pl.id}" data-source-entry>
-        <div class="settings-field wide">
-          <label>${uploadLabel(pl)}</label>
-        </div>
-        ${sourceToggle(enabled)}
-        <button class="btn btn-danger remove-upload" data-focusable
-                data-url="${pl.url}">${t('common.remove')}</button>
-      </div>
-    `;
-}
-
 function withEnabledState(entry: PlaylistEntry, enabled: boolean): PlaylistEntry {
   if (!enabled) return { ...entry, enabled: false };
   const copy = { ...entry };
@@ -573,13 +548,12 @@ export class Settings {
 
   render(): void {
     const allPlaylists = StorageService.getPlaylists();
-    const playlists = allPlaylists.filter(pl => pl.source !== 'upload' && pl.source !== 'xtream');
+    const playlists = allPlaylists.filter(pl => pl.source !== 'xtream');
     const accounts = allPlaylists.filter(pl => pl.source === 'xtream');
     const enabledAccounts = accounts.filter(isSourceEnabled);
     const selectedAccountId = StorageService.getSelectedXtreamAccountId();
     this.watchlistAccount = enabledAccounts.find((account) => account.id === selectedAccountId)
       ?? enabledAccounts[0] ?? null;
-    const uploads = allPlaylists.filter(pl => pl.source === 'upload');
     const manualEpgSources = StorageService.getManualEpgSources();
     this.storedEpgOffsets = StorageService.getEpgOffsets();
     this.epgOffsets = { ...this.storedEpgOffsets };
@@ -642,12 +616,6 @@ export class Settings {
                     <div class="settings-item-hint">${t('settings.languageHint')}</div>
                   </div>
                 </div>
-
-                <div class="settings-section settings-general-device">
-                  <h3 class="settings-section-title">${t('settings.deviceSetup')}</h3>
-                  <div class="source-box setup-box-info device-setup-card"
-                       id="setup-info">${t('settings.checkingSetup')}</div>
-                </div>
               </div>
             </div>
 
@@ -695,17 +663,6 @@ export class Settings {
                     : html`<div class="empty-hint">${t('settings.noPlaylists')}</div>`}
                 </div>
                 <button class="btn btn-primary" data-focusable id="add-playlist">${t('settings.addPlaylist')}</button>
-              </div>
-
-              <div class="settings-section">
-                <h3 class="settings-section-title">${t('settings.uploadPlaylist')}</h3>
-                <div class="source-box upload-box-list">
-                  <div class="upload-entries" id="upload-entries">
-                    ${uploads.length
-                      ? uploads.map((pl) => uploadRow(pl))
-                      : html`<div class="empty-hint">${t('settings.noUploads')}</div>`}
-                  </div>
-                </div>
               </div>
 
               <div class="settings-section" id="channel-customization-settings">
@@ -1041,11 +998,6 @@ export class Settings {
     `);
 
     this.nav.focusFirst();
-    void this.refreshSetupInfo();
-    // Sync uploads from the local service on every Settings open. Subsequent
-    // updates arrive via the Luna `serviceEvents` push channel (wired in
-    // app.ts → subscribeToServiceEvents) and call refreshUploads() directly.
-    void this.refreshUploads();
     void this.loadCacheUsage();
   }
 
@@ -1291,8 +1243,6 @@ export class Settings {
       void this.checkXtreamAccount(el);
     } else if (el.classList.contains('source-toggle')) {
       this.toggleSource(el);
-    } else if (el.classList.contains('remove-upload')) {
-      void this.removeUpload(el.dataset.url!);
     } else if (el.hasAttribute('data-dropdown-trigger')) {
       this.toggleDropdown(el.closest<HTMLElement>('.dropdown'));
     } else if (el.classList.contains('dropdown-option')) {
@@ -1949,14 +1899,7 @@ export class Settings {
         url: card.querySelector<HTMLInputElement>('.xtream-url')?.value.trim() ?? '',
       }))
       .filter(account => account.id !== '');
-    const uploads = StorageService.getPlaylists()
-      .filter(playlist => playlist.source === 'upload')
-      .map(playlist => ({
-        id: playlist.id,
-        name: playlist.name,
-        url: playlist.url,
-      }));
-    return [...playlists, ...accounts, ...uploads];
+    return [...playlists, ...accounts];
   }
 
   private refreshManualEpgScopes(): void {
@@ -2252,17 +2195,8 @@ export class Settings {
       ));
     }
 
-    const nonUpload = [...playlists, ...accounts];
-
-    // Preserve auto-managed uploaded playlists (not shown in the editors above).
     const stored = StorageService.getPlaylists();
-    const uploads = stored.filter(pl => pl.source === 'upload').map((playlist) => {
-      const toggle = this.container.querySelector<HTMLElement>(
-        `#upload-entries [data-id="${playlist.id}"] .source-toggle`,
-      );
-      return withEnabledState(playlist, toggle?.dataset.enabled !== 'false');
-    });
-    const nextSources = [...nonUpload, ...uploads];
+    const nextSources = [...playlists, ...accounts];
     const manualEpgSources = this.manualEpgSourcesFromEditor(
       new Set(nextSources.map(source => source.id)),
     );
@@ -2430,79 +2364,5 @@ export class Settings {
       || sig(stored) !== sig(nextSources)
       || offsetSig(this.storedEpgOffsets) !== offsetSig(this.epgOffsets);
     this.onSave(dataChanged ? 'reload' : 'apply');
-  }
-
-  /**
-   * Replace the placeholder text in #setup-info with QR + instructions (or
-   * an error when the service is unreachable). Built through `html` so the
-   * setup URL — which originates off-device — is escaped, then handed to
-   * `morph()` so the surrounding rendered content stays unaffected and we
-   * never touch innerHTML directly with an interpolated string.
-   */
-  async refreshSetupInfo(): Promise<void> {
-    const el = $('#setup-info', this.container);
-    if (!el) return;
-    const info = await SetupClient.getInfo();
-    // Re-resolve in case the user navigated away or settings re-rendered.
-    const target = $('#setup-info', this.container);
-    if (!target) return;
-    if (info) {
-      const qrUrl = info.setupUrl;
-      morph(target, html`
-        <img class="setup-qr" alt="${t('settings.qrAlt', { url: qrUrl })}" src="${qrDataUrl(qrUrl)}">
-        <div class="setup-instructions">
-          <div class="setup-scan-instruction">${t('settings.setupScanQr')}</div>
-          <div class="setup-browser-instruction">${t('settings.setupOpenInBrowser')}</div>
-          <span class="setup-url">${info.manualUrl}</span>
-          <div class="setup-pairing-instruction">${t('settings.setupPairingPrompt')}</div>
-          <span class="setup-pairing-code">${info.pairingCode}</span>
-        </div>
-      `);
-    } else {
-      morph(target, html`<span>${t('settings.setupUnavailable')}</span>`);
-    }
-  }
-
-  private async removeUpload(url: string): Promise<void> {
-    const id = uploadIdFromUrl(url);
-    if (id) await UploadClient.remove(id);
-
-    const remaining = StorageService.getPlaylists().filter(pl => pl.url !== url);
-    StorageService.setPlaylists(remaining);
-    showToast(t('settings.uploadRemoved'));
-
-    await this.refreshUploads();
-  }
-
-  /**
-   * Pull the latest uploads from the local service into storage, then patch
-   * just the #upload-entries section via morph() so the rest of the form
-   * keeps its focus and unsaved input.
-   *
-   * Called on render() (covers uploads that arrived before the user opened
-   * Settings) and on every Luna `serviceEvents` upload push from the LAN service
-   * (covers uploads that arrive while Settings is open — see app.ts).
-   *
-   * Safe to call when the settings view is hidden: reconcile still updates
-   * storage, but the morph is a no-op against the off-screen container so
-   * there's no visible side effect.
-   */
-  async refreshUploads(): Promise<void> {
-    const pending = new Map<string, boolean>();
-    $$('#upload-entries [data-source-entry]', this.container).forEach((row) => {
-      const key = row.dataset.id || row.getAttribute('data-key');
-      const toggle = row.querySelector<HTMLElement>('.source-toggle');
-      if (key && toggle) pending.set(key, toggle.dataset.enabled !== 'false');
-    });
-    await UploadClient.reconcile();
-    const target = $('#upload-entries', this.container);
-    if (!target) return;
-
-    const uploads = StorageService.getPlaylists().filter(pl => pl.source === 'upload');
-    morph(target, uploads.length
-      ? html`${uploads.map((pl) =>
-          uploadRow(pl, pending.get(pl.id || pl.url) ?? isSourceEnabled(pl)))}`
-      : html`<div class="empty-hint">${t('settings.noUploads')}</div>`);
-    this.refreshManualEpgScopes();
   }
 }

@@ -76,8 +76,6 @@
   .settings-field > * + * { margin-top: 6px; }
   .dropdown-trigger > * + * { margin-left: 12px; }
   .settings-actions > * + * { margin-left: 16px; }
-  .setup-box-info > * + * { margin-top: 16px; }
-  .device-setup-card > * + * { margin-left: 24px; margin-top: 0; }
   #playlist-entries .settings-row > * + * { margin-left: 12px; }
   .channel-health-actions > * + * { margin-left: 12px; }
   .channel-health-summary > * + * { margin-left: 24px; }

@@ -2,7 +2,7 @@
 
 IPTV player for LG webOS TVs. Vanilla TypeScript (no UI framework), bundled with
 esbuild and packaged as a webOS `.ipk`. A separate bundled webOS JS service
-(`bundled-service/`) provides LAN M3U uploads over Luna + HTTP. App id
+(`bundled-service/`) raises Developer Mode reminder alerts over Luna. App id
 `com.xsol.player`; targets webOS 4+.
 
 ## Commands
@@ -99,7 +99,7 @@ syncs it into `appinfo.json` and the `__APP_VERSION__` build constant;
   (`isMseActive()`); on webOS everything plays natively, DASH included — see
   `docs/mpeg-dash.md`.
 - **Services** (`src/services/`) expose application-facing facades such as
-  `PlaylistService`, `EpgService`, `StorageService`, `SetupClient`, `UploadClient`,
+  `PlaylistService`, `EpgService`, `StorageService`,
   and `ReminderService`. `StorageService` keeps boot-critical configuration under
   `iptv_` localStorage keys and fronts durable user records from `idb-user-data`;
   `idb-cache` owns disposable IndexedDB data and `idb-database` owns the shared
@@ -118,17 +118,14 @@ syncs it into `appinfo.json` and the `__APP_VERSION__` build constant;
 - **Config** (`src/config.ts`) — `CONFIG` holds key codes, refresh intervals,
   player/EPG/storage constants. Prefer constants here over magic numbers.
 - **Bundled service** (`bundled-service/`) — a sandbox-separate Node (CommonJS) webOS
-  service (`com.xsol.player.service`) hosting LAN phone setup/M3U uploads and,
-  in Developer Mode, interactive program-reminder **alerts**. The app talks to
-  it over the Luna bus
-  (`start`/`stop`/`heartbeat`/`serviceEvents` for LAN changes; `getDevMode`/
-  `fireReminderAlert` for reminders) and over HTTP; changes push
-  `serviceEvents` without polling. Its lifecycle is tied to app
-  `visibilitychange`. `index.ts` wires `lan/`, `setup/`, and `reminder/`.
+  service (`com.xsol.player.service`) whose only job is the interactive
+  program-reminder **alert** in Developer Mode. The app talks to it over the
+  Luna bus (`getDevMode`/`fireReminderAlert`); `index.ts` wires `reminder/`.
+  It opens **no network listener**: device setup is online, through the
+  activation panel (`src/services/xsol/`), and the old LAN phone setup and
+  M3U uploads are gone — don't reintroduce a local HTTP server.
   It targets webOS 4's Node.js 0.12.2: compile to ES5/CommonJS, route newer
   Node APIs through `compat.ts`, and gate the final JavaScript build.
-  **Read `docs/lan-service.md` before changing it**, and keep the Luna/HTTP
-  contract aligned with `setup-client.ts` and `upload-client.ts`.
 
 ## Conventions
 

@@ -13,7 +13,6 @@
 //   settings.png       settings incl. LAN setup QR and manual pairing
 //   themes.png         Settings Appearance section with the theme picker
 //   reminder-manager.png  date-grouped upcoming reminders with removal controls
-//   setup-page.png     authorized LAN setup page for a phone or laptop
 //   player.png         playback overlays: channel switcher + action menu
 //   channel-info.png   channel info bar (the OSD) — live DVR (timeshift) view
 //   subtitles.png      self-rendered WebVTT cues — ::cue colors + positioning
@@ -30,16 +29,13 @@
 import { chromium } from '@playwright/test';
 import { execSync } from 'node:child_process';
 import { createServer } from 'node:http';
-import { readFile, mkdir } from 'node:fs/promises';
+import { mkdir } from 'node:fs/promises';
 import { join, extname } from 'node:path';
 
 const ROOT = process.cwd();
 const SHOTS = join(ROOT, 'screenshots');
 const SCALE = 1; // device pixel ratio — 1 = native 1920x1080 (no upsampling)
-const SETUP_PAGE_HTML = await readFile(
-  join(ROOT, 'bundled-service/src/setup/setup-page.html'),
-  'utf8',
-);
+
 
 // Radial "video frame" backdrop for the player shots (the fake stream can't decode
 // headless). One color pair, used as both a CSS gradient and a canvas gradient.
@@ -94,7 +90,6 @@ const TZ = 'America/Los_Angeles';
 const NOW = new Date('2026-06-12T22:18:00-07:00').getTime();
 const MID = new Date('2026-06-12T00:00:00-07:00').getTime(); // local midnight today
 const HOUR = 3_600_000;
-const UPLOAD_PORT = 8899;
 
 // ---------------------------------------------------------------------------
 // Channels
@@ -464,86 +459,7 @@ function epgXml() {
 
 const EPG_XML = epgXml();
 
-// Two demo uploaded playlists for the settings screenshot.
-const UPLOADS = [
-  { id: 'living-room', name: 'Living Room', count: 84, createdAt: NOW - 3_600_000, url: `http://127.0.0.1:${UPLOAD_PORT}/uploads/living-room.m3u` },
-  { id: 'sports-pack', name: 'Sports Pack', count: 36, createdAt: NOW - 7_200_000, url: `http://127.0.0.1:${UPLOAD_PORT}/uploads/sports-pack.m3u` },
-];
-const SERVICE_INFO = {
-  ip: '192.168.1.42',
-  port: UPLOAD_PORT,
-  setupUrl: `http://192.168.1.42:${UPLOAD_PORT}/setup?token=0123456789ab`,
-  manualUrl: `http://192.168.1.42:${UPLOAD_PORT}`,
-  pairingCode: '6993',
-};
-const SETUP_PAGE_STATE = {
-  playlists: [{
-    id: 'setup-playlist',
-    name: 'Home Playlist',
-    url: 'https://demo.local/playlist.m3u',
-  }],
-  xtreamAccounts: [{
-    id: 'setup-xtream',
-    name: 'Demo Account',
-    serverUrl: 'https://xtream.demo.local',
-    username: 'viewer',
-  }],
-  uploadedPlaylists: [{
-    id: 'setup-upload',
-    uploadId: 'living-room',
-  }],
-  manualEpgSources: [{
-    url: 'https://demo.local/epg.xml',
-    playlistIds: ['setup-playlist'],
-  }],
-  onlineSubtitles: {
-    preferredLanguage: '',
-    subdlConfigured: false,
-    assrtConfigured: false,
-    opensubtitlesConfigured: false,
-    opensubtitlesApiKeyConfigured: false,
-    opensubtitlesPasswordConfigured: false,
-    opensubtitlesUsername: '',
-  },
-};
-
-// ---------------------------------------------------------------------------
-// Static file server for dist/
-// ---------------------------------------------------------------------------
-
-const MIME = {
-  '.html': 'text/html', '.js': 'application/javascript', '.css': 'text/css',
-  '.png': 'image/png', '.json': 'application/json', '.svg': 'image/svg+xml',
-  '.xml': 'application/xml',
-};
-
-function startServer() {
-  const dist = join(ROOT, 'dist');
-  const server = createServer(async (req, res) => {
-    const url = req.url === '/' ? '/index.html' : req.url.split('?')[0];
-    try {
-      const data = await readFile(join(dist, url));
-      res.writeHead(200, { 'Content-Type': MIME[extname(url)] || 'application/octet-stream' });
-      res.end(data);
-    } catch {
-      res.writeHead(404);
-      res.end('Not found');
-    }
-  });
-  return new Promise((resolve) => {
-    server.listen(0, '127.0.0.1', () => resolve({ server, port: server.address().port }));
-  });
-}
-
-// ---------------------------------------------------------------------------
-// Page setup shared by every view
-// ---------------------------------------------------------------------------
-
-const fulfill = (body, type) => (route) =>
-  route.fulfill({ status: 200, contentType: type, headers: { 'access-control-allow-origin': '*' }, body });
-
 async function setupPage(page, {
-  upload = false,
   fakeStream = false,
   xtream = false,
   subs = false,
@@ -703,35 +619,6 @@ async function setupPage(page, {
     await page.route('https://api.assrt.net/**', json(ASSRT_SUBS_JSON));
   }
 
-  // Fake the Luna service bus so the LAN service "runs" (settings QR).
-  if (upload) {
-    await page.addInitScript((port) => {
-      window.PalmServiceBridge = class {
-        onservicecallback = null;
-
-        call(uri) {
-          const method = uri.slice(uri.lastIndexOf('/') + 1);
-          const response = method === 'start'
-            ? { running: true, port }
-            : method === 'serviceEvents'
-              ? { subscribed: true }
-              : method === 'stop'
-                ? { stopped: true }
-                : { returnValue: false, errorText: 'unmocked: ' + method };
-          setTimeout(() => {
-            if (this.onservicecallback) {
-              this.onservicecallback(JSON.stringify(response));
-            }
-          }, 0);
-        }
-
-        cancel() {
-          this.onservicecallback = null;
-        }
-      };
-    }, UPLOAD_PORT);
-  }
-
   await page.route('**/playlist1.m3u', fulfill(M3U_1, 'application/x-mpegurl'));
   await page.route('**/playlist2.m3u', fulfill(M3U_2, 'application/x-mpegurl'));
   await page.route('**/epg.xml', fulfill(EPG_XML, 'application/xml'));
@@ -768,14 +655,6 @@ async function setupPage(page, {
     });
   } else {
     await page.route('**/stream/**', (r) => r.abort());
-  }
-  await page.route('http://127.0.0.1:8890/**', (r) => r.abort());
-
-  if (upload) {
-    await page.route(`http://127.0.0.1:${UPLOAD_PORT}/info`, fulfill(JSON.stringify(SERVICE_INFO), 'application/json'));
-    await page.route(`http://127.0.0.1:${UPLOAD_PORT}/setup-state`, fulfill('{"updated":true}', 'application/json'));
-    await page.route(`http://127.0.0.1:${UPLOAD_PORT}/uploads`, fulfill(JSON.stringify(UPLOADS), 'application/json'));
-    await page.route(`http://127.0.0.1:${UPLOAD_PORT}/uploads/**`, (r) => r.abort());
   }
 }
 
@@ -1009,13 +888,12 @@ try {
     await context.close();
   }
 
-  // 3) Settings (incl. LAN setup QR, pairing code, and uploaded playlists).
+  // 3) Settings.
   {
-    const { context, page } = await newPage({ upload: true });
+    const { context, page } = await newPage();
     await gotoChannels(page, base);
     await remote(page, KEY.BLUE); // open settings
     await page.locator('#view-settings').waitFor({ state: 'visible' });
-    await page.locator('.setup-qr').waitFor({ state: 'visible', timeout: 10_000 });
     await page.locator('.settings-main').evaluate((el) => {
       el.style.scrollBehavior = 'auto';
       el.scrollTop = 0;
@@ -1058,93 +936,6 @@ try {
     await page.waitForTimeout(400);
     await shoot(page, 'reminder-manager.png');
     console.log('  reminder-manager.png');
-    await context.close();
-  }
-
-  // 3d) LAN setup page — two views of the real authorized phone/laptop UI.
-  // Side-by-side 480x540 CSS panels at 2x DPR produce one 1920x1080 image.
-  {
-    const context = await browser.newContext({
-      viewport: { width: 960, height: 540 },
-      deviceScaleFactor: 2,
-    });
-    const page = await context.newPage();
-    await page.route('http://setup.demo.local/**', (route) => {
-      const url = new URL(route.request().url());
-      if (url.pathname === '/collage') {
-        return route.fulfill({
-          status: 200,
-          contentType: 'text/html',
-          body: `<!DOCTYPE html>
-            <html>
-              <head>
-                <style>
-                  * { box-sizing: border-box; }
-                  html, body { width: 100%; height: 100%; margin: 0; }
-                  body {
-                    display: grid;
-                    grid-template-columns: 1fr 1fr;
-                    gap: 12px;
-                    padding: 12px;
-                    background: linear-gradient(180deg, #f6f7fb 0%, #eef0f7 100%);
-                  }
-                  iframe {
-                    width: 100%;
-                    height: 100%;
-                    background: transparent;
-                    border: 0;
-                  }
-                </style>
-              </head>
-              <body>
-                <iframe src="/setup?token=0123456789ab&amp;panel=sources"
-                        title="Source setup"></iframe>
-                <iframe src="/setup?token=0123456789ab&amp;panel=uploads"
-                        title="Playlist upload"></iframe>
-              </body>
-            </html>`,
-        });
-      }
-      if (url.pathname === '/setup') {
-        return route.fulfill({
-          status: 200,
-          contentType: 'text/html',
-          body: SETUP_PAGE_HTML,
-        });
-      }
-      if (url.pathname === '/setup-state') {
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(SETUP_PAGE_STATE),
-        });
-      }
-      if (url.pathname === '/uploads') {
-        return route.fulfill({
-          status: 200,
-          contentType: 'application/json',
-          body: JSON.stringify(UPLOADS),
-        });
-      }
-      return route.fulfill({ status: 404, body: '' });
-    });
-    await page.goto('http://setup.demo.local/collage');
-    const sources = page.frameLocator('iframe[title="Source setup"]');
-    const uploads = page.frameLocator('iframe[title="Playlist upload"]');
-    await sources.locator('.configured-item').nth(1).waitFor({ state: 'visible' });
-    await sources.locator('.epg-source-row').first().waitFor({ state: 'attached' });
-    await uploads.locator('.item').nth(1).waitFor({ state: 'visible' });
-    await Promise.all([
-      sources.locator('body').evaluate(element => { element.style.background = 'transparent'; }),
-      uploads.locator('body').evaluate(element => { element.style.background = 'transparent'; }),
-    ]);
-    await uploads.locator('.upload-heading').evaluate((element) => {
-      element.scrollIntoView({ block: 'start' });
-      element.ownerDocument.defaultView?.scrollBy(0, -32);
-    });
-    await page.waitForTimeout(300);
-    await shoot(page, 'setup-page.png');
-    console.log('  setup-page.png');
     await context.close();
   }
 

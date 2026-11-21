@@ -31,18 +31,6 @@ export const SEARCH_M3U = [
 export const LIVE_MANIFEST =
   '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:6\n#EXT-X-MEDIA-SEQUENCE:0\n';
 
-/**
- * The app connects to the bundled webOS LAN service at 127.0.0.1:8890 (see
- * UploadClient.reconcile). It is not running in the preview/e2e environment, so
- * chromium would spend hundreds of ms per probe waiting for the connection to be
- * refused — enough to push toast/view assertions past their 5s timeout on slower
- * runs. Aborting these requests immediately keeps every test snappy; it runs
- * automatically via the extended `test` below.
- */
-export async function stubUploadService(page: Page): Promise<void> {
-  await page.route('http://127.0.0.1:8890/**', (route) => route.abort());
-}
-
 /** Serve an M3U body for the configured playlist URL (glob-matched by filename). */
 /**
  * Stand-in for the activation panel. Matched by path, so no spec ever reaches a
@@ -217,7 +205,7 @@ export async function measureRowTextFit(
 // Computed once per worker: walking the compat data per test is wasteful.
 const POST_TARGET_APIS = postTargetApis();
 
-// Every spec imports `test` from here; it auto-stubs the service probe
+// Every spec imports `test` from here; it stands in for the activation panel
 // before each test so no file has to repeat it.
 export const test = base.extend<{
   livePreviewBaseline: 'off' | 'app-default';
@@ -251,7 +239,6 @@ export const test = base.extend<{
     if (testInfo.project.name === 'chromium-53-simulation') {
       await page.addInitScript(removeApis, POST_TARGET_APIS);
     }
-    await stubUploadService(page);
     await stubPanel(page);
     await use(page);
   },

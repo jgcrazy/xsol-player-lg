@@ -10,8 +10,6 @@ const {
   cacheMock,
   themeMock,
   toastMock,
-  setupMock,
-  uploadMock,
   xtreamMock,
   healthMock,
   motionMock,
@@ -151,15 +149,6 @@ const {
       clearWatchlist: vi.fn(),
     },
     toastMock: { showToast: vi.fn() },
-    setupMock: {
-      // Default to "service unreachable" so render's async refreshSetupInfo is a
-      // no-op for existing tests. Tests can override via mockResolvedValueOnce.
-      getInfo: vi.fn(async () => null),
-    },
-    uploadMock: {
-      remove: vi.fn(async () => true),
-      reconcile: vi.fn(async () => undefined),
-    },
     // Default to "unverifiable" so a stray Check is inert; tests opt in with
     // mockResolvedValueOnce. Never touches the network.
     xtreamMock: {
@@ -203,13 +192,6 @@ vi.mock('./toast', () => ({ showToast: toastMock.showToast }));
 vi.mock('../services/xtream-client', () => ({
   createXtreamClient: () => ({ getAccountInfo: xtreamMock.getAccountInfo }),
 }));
-vi.mock('../services/upload-client', () => ({
-  UploadClient: uploadMock,
-  uploadIdFromUrl: (url: string) => {
-    const m = url.match(/\/uploads\/([^/]+?)(?:\.m3u)?$/i);
-    return m ? decodeURIComponent(m[1]) : '';
-  },
-}));
 vi.mock('../services/reminder-service', () => ({
   ReminderService: {
     backfillSourceIds: vi.fn(),
@@ -217,7 +199,6 @@ vi.mock('../services/reminder-service', () => ({
     listManageable: vi.fn(() => []),
   },
 }));
-vi.mock('../services/setup-client', () => ({ SetupClient: setupMock }));
 vi.mock('../services/channel-health', () => ({ ChannelHealthService: healthMock }));
 
 import { Settings } from './settings';
@@ -1651,258 +1632,6 @@ describe('Settings.handleAction', () => {
   });
 });
 
-describe('Settings uploads section', () => {
-  beforeEach(() => {
-    state.playlists = [
-      { name: 'Manual', url: 'http://manual', source: 'url' },
-      { name: 'From Phone', url: 'http://127.0.0.1:8890/uploads/from-phone.m3u', source: 'upload' },
-    ];
-  });
-
-  it('renders uploaded playlists in the upload section, not the URL editor', () => {
-    settings.render();
-    expect(container.querySelectorAll('#playlist-entries .settings-row:not(.playlist-header-row)')).toHaveLength(1);
-    expect(container.querySelector('#playlist-entries input.playlist-name')!).toHaveProperty('value', 'Manual');
-    const uploadRows = container.querySelectorAll('#upload-entries .settings-row');
-    expect(uploadRows).toHaveLength(1);
-    expect(uploadRows[0].querySelector('label')!.textContent).toBe('From Phone');
-    expect(uploadRows[0].querySelector<HTMLElement>('.remove-upload')!.dataset.url)
-      .toBe('http://127.0.0.1:8890/uploads/from-phone.m3u');
-  });
-
-  it('appends the channel count to the upload label when stored', () => {
-    state.playlists = [
-      { name: 'My Phone List', url: 'http://127.0.0.1:8890/uploads/p.m3u', source: 'upload', count: 12 },
-    ];
-    settings.render();
-    expect(container.querySelector('#upload-entries label')!.textContent)
-      .toBe('My Phone List — 12 channels');
-  });
-
-  it('uses singular "channel" when the count is exactly 1', () => {
-    state.playlists = [
-      { name: 'Solo', url: 'http://127.0.0.1:8890/uploads/solo.m3u', source: 'upload', count: 1 },
-    ];
-    settings.render();
-    expect(container.querySelector('#upload-entries label')!.textContent)
-      .toBe('Solo — 1 channel');
-  });
-
-  it('falls back to the bare name when no count is available (offline / pre-reconcile storage)', () => {
-    state.playlists = [
-      { name: 'Anon', url: 'http://127.0.0.1:8890/uploads/anon.m3u', source: 'upload' },
-    ];
-    settings.render();
-    expect(container.querySelector('#upload-entries label')!.textContent).toBe('Anon');
-  });
-
-  it('shows the empty-hint when there are no uploaded playlists', () => {
-    state.playlists = [];
-    settings.render();
-    expect(container.querySelector('#upload-entries .empty-hint')?.textContent)
-      .toBe('No uploaded playlists');
-  });
-
-  it('escapes a malicious upload name (no live element injected)', () => {
-    state.playlists = [
-      { name: '<img src=x onerror=alert(1)>', url: 'http://127.0.0.1:8890/uploads/x.m3u', source: 'upload' },
-    ];
-    settings.render();
-    expect(container.querySelector('#upload-entries img')).toBeNull();
-    expect(container.querySelector('#upload-entries label')!.textContent)
-      .toContain('<img src=x onerror=');
-  });
-
-  it('removeUpload calls the service, drops the entry from storage, and toasts', async () => {
-    settings.render();
-    container.querySelector<HTMLElement>('.remove-upload')!
-      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
-    // settings.removeUpload is async (awaits UploadClient.remove); flush microtasks.
-    await new Promise((r) => setTimeout(r, 0));
-
-    expect(uploadMock.remove).toHaveBeenCalledWith('from-phone');
-    expect(storageMock.setPlaylists).toHaveBeenCalledWith([
-      { name: 'Manual', url: 'http://manual', source: 'url' },
-    ]);
-    expect(toastMock.showToast).toHaveBeenCalledWith('Uploaded playlist removed');
-  });
-
-  it('save() preserves uploaded playlists alongside the edited URL list', () => {
-    settings.render();
-    const urls = container.querySelectorAll<HTMLInputElement>('.playlist-url');
-    urls[0].value = 'http://renamed';
-    container.querySelector<HTMLElement>('#save-settings')!
-      .dispatchEvent(new MouseEvent('click', { bubbles: true }));
-
-    expect(storageMock.setPlaylists).toHaveBeenCalledWith([
-      { id: expect.any(String), name: 'Manual', url: 'http://renamed', source: 'url' },
-      { name: 'From Phone', url: 'http://127.0.0.1:8890/uploads/from-phone.m3u', source: 'upload' },
-    ]);
-  });
-
-  it('renders the QR + URL when the setup service is reachable', async () => {
-    setupMock.getInfo.mockResolvedValueOnce({
-      ip: '192.168.1.2',
-      port: 8890,
-      setupUrl: 'http://192.168.1.2:8890/setup?token=abc123',
-      manualUrl: 'http://192.168.1.2:8890',
-      pairingCode: '1234',
-    });
-    settings.render();
-    await new Promise((r) => setTimeout(r, 0));
-    const info = container.querySelector('#setup-info')!;
-    expect(info.closest('#settings-general')).not.toBeNull();
-    expect(info.querySelector('.setup-url')!.textContent).toBe('http://192.168.1.2:8890');
-    expect(info.querySelector('.setup-pairing-code')!.textContent).toContain('1234');
-    const img = info.querySelector<HTMLImageElement>('img.setup-qr');
-    expect(img).not.toBeNull();
-    expect(img!.src.startsWith('data:image/')).toBe(true);
-  });
-
-  it('shows an unavailable message when the setup service is unreachable', async () => {
-    // Default mock returns null -> service unreachable.
-    settings.render();
-    await new Promise((r) => setTimeout(r, 0));
-    expect(container.querySelector('#setup-info')!.textContent)
-      .toContain('The setup service is currently unavailable.');
-  });
-
-  it('replaces the early unavailable state when the service becomes ready', async () => {
-    settings.render();
-    await new Promise((r) => setTimeout(r, 0));
-    setupMock.getInfo.mockResolvedValueOnce({
-      ip: '192.168.1.2',
-      port: 8890,
-      setupUrl: 'http://192.168.1.2:8890/setup?token=abc123',
-      manualUrl: 'http://192.168.1.2:8890',
-      pairingCode: '1234',
-    });
-
-    await settings.refreshSetupInfo();
-
-    expect(container.querySelector('#setup-info .setup-url')?.textContent)
-      .toBe('http://192.168.1.2:8890');
-    expect(container.querySelector('#setup-info .setup-qr')).not.toBeNull();
-  });
-});
-
-describe('Settings uploads auto-refresh', () => {
-  // Settings reconciles + morphs the upload list on open. While the view is
-  // open, app.ts subscribes to the LAN service's Luna `serviceEvents` push
-  // channel and calls settings.refreshUploads() on each push (event-driven,
-  // no polling).
-
-  beforeEach(() => {
-    // Open Settings with no uploads visible.
-    state.playlists = [];
-  });
-
-  it('reconciles on render so an upload that arrived before opening shows up', async () => {
-    // Simulate reconcile pulling in a new upload from the service.
-    uploadMock.reconcile.mockImplementationOnce(async () => {
-      state.playlists = [
-        { name: 'Channel One', url: 'http://127.0.0.1:8890/uploads/channel-one.m3u', source: 'upload' },
-      ];
-    });
-
-    settings.render();
-    // First render reads empty storage → empty hint
-    expect(container.querySelector('#upload-entries .empty-hint')).not.toBeNull();
-
-    // Flush refreshUploads (reconcile resolves, then morph applies)
-    await Promise.resolve();
-    await Promise.resolve();
-
-    expect(uploadMock.reconcile).toHaveBeenCalled();
-    const rows = container.querySelectorAll('#upload-entries .settings-row');
-    expect(rows).toHaveLength(1);
-    expect(rows[0].querySelector('label')!.textContent).toBe('Channel One');
-    expect(container.querySelector('#upload-entries .empty-hint')).toBeNull();
-  });
-
-  it('refreshUploads() (the public hook fired by app.ts on each Luna push) reconciles + morphs in place', async () => {
-    settings.render();
-    await Promise.resolve(); await Promise.resolve();
-    uploadMock.reconcile.mockClear();
-
-    // Simulate a LAN service push: a new uploaded file arrived.
-    uploadMock.reconcile.mockImplementationOnce(async () => {
-      state.playlists = [
-        { name: 'Pushed', url: 'http://127.0.0.1:8890/uploads/pushed.m3u', source: 'upload' },
-      ];
-    });
-
-    await settings.refreshUploads();
-
-    expect(uploadMock.reconcile).toHaveBeenCalledTimes(1);
-    const rows = container.querySelectorAll('#upload-entries .settings-row');
-    expect(rows).toHaveLength(1);
-    expect(rows[0].querySelector('label')!.textContent).toBe('Pushed');
-  });
-
-  it('keeps upload toggles and pending state when the upload list refreshes', async () => {
-    state.playlists = [{
-      id: 'upload-source',
-      name: 'Pushed',
-      url: 'http://127.0.0.1:8890/uploads/pushed.m3u',
-      source: 'upload',
-      enabled: false,
-    }];
-    settings.render();
-    await Promise.resolve(); await Promise.resolve();
-    const toggle = container.querySelector<HTMLElement>('#upload-entries .source-toggle')!;
-    expect(toggle.dataset.enabled).toBe('false');
-
-    toggle.click();
-    await settings.refreshUploads();
-
-    expect(container.querySelector<HTMLElement>('#upload-entries .source-toggle')
-      ?.dataset.enabled).toBe('true');
-    click('#save-settings');
-    expect(storageMock.setPlaylists).toHaveBeenCalledWith([
-      expect.objectContaining({ id: 'upload-source', source: 'upload' }),
-    ]);
-    const calls = storageMock.setPlaylists.mock.calls;
-    expect(calls[calls.length - 1][0][0]).not.toHaveProperty('enabled');
-  });
-
-  it('refreshUploads() can be called when settings has never rendered (event arrives early) without throwing', async () => {
-    // No render() yet — #upload-entries doesn't exist in the DOM.
-    uploadMock.reconcile.mockImplementationOnce(async () => {
-      state.playlists = [
-        { name: 'Early', url: 'http://127.0.0.1:8890/uploads/early.m3u', source: 'upload' },
-      ];
-    });
-
-    await expect(settings.refreshUploads()).resolves.toBeUndefined();
-    // Reconcile still runs (storage gets updated), only the morph is skipped.
-    expect(uploadMock.reconcile).toHaveBeenCalledTimes(1);
-  });
-
-  it('removes the empty-hint and replaces with rows in a single morph (no flicker)', async () => {
-    uploadMock.reconcile.mockImplementationOnce(async () => {
-      state.playlists = [
-        { name: 'A', url: 'http://127.0.0.1:8890/uploads/a.m3u', source: 'upload' },
-        { name: 'B', url: 'http://127.0.0.1:8890/uploads/b.m3u', source: 'upload' },
-      ];
-    });
-
-    settings.render();
-    await Promise.resolve(); await Promise.resolve();
-
-    const labels = Array.from(container.querySelectorAll('#upload-entries label'))
-      .map((l) => l.textContent);
-    expect(labels).toEqual(['A', 'B']);
-    // Each row has a stable data-key for morph identity.
-    const keys = Array.from(container.querySelectorAll<HTMLElement>('#upload-entries .settings-row'))
-      .map((r) => r.getAttribute('data-key'));
-    expect(keys).toEqual([
-      'http://127.0.0.1:8890/uploads/a.m3u',
-      'http://127.0.0.1:8890/uploads/b.m3u',
-    ]);
-  });
-});
-
 describe('Settings listener lifecycle', () => {
   it('binds persistent-container listeners once, not per render', () => {
     const c = document.createElement('div');
@@ -1975,23 +1704,16 @@ describe('Settings Xtream section', () => {
     expect(container.querySelector<HTMLElement>('#add-xtream')).not.toBeNull();
   });
 
-  it('places phone setup beside Language and keeps Xtream Accounts above Playlists', () => {
+  it('keeps Language first and Xtream Accounts above Playlists, with no local setup card', () => {
     settings.render();
     const heads = Array.from(container.querySelectorAll('.settings-section-title'))
       .map((h) => h.textContent);
     expect(heads[0]).toBe('Language');
-    expect(heads[1]).toBe('Set up with your phone or computer');
-    expect(container.querySelector('#app-language')?.closest('.settings-general-row'))
-      .toBe(container.querySelector('#setup-info')?.closest('.settings-general-row'));
     expect(heads.indexOf('Language')).toBeLessThan(heads.indexOf('Xtream Accounts'));
     expect(heads.indexOf('Xtream Accounts')).toBeLessThan(heads.indexOf('Playlists'));
-  });
-
-  it('shows the phone setup QR panel without an extra action', () => {
-    settings.render();
-    const panel = container.querySelector<HTMLElement>('#setup-info')!;
-    expect(panel.classList.contains('hidden')).toBe(false);
-    expect(container.querySelector('#phone-setup-toggle')).toBeNull();
+    // Device setup is online now: no LAN QR card and no phone-upload list.
+    expect(container.querySelector('#setup-info')).toBeNull();
+    expect(container.querySelector('#upload-entries')).toBeNull();
   });
 
   it('adds a blank xtream card and drops the empty hint', () => {

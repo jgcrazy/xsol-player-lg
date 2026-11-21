@@ -50,49 +50,6 @@ const MASTER_MANIFEST = [
   '',
 ].join('\n');
 
-// The desktop preview has no LAN service, so the device-setup panel in the
-// general pane renders a placeholder and its QR and instructions are never
-// compared. Answer the calls the app makes at boot so it renders for real.
-async function stubLanService(page: Page): Promise<void> {
-  await page.route('http://127.0.0.1:9999/info', (r) => r.fulfill({
-    status: 200,
-    contentType: 'application/json',
-    body: JSON.stringify({
-      ip: '192.168.1.2',
-      port: 9999,
-      setupUrl: 'http://192.168.1.2:9999/setup?token=abc123',
-      manualUrl: 'http://192.168.1.2:9999',
-      pairingCode: '1234',
-    }),
-  }));
-  await page.route('http://127.0.0.1:9999/uploads', (r) => r.fulfill({
-    status: 200, contentType: 'application/json', body: '[]' }));
-  await page.route('http://127.0.0.1:9999/setup-state', (r) => r.fulfill({
-    status: 200, contentType: 'application/json', body: '{"updated":true}' }));
-  await page.addInitScript(() => {
-    class FakePalmServiceBridge {
-      onservicecallback: ((message: string) => void) | null = null;
-
-      call(uri: string): void {
-        const method = uri.slice(uri.lastIndexOf('/') + 1);
-        const response = method === 'start'
-          ? { running: true, port: 9999 }
-          : method === 'serviceEvents'
-            ? { subscribed: true }
-            : { returnValue: false, errorText: 'unmocked: ' + method };
-        setTimeout(() => this.onservicecallback?.(JSON.stringify(response)), 0);
-      }
-
-      cancel(): void {
-        this.onservicecallback = null;
-      }
-    }
-    (window as unknown as {
-      PalmServiceBridge?: unknown;
-    }).PalmServiceBridge = FakePalmServiceBridge;
-  });
-}
-
 async function prepareM3U(page: Page): Promise<void> {
   await page.clock.setFixedTime(NOW);
   await routePlaylist(page, [
@@ -108,7 +65,6 @@ async function prepareM3U(page: Page): Promise<void> {
   await neuterVideo(page);
   await page.route('**/guide.xml', (r) =>
     r.fulfill({ status: 200, contentType: 'application/xml', body: EPG }));
-  await stubLanService(page);
   await page.addInitScript((key) => {
     localStorage.setItem('iptv_playlists', JSON.stringify([
       { name: 'Source 1', url: 'http://host/playlist.m3u' },
@@ -178,11 +134,6 @@ const M3U_SCREENS: Screen[] = [
       budget: pane === 'data' ? 0.0005 : 0,
       go: async (p: Page) => {
         await enterTab(p, 'settings');
-        // The stubbed service makes the panel render for real and refreshes
-        // the upload list; both land after the view opens, so wait for them
-        // before placing the column.
-        await expect(p.locator('.setup-qr')).toBeVisible();
-        await expect(p.locator('#upload-entries .empty-hint')).toBeVisible();
         // Clicking the nav item starts the app's scroll animation, which can
         // still be running when the frame is taken; that behaviour has its own
         // spec. Place the column where the animation would rest instead —

@@ -170,9 +170,8 @@ export interface PlaylistEntry {
   /** For 'xtream' entries this is the normalized portal base (`http://host:port`);
    *  the get.php/xmltv.php URLs are derived from it + credentials at load time. */
   url: string;
-  /** 'upload' entries are auto-managed by the local bundled service; 'xtream' is an
-   *  Xtream Codes account; absent/'url' are user-entered M3U URLs. */
-  source?: 'upload' | 'url' | 'xtream';
+  /** 'xtream' is an Xtream Codes account; absent/'url' are M3U URLs. */
+  source?: 'url' | 'xtream';
   /** False temporarily removes this source from every content surface without
    *  deleting its configuration or user data. Missing/true means enabled. */
   enabled?: boolean;
@@ -182,8 +181,6 @@ export interface PlaylistEntry {
     password: string;
     liveOutput?: import('./utils/xtream-url').XtreamLiveOutputPreference;
   };
-  /** Channel count, populated for 'upload' entries by reconcile() from UploadMeta. */
-  count?: number;
 }
 
 /** A per-channel display customization, keyed by `channelKey(ch)`. */

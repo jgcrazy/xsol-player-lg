@@ -52,7 +52,7 @@ const lastCompound = (part) => part.split(/[\s>+~]+/).filter(Boolean).pop() || p
 
 // A gap-carrying rule often does not declare `display` itself: it either refines
 // a base rule with the same selector, narrows one (`#id .base`), or rides a
-// companion class on the same element (`.setup-box-info.device-setup-card`).
+// companion class on the same element (`.source-box.xtream-card`).
 // Collect what each selector declares anywhere so those rules still resolve.
 function collectFlexContext(stylesheets) {
   const context = new Map();

@@ -9,9 +9,8 @@ export const CONFIG = {
   // Bump when its shape changes so an older payload is ignored, not misapplied.
   CHANNEL_CUSTOMIZATION_VERSION: 1,
 
-  // Bundled webOS JS service (see bundled-service/src/lan) for phone setup and uploads.
+  // Bundled webOS JS service (see bundled-service/src/reminder) for dev-mode reminder alerts.
   SERVICE_ID: __SERVICE_ID__,
-  SERVICE_HOST: '127.0.0.1',
 
   // Activation panel (per-device signed API) and the customer portal where the
   // MAC + key shown on screen are entered.

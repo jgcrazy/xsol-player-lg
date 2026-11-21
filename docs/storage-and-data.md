@@ -11,7 +11,6 @@ downloaded data that can be recreated.
 | Setup and preferences | Playlist and EPG sources, Xtream account details, theme, language, text size, time zone, active account and channel | Small app-private browser storage | No |
 | Personal data | Favorites, reminders, channel order and names, hidden channels, Watchlist, Recently Watched, playback progress, audio and subtitle choices | App-private database on the TV | No |
 | Downloaded cache | Parsed playlists, program guides, movie and series catalogs, media metadata, downloaded subtitles, channel health results | App-private database on the TV | Yes |
-| LAN-uploaded playlists | Original M3U files uploaded from another device | Private storage owned by the bundled upload service | No |
 
 ## Implementation architecture
 
@@ -29,7 +28,6 @@ flowchart LR
     Cache["idb-cache<br/>TTL / LRU / budgets"]
     Database["idb-database<br/>schema / transactions"]
     Reminders["ReminderService"]
-    Upload["UploadClient"]
 
     UI --> Storage
     UI --> Producers
@@ -49,18 +47,13 @@ flowchart LR
   end
 
   Activity["Activity Manager<br/>reminder schedules"]
-  Service["Bundled IPTV service<br/>Luna methods / LAN HTTP"]
-  Files["Service files<br/>&lt;id&gt;.m3u / &lt;id&gt;.json"]
-  Device["Phone or computer"]
+  Service["Bundled service<br/>reminder alert"]
 
   Storage --> Local
   Database --> UserStores
   Database --> CacheStores
   Reminders -->|create / cancel| Activity
-  Upload <-->|Luna| Service
   Activity -->|scheduled callback| Service
-  Service --> Files
-  Device -->|HTTP over LAN| Service
 ```
 
 - `src/services/storage-service.ts` is the application-facing facade. It keeps
@@ -71,9 +64,8 @@ flowchart LR
   expiration, LRU access times, budgeting, and eviction.
 - `src/services/idb-database.ts` owns the shared IndexedDB schema, connection,
   requests, and transaction completion.
-- `bundled-service/src/lan/` runs in the separate Node service because the
-  webOS browser sandbox cannot listen on the LAN. `setup/` owns phone setup;
-  `upload/` owns persisted M3U files.
+- `bundled-service/src/reminder/` runs in the separate Node service and stores
+  nothing: it only raises the Developer Mode reminder alert.
 
 ### localStorage
 
@@ -83,7 +75,7 @@ This is the complete active key inventory:
 
 | Key | Type | Stored content | Classification |
 | --- | --- | --- | --- |
-| `iptv_playlists` | `PlaylistEntry[]` | Stable id, display name, source URL/type, uploaded channel count, and Xtream username, password, and live-output preference | Configuration |
+| `iptv_playlists` | `PlaylistEntry[]` | Stable id, display name, source URL/type, and Xtream username, password, and live-output preference | Configuration |
 | `iptv_epg_url` | `string` | Manually configured XMLTV URL | Configuration |
 | `iptv_last_channel` | `number` | Last played channel's array index | Navigation state |
 | `iptv_last_channel_key` | `string` | Stable key of the last played channel; survives source reordering | Navigation state |
@@ -289,8 +281,7 @@ storage. A displayed budget of 75 MiB is normal when webOS grants the app a
 quota of about 150 MiB.
 
 The displayed total covers only the managed cache. Small settings, personal
-records, browser-managed image files, and original LAN-uploaded M3U files are
-not included.
+records, and browser-managed image files are not included.
 
 ## Automatic cleanup
 
@@ -342,7 +333,6 @@ health results. It keeps:
 - Watchlist and Recently Watched
 - Playback progress
 - Audio and subtitle choices
-- Original LAN-uploaded M3U files
 
 The next use of a cleared area may be slower while its data is downloaded and
 processed again.
@@ -352,37 +342,7 @@ processed again.
 **Reset App** permanently removes the app's local setup, personal data, and
 managed cache, then restarts at initial setup.
 
-Original LAN-uploaded M3U files belong to the separate LAN service and are
-not part of the browser database or cache meter. They should be removed through
-the playlist/upload workflow if they must also be deleted; otherwise the app
-may discover them again after a reset.
-
 ## Storage outside the browser origin
-
-### Bundled-service upload files
-
-The upload store chooses the first writable directory in this order:
-
-```text
-WEBOS_UPLOAD_DIR environment override
-/media/internal/iptv-uploads
-<service-install-directory>/uploads
-/tmp/iptv-uploads
-```
-
-The first two usable locations are intended to survive reboot. `/tmp` is only a
-last-resort fallback and is not persistent across reboot.
-
-Each upload creates two files:
-
-| File | Stored content |
-| --- | --- |
-| `<id>.m3u` | Original validated M3U text |
-| `<id>.json` | `{id, name, count, createdAt}` metadata |
-
-The HTTP `DELETE /uploads/<id>` route deletes both files. The browser-side
-`iptv_playlists` entry for an uploaded source is a synchronized reference to
-these service-owned files, not another copy of the M3U.
 
 ### webOS Activity Manager
 

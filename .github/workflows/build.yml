@@ -68,7 +68,6 @@ jobs:
           node scripts/run-service-smoke.mjs --matrix
           cp bundled-service/package.json build/bundled-service/
           cp bundled-service/src/services.json build/bundled-service/
-          cp bundled-service/src/setup/setup-page.html build/bundled-service/setup/
 
       - name: Package IPK
         run: ares-package --no-minify -e "*preview-libs.js" dist build/bundled-service -o .

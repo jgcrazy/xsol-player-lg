@@ -47,24 +47,12 @@ XSol Player is a fork of [webOS IPTV Player](https://github.com/lennylxx/webos-i
 | --- | --- |
 | ![Theme picker](https://github.com/user-attachments/assets/2e5ed981-c01b-48ab-a681-9a0ecd6431b8) | ![Reminder manager](https://github.com/user-attachments/assets/1d9bd762-def1-4e57-82cd-52eb70834b1a) |
 
-<table>
-  <tr>
-    <th width="50%">LAN setup</th>
-    <th width="50%"></th>
-  </tr>
-  <tr>
-    <td width="50%"><img src="https://github.com/user-attachments/assets/fda1f741-bf92-45fd-b7c5-e2ed555cdc92" alt="LAN setup"></td>
-    <td width="50%"></td>
-  </tr>
-</table>
-
 ## Features
 
 **Playlists & accounts**
 
 - **M3U playlists** — load multiple M3U/M3U8 lists, auto-deduplicated, and temporarily disable a source without deleting its setup
 - **Xtream Codes accounts** — add or temporarily disable accounts, or switch between accounts from the top-bar avatar; playlists and EPG data are derived from their credentials
-- **LAN setup** — configure sources and online subtitle settings or upload `.m3u` files from a phone on the same network by scanning a QR code ([LAN service](docs/lan-service.md))
 
 **Live TV & on-demand**
 
@@ -249,10 +237,8 @@ Opens at http://localhost:3000. Video playback uses HLS.js, mpegts.js, and Shaka
 Open with the **Blue** key or the **Settings** tab in the top bar. Sections:
 
 - **Language** — follow the TV's system language when supported, or choose a language explicitly.
-- **Device Setup** — scan the QR code to configure the app from a phone, or open the shown URL on a computer and enter the pairing code.
 - **Xtream Accounts** — add, edit, remove, or temporarily disable accounts; check credentials, connection usage, and expiry; and choose TS, HLS, or Auto for live streams. The playlist and EPG are derived from the account credentials on Save.
 - **Playlists** — add, edit, remove, or temporarily disable M3U URLs. Re-applied on Save.
-- **Upload Playlists** — lists playlists uploaded through Device Setup, with controls to temporarily disable or remove each upload. New uploads appear automatically through Luna push.
 - **Channels** — check live-stream health; reorder, hide, rename, regroup, manually map entries to XMLTV channels, or correct one channel's EPG time; show hidden channels or reset customizations.
 - **XMLTV URL** — set the program guide URL, also auto-detected from `url-tvg`, `x-tvg-url`, or `tvg-url` in M3U playlists.
 - **EPG time zone** — show guide times in the TV's **Device** time zone or the guide **Feed** time zone.
@@ -299,4 +285,3 @@ some of the features above:
 - [`docs/mpeg-dash.md`](docs/mpeg-dash.md) — how DASH detection, native playback, subtitles, and live DVR work
 - [`docs/vod-subtitles.md`](docs/vod-subtitles.md) — how VOD (Xtream movies & episodes) subtitles work: in-container tracks plus sidecar SRT/WebVTT/ASS, and online subtitle search (SubDL, OpenSubtitles, Assrt)
 - [`docs/storage-and-data.md`](docs/storage-and-data.md) — what the app stores, where it lives, and how user data is separated from disposable caches
-- [`docs/lan-service.md`](docs/lan-service.md) — phone setup and M3U uploads over the bundled LAN service
