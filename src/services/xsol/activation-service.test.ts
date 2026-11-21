@@ -214,18 +214,96 @@ describe('ActivationService.refresh', () => {
     expect(ActivationService.snapshot.errorCode).toBe('credential_revoked');
   });
 
-  it('names the linked playlist as it was saved on the portal', async () => {
+  it('brings every playlist saved on the portal, not only the active one', async () => {
+    StorageService.setPlaylists([{ id: 'p1', name: 'P1', url: 'http://host/a' }]);
+    // Saved on the portal but never set as the device's active playlist.
+    checkReply.data = active({
+      domain: '', has_playlist: false,
+      web_playlists: [
+        { id: 7, name: 'N1', m3u_url: 'http://host/other.m3u' },
+        { id: 9, name: 'N2', m3u_url: XTREAM },
+      ],
+    });
+
+    expect(await ActivationService.refresh()).toBe(true);
+
+    const playlists = StorageService.getPlaylists();
+    expect(playlists.map(item => item.id)).toEqual(['p1', 'xsol-web-7', 'xsol-web-9']);
+    expect(playlists[1]).toMatchObject({ name: 'N1', url: 'http://host/other.m3u', source: 'url' });
+    expect(playlists[2]).toMatchObject({
+      name: 'N2', source: 'xtream', url: 'http://host:8080', xtream: { username: 'u1', password: 'p&1' },
+    });
+    expect(ActivationService.snapshot.playlistName).toBe('N1, N2');
+    expect(ActivationService.snapshot.hasPlaylist).toBe(true);
+    expect(await ActivationService.refresh()).toBe(false);
+  });
+
+  it('does not list the active playlist twice when it is one of the saved ones', async () => {
     checkReply.data = active({
       domain: XTREAM, has_playlist: true,
+      web_playlists: [{ id: 9, name: 'N2', m3u_url: XTREAM }],
+    });
+
+    await ActivationService.refresh();
+
+    expect(StorageService.getPlaylists().map(item => item.id)).toEqual(['xsol-web-9']);
+    expect(ActivationService.snapshot.playlistName).toBe('N2');
+  });
+
+  it('follows a rename, a removal and an addition made on the portal', async () => {
+    checkReply.data = active({
       web_playlists: [
-        { id: 1, name: 'N1', m3u_url: 'http://host/other.m3u' },
-        { id: 2, name: 'N2', m3u_url: XTREAM },
+        { id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' },
+        { id: 9, name: 'N2', m3u_url: 'http://host/b.m3u' },
+      ],
+    });
+    await ActivationService.refresh();
+    const stored = StorageService.getPlaylists();
+    stored[1].enabled = false;
+    StorageService.setPlaylists(stored);
+
+    checkReply.data = active({
+      web_playlists: [
+        { id: 9, name: 'N2 renamed', m3u_url: 'http://host/b.m3u' },
+        { id: 11, name: 'N3', m3u_url: 'http://host/c.m3u' },
+      ],
+    });
+    expect(await ActivationService.refresh()).toBe(true);
+
+    const playlists = StorageService.getPlaylists();
+    expect(playlists.map(item => item.id)).toEqual(['xsol-web-9', 'xsol-web-11']);
+    // What the user set on the TV survives the rename.
+    expect(playlists[0]).toMatchObject({ name: 'N2 renamed', enabled: false });
+  });
+
+  it('removes the saved playlists when the portal list is emptied, leaving the TV sources', async () => {
+    StorageService.setPlaylists([{ id: 'p1', name: 'P1', url: 'http://host/a' }]);
+    checkReply.data = active({ web_playlists: [{ id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' }] });
+    await ActivationService.refresh();
+
+    checkReply.data = active({ web_playlists: [] });
+    expect(await ActivationService.refresh()).toBe(true);
+
+    expect(StorageService.getPlaylists().map(item => item.id)).toEqual(['p1']);
+    expect(ActivationService.snapshot.playlistName).toBe('');
+  });
+
+  it('skips a saved entry it cannot use, without dropping the others', async () => {
+    checkReply.data = active({
+      web_playlists: [
+        null,
+        { id: 1, name: 'N1', m3u_url: 'ftp://host/a' },
+        { id: 2, name: 'N2', m3u_url: 'http://host:8080' },
+        { name: 'N3', m3u_url: 'http://host/c.m3u' },
+        { id: 4, name: '', m3u_url: 'http://host/d.m3u' },
       ],
     });
 
     await ActivationService.refresh();
 
-    expect(ActivationService.snapshot.playlistName).toBe('N2');
+    const playlists = StorageService.getPlaylists();
+    expect(playlists.map(item => item.id)).toEqual(['xsol-web-4']);
+    expect(playlists[0].name).toBe('host');
   });
 
   it('falls back to the account, then the server, for the playlist name', async () => {

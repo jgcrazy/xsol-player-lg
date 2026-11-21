@@ -77,7 +77,7 @@ test('a playlist saved on the portal reaches the TV while the Access screen is o
   await expect(page.locator('#view-access')).toBeVisible();
   await expect(page.locator('.toast.visible')).toContainText('2 channels');
   const sources = await page.evaluate(() => JSON.parse(localStorage.getItem('iptv_playlists') || '[]'));
-  expect(sources).toMatchObject([{ id: 'xsol-panel', url: 'http://host/playlist.m3u', source: 'url' }]);
+  expect(sources).toMatchObject([{ id: 'xsol-web-1', name: 'N1', url: 'http://host/playlist.m3u', source: 'url' }]);
 
   // Back now leads to the channels the playlist brought.
   await page.evaluate(() => {
@@ -85,6 +85,32 @@ test('a playlist saved on the portal reaches the TV while the Access screen is o
   });
   await expect(page.locator('#view-channels')).toBeVisible();
   await expect(page.getByText('Channel One')).toBeVisible();
+});
+
+test('a playlist saved on the portal shows up even before it is set as the active one', async ({ page }) => {
+  await routePlaylist(page);
+  let saved = false;
+  await page.route('**/api/device/v1/check-activation', route => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify({
+      activated: true, status: 'active', expiry_date: '2030-01-05 00:00:00', trial: false, lifetime: false,
+      // "Add" on the portal stores the playlist; nothing makes it the device's active one.
+      domain: '', has_playlist: false, manage_key: '123456',
+      web_playlists: saved ? [{ id: 5, name: 'N1', m3u_url: 'http://host/playlist.m3u' }] : [],
+      server_time: Math.floor(Date.now() / 1000),
+    }),
+  }));
+  await page.goto('/');
+  await expect(page.locator('#access-playlist')).toHaveText('None linked yet');
+
+  saved = true;
+
+  await expect(page.locator('#access-playlist')).toHaveText('N1', { timeout: 15_000 });
+  await expect(page.locator('.toast.visible')).toContainText('2 channels');
+  const sources = await page.evaluate(() => JSON.parse(localStorage.getItem('iptv_playlists') || '[]'));
+  expect(sources).toMatchObject([{ id: 'xsol-web-5', name: 'N1', url: 'http://host/playlist.m3u' }]);
 });
 
 test('the Refresh button turns while it checks', async ({ page }) => {
@@ -127,7 +153,7 @@ test('signing in on the TV with server, username and password', async ({ page })
   // The account becomes an Xtream source, so Movies and Series work.
   const sources = await page.evaluate(() => JSON.parse(localStorage.getItem('iptv_playlists') || '[]'));
   expect(sources).toMatchObject([{
-    id: 'xsol-panel', source: 'xtream', url: 'http://host:8080', xtream: { username: 'u1', password: 'p1' },
+    id: 'xsol-web-1', source: 'xtream', url: 'http://host:8080', xtream: { username: 'u1', password: 'p1' },
   }]);
 });
 

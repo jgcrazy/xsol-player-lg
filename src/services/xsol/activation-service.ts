@@ -30,7 +30,7 @@ export interface ActivationSnapshot {
   lifetime: boolean;
   /** True when the panel holds a playlist for this device. */
   hasPlaylist: boolean;
-  /** Name of the playlist the panel has linked, '' when none or not disclosed. */
+  /** Names of the playlists the panel holds for this device, comma separated; '' when none or not disclosed. */
   playlistName: string;
   /** Panel code behind 'refused'. */
   errorCode: string;
@@ -92,22 +92,6 @@ export function isServerOnlyUrl(url: string): boolean {
   return /^https?:\/\/[^/?#]+\/?$/i.test(url.trim());
 }
 
-// What to call the linked playlist on screen: the name it was saved under on the
-// portal, else the account, else the server.
-function playlistNameFrom(data: PanelData, domain: string): string {
-  const saved = data.web_playlists;
-  if (Array.isArray(saved)) {
-    for (let i = 0; i < saved.length; i++) {
-      const item = saved[i] as { name?: unknown; m3u_url?: unknown } | null;
-      if (item && text(item.m3u_url) === domain && text(item.name)) return text(item.name);
-    }
-  }
-  const entry = playlistFromDomain(domain, '');
-  if (!entry) return '';
-  if (entry.xtream) return entry.xtream.username;
-  return entry.url.replace(/^https?:\/\//i, '').split(/[/?#]/)[0];
-}
-
 /**
  * The panel hands the active playlist over as one M3U URL. An Xtream `get.php`
  * link becomes an Xtream account, so Movies, Series and the derived guide work;
@@ -153,42 +137,111 @@ function sameSource(a: PlaylistEntry, b: PlaylistEntry): boolean {
     && (a.xtream?.password ?? '') === (b.xtream?.password ?? '');
 }
 
-/** Returns true when the stored sources changed and channel data must be reloaded. */
-function applyPanelPlaylist(data: PanelData): boolean {
-  const playlists = StorageService.getPlaylists();
-  const index = playlists.findIndex(item => item.id === PANEL_PLAYLIST_ID);
+const PANEL_ID_PREFIX = 'xsol-';
+const WEB_PLAYLIST_ID_PREFIX = 'xsol-web-';
+
+function isPanelManaged(entry: PlaylistEntry): boolean {
+  return entry.id.indexOf(PANEL_ID_PREFIX) === 0;
+}
+
+// Fallback label for a source the portal did not name: the account, else the server.
+function defaultName(entry: PlaylistEntry): string {
+  if (entry.xtream) return entry.xtream.username;
+  return entry.url.replace(/^https?:\/\//i, '').split(/[/?#]/)[0];
+}
+
+/**
+ * The sources the panel holds for this device: every playlist saved on the
+ * portal, as the other XSol apps list them, plus the active one when it was set
+ * some other way (a code, a sign-in on the TV, the partner API). Null when the
+ * answer does not say, so nothing is removed on a guess.
+ */
+function panelSources(data: PanelData, stored: PlaylistEntry[]): PlaylistEntry[] | null {
   const domain = text(data.domain);
+  const saved = data.web_playlists;
+  const result: PlaylistEntry[] = [];
+  let activeIsSaved = false;
 
-  if (!domain) {
-    // An empty `domain` with `has_playlist: true` only means the panel is
-    // withholding it (ownership not proven yet). Drop the source only when the
-    // panel says there is none any more, i.e. it was unlinked on the portal.
-    if (data.has_playlist === false && index !== -1) {
-      playlists.splice(index, 1);
-      StorageService.setPlaylists(playlists);
-      log.info('Panel playlist removed', 'event=activation.playlist.removed');
-      return true;
+  if (Array.isArray(saved)) {
+    for (let i = 0; i < saved.length; i++) {
+      const item = saved[i] as { id?: unknown; name?: unknown; m3u_url?: unknown } | null;
+      const url = item ? text(item.m3u_url) : '';
+      const id = item && (typeof item.id === 'number' || typeof item.id === 'string') ? String(item.id) : '';
+      if (!id || !url || isServerOnlyUrl(url)) continue;
+      const entry = playlistFromDomain(url, '');
+      if (!entry) continue;
+      entry.id = WEB_PLAYLIST_ID_PREFIX + id;
+      entry.name = text(item!.name) || defaultName(entry);
+      if (url === domain) activeIsSaved = true;
+      result.push(entry);
     }
-    return false;
+  } else if (!domain && data.has_playlist !== false) {
+    return null;
   }
 
-  if (isServerOnlyUrl(domain)) return false;
-
-  const existing = index === -1 ? null : playlists[index];
-  const next = playlistFromDomain(domain, existing?.name || CONFIG.APP_NAME);
-  if (!next) return false;
-  if (existing && sameSource(existing, next)) return false;
-  // Keep what the user set on the entry (disabled state, live output) across a change of URL.
-  if (existing) {
-    if (existing.enabled === false) next.enabled = false;
-    if (next.xtream && existing.xtream?.liveOutput) next.xtream.liveOutput = existing.xtream.liveOutput;
-    playlists[index] = next;
-  } else {
-    playlists.push(next);
+  const kept = stored.filter(item => item.id === PANEL_PLAYLIST_ID)[0];
+  if (domain && !isServerOnlyUrl(domain) && !activeIsSaved) {
+    const entry = playlistFromDomain(domain, '');
+    if (entry) {
+      // A name the user gave it survives a change of URL; the automatic one follows the new source.
+      entry.name = kept && kept.name && kept.name !== defaultName(kept) ? kept.name : defaultName(entry);
+      result.push(entry);
+    }
+  } else if (!domain && data.has_playlist === true && kept) {
+    // An empty `domain` with `has_playlist: true` only means the panel is
+    // withholding it (ownership not proven yet), not that it was unlinked.
+    result.push(kept);
   }
-  StorageService.setPlaylists(playlists);
-  log.info('Panel playlist applied', 'event=activation.playlist.applied', `kind=${next.source}`);
-  return true;
+  return result;
+}
+
+/** Returns true when the stored sources changed and channel data must be reloaded. */
+function applyPanelPlaylist(data: PanelData): { changed: boolean; names: string[] } {
+  const stored = StorageService.getPlaylists();
+  const wanted = panelSources(data, stored);
+  if (wanted === null) {
+    return { changed: false, names: stored.filter(isPanelManaged).map(item => item.name) };
+  }
+
+  let changed = false;
+  const byId: Record<string, PlaylistEntry> = {};
+  for (let i = 0; i < wanted.length; i++) byId[wanted[i].id] = wanted[i];
+
+  const next: PlaylistEntry[] = [];
+  const placed: Record<string, boolean> = {};
+  for (let i = 0; i < stored.length; i++) {
+    const existing = stored[i];
+    if (!isPanelManaged(existing)) {
+      next.push(existing);
+      continue;
+    }
+    const update = byId[existing.id];
+    if (!update) {
+      changed = true;
+      continue;
+    }
+    placed[existing.id] = true;
+    if (sameSource(existing, update) && existing.name === update.name) {
+      next.push(existing);
+      continue;
+    }
+    // Keep what the user set on the entry (disabled state, live output) across a change.
+    if (existing.enabled === false) update.enabled = false;
+    if (update.xtream && existing.xtream?.liveOutput) update.xtream.liveOutput = existing.xtream.liveOutput;
+    next.push(update);
+    changed = true;
+  }
+  for (let i = 0; i < wanted.length; i++) {
+    if (placed[wanted[i].id]) continue;
+    next.push(wanted[i]);
+    changed = true;
+  }
+
+  if (changed) {
+    StorageService.setPlaylists(next);
+    log.info('Panel playlists synced', 'event=activation.playlist.synced', `count=${wanted.length}`);
+  }
+  return { changed, names: wanted.map(item => item.name) };
 }
 
 function statusFrom(data: PanelData): ActivationStatus {
@@ -215,9 +268,9 @@ async function check(): Promise<boolean> {
       publish({ ...base, status: 'refused', errorCode: text(data.message) || `http_${response.status}` });
       return false;
     }
-    const changed = applyPanelPlaylist(data);
+    const synced = applyPanelPlaylist(data);
+    const changed = synced.changed;
     const expiry = data.expiry_date;
-    const domain = text(data.domain);
     const status = statusFrom(data);
     const enforced = data.activation_enforced !== false;
     rememberLock(status, enforced);
@@ -229,8 +282,9 @@ async function check(): Promise<boolean> {
       expiryDate: typeof expiry === 'string' ? expiry : '',
       trial: data.trial === true,
       lifetime: data.lifetime === true,
-      hasPlaylist: data.has_playlist === true && !isServerOnlyUrl(domain),
-      playlistName: domain && !isServerOnlyUrl(domain) ? playlistNameFrom(data, domain) : '',
+      hasPlaylist: synced.names.length > 0
+        || (data.has_playlist === true && !isServerOnlyUrl(text(data.domain))),
+      playlistName: synced.names.join(', '),
       errorCode: '',
     });
     return changed;
