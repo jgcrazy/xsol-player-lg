@@ -58,12 +58,12 @@ body.tabbar-docked #view-epg .epg-view {
 
 .tab-bar-logo {
   flex-shrink: 0;
-  width: 44px;
-  height: 44px;
-  margin-right: 14px;
+  width: 72px;
+  height: 72px;
+  margin-right: 16px;
   box-sizing: border-box;
   border: 1px solid rgba(232, 182, 95, .45);
-  border-radius: 10px;
+  border-radius: 16px;
   background: radial-gradient(circle at 50% 40%, #3a2c1c, #151210 78%);
 }
 
