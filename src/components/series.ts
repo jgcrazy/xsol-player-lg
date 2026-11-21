@@ -436,8 +436,19 @@ export class Series extends CatalogView<SeriesCategory, SeriesItem> {
   }
 
   protected moveExtraFocus(action: Action): boolean {
-    if (this.mode !== 'detail' || (action !== 'up' && action !== 'down')) return false;
+    if (this.mode !== 'detail') return false;
     const focused = this.nav.focused;
+    // Left/Right walk the season row in order. Left to geometry, the wide
+    // button above it wins from the first season and the rest are never reached.
+    if ((action === 'left' || action === 'right') && focused?.dataset.season !== undefined) {
+      const seasons = Array.prototype.slice.call(
+        this.container.querySelectorAll<HTMLElement>('.series-season-btn'),
+      ) as HTMLElement[];
+      const next = seasons[seasons.indexOf(focused) + (action === 'left' ? -1 : 1)];
+      if (next) this.nav.focus(next);
+      return true;
+    }
+    if (action !== 'up' && action !== 'down') return false;
     const rawIndex = focused?.closest<HTMLElement>('[data-episode-index]')?.dataset.episodeIndex;
     if (rawIndex === undefined) return false;
     const episodes = this.currentInfo?.episodesBySeason[this.selectedSeason] ?? [];

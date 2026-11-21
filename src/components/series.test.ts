@@ -356,6 +356,35 @@ describe('Series detail', () => {
     }));
   });
 
+  it('walks the season row with Left and Right, one season at a time', async () => {
+    catalogMock.loadSeriesInfo.mockResolvedValue({
+      ...SERIES_INFO,
+      seasons: [1, 2, 3],
+      episodesBySeason: { ...SERIES_INFO.episodesBySeason, 3: [] },
+    });
+    const { view } = await openWith();
+    await openDetail(view);
+    const season = () => container.querySelector<HTMLElement>('.focused')?.dataset.season;
+    container.querySelector('[data-season="1"]')!.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
+
+    view.handleAction('right');
+    expect(season()).toBe('2');
+    view.handleAction('right');
+    expect(season()).toBe('3');
+    view.handleAction('right'); // the last season is the end of the row
+    expect(season()).toBe('3');
+    view.handleAction('left');
+    view.handleAction('left');
+    expect(season()).toBe('1');
+    view.handleAction('left');
+    expect(season()).toBe('1');
+
+    // OK on a season still selects it.
+    view.handleAction('right');
+    view.handleAction('select');
+    expect(container.querySelector('.series-season-btn.active')?.getAttribute('data-season')).toBe('2');
+  });
+
   it('marks an episode with a resume point and passes its saved position', async () => {
     catalogMock.loadSeriesInfo.mockResolvedValue(SERIES_INFO);
     storageMock.getResume.mockImplementation((_a: string, _k: string, id: string) =>
