@@ -13,7 +13,7 @@
   .loading-container > * + * { margin-top: 24px; }
   .reminder-buttons > * + *, .catchup-resume-buttons > * + *, .confirmation-buttons > * + * { margin-left: 24px; }
   .playlist-tabs > * + * { margin-left: 4px; }
-  .group-item > * + * { margin-left: 12px; }
+  .group-item > * + * { margin-left: 14px; }
   .channel-list-scroll.recent-list > * + * { margin-top: 4px; }
   .channel-item > * + * { margin-left: 16px; }
   .edit-hints > * + * { margin-left: 24px; }

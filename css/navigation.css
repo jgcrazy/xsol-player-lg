@@ -10,7 +10,6 @@
   z-index: 10;
 }
 
-.group-item.focused,
 .channel-item.focused {
   background: var(--bg-tertiary) !important;
   border-color: var(--focus-ring) !important;

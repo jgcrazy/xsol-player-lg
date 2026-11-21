@@ -422,7 +422,7 @@ describe('ChannelList.render', () => {
       list.render();
       expect(container.querySelectorAll('.group-item').length).toBeLessThan(60);
       expect(container.querySelector<HTMLElement>('.group-list-spacer')?.style.height)
-        .toBe('3400204px');
+        .toBe('2100126px');
     } finally {
       playlistMock.getGroupsForPlaylist = original;
       playlistMock.groupsRevision++;

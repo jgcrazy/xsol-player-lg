@@ -103,59 +103,92 @@
   position: relative;
 }
 
-/* Fixed height: the group list is virtualized, so GROUP_ROW_STRIDE in
-   channel-list.ts must stay this height plus the 8px vertical margin. */
+/* Same look as the Movies/Series category column. Fixed height: the group
+   list is virtualized, so GROUP_ROW_STRIDE in channel-list.ts must stay this
+   height plus the 3px between rows. */
 .group-item {
   position: absolute;
   left: 0;
   right: 0;
-  height: 60px;
+  height: 39px;
+  box-sizing: border-box;
   display: flex;
   align-items: center;
-  padding: 14px 16px;
-  margin: 4px 0;
-  border-radius: var(--radius);
-  border: 2px solid transparent;
+  padding: 0 14px;
+  border-radius: 8px;
+  border: 1px solid transparent;
+  background: transparent;
+  color: #bdb4a7;
+  font-family: "Manrope", "LG Smart UI", sans-serif;
   cursor: pointer;
   transition: var(--transition);
-  gap: 12px;
+  gap: 14px;
+}
+
+.group-item:hover {
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.group-item.focused {
+  background: rgba(255, 255, 255, 0.03);
+  border-color: rgba(232, 182, 95, 0.4);
+  box-shadow: none;
 }
 
 .group-item.active {
-  background: var(--bg-tertiary);
-  border-color: var(--accent-dim);
+  background: rgba(255, 255, 255, 0.05);
+  border-color: rgba(255, 255, 255, 0.18);
+  color: #ffffff;
 }
 
+.group-item.active.focused {
+  border-color: rgba(232, 182, 95, 0.55);
+}
+
+/* The marker is a dot, as in Movies; the glyph inside is not shown. */
 .group-icon {
-  font-size: 20px;
-  width: 28px;
-  text-align: center;
-  color: var(--accent);
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  flex: 0 0 auto;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background: #4a443e;
+  overflow: hidden;
+  font-size: 0;
 }
 
-.group-icon .group-logo {
-  width: 24px;
-  height: 24px;
-  object-fit: contain;
-  display: block;
+.group-icon > * {
+  display: none;
+}
+
+.group-item.active .group-icon {
+  background: #e8b65f;
 }
 
 .group-name {
   flex: 1;
-  font-size: 24px;
+  min-width: 0;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+.group-item.active .group-name {
+  font-weight: 700;
+}
+
 .group-count {
-  font-size: 18px;
-  color: var(--text-muted);
-  min-width: 40px;
+  flex: 0 0 auto;
+  font-family: "Newsreader", serif;
+  font-size: 13px;
+  color: #5a534c;
   text-align: right;
+}
+
+.group-item.active .group-count {
+  color: #bdb4a7;
 }
 
 /* Channel main area */
@@ -456,7 +489,8 @@
 }
 
 .group-item .edit-text-input {
-  font-size: 24px;
+  font-size: 13px;
+  height: 30px;
 }
 
 .edit-hints {
