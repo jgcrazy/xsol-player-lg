@@ -47,7 +47,7 @@ interface MediaProbe {
 }
 type ProbeWindow = Window & { previewProbe: MediaProbe };
 
-test.use({ timezoneId: 'UTC' });
+test.use({ timezoneId: 'UTC', livePreviewBaseline: 'app-default' });
 
 async function setup(
   page: Page,
@@ -182,10 +182,17 @@ async function setHidden(page: Page, hidden: boolean): Promise<void> {
   }, hidden);
 }
 
-test('default Off retains full-screen playback and stop-on-Back', async ({ page }) => {
+test('default On previews the selected channel without writing a preference', async ({ page }) => {
   await setup(page);
   await expect(page.locator(PANEL)).toBeHidden();
   expect(await page.evaluate(() => localStorage.getItem('iptv_live_preview'))).toBeNull();
+  await selectFirst(page);
+  expect(await page.evaluate(() => localStorage.getItem('iptv_live_preview'))).toBeNull();
+});
+
+test('Off retains full-screen playback and stop-on-Back', async ({ page }) => {
+  await setup(page, { enabled: false });
+  await expect(page.locator(PANEL)).toBeHidden();
   await page.locator(ROW).first().click();
   await expect(page.locator('#view-player')).toBeVisible();
   await page.keyboard.press('Escape');
@@ -194,26 +201,27 @@ test('default Off retains full-screen playback and stop-on-Back', async ({ page 
   expect((await snapshot(page)).pauses).toBeGreaterThan(0);
 });
 
-test('Settings saves On across reload and Cancel discards Off', async ({ page }) => {
+test('Settings saves Off across reload and Cancel discards On', async ({ page }) => {
   await setup(page);
   await enterTab(page, 'settings');
   const toggle = '#view-settings #live-preview-setting';
   await page.locator('[data-settings-target="playback"]').click();
   await expect(page.locator('#live-preview')).toHaveCount(1);
-  await expect(page.locator(`${toggle} .active`)).toHaveAttribute('data-value', 'off');
-  await page.locator(`${toggle} [data-value="on"]`).click();
+  await expect(page.locator(`${toggle} .active`)).toHaveAttribute('data-value', 'on');
+  await page.locator(`${toggle} [data-value="off"]`).click();
   expect(await page.evaluate(() => localStorage.getItem('iptv_live_preview'))).toBeNull();
   await page.locator('#save-settings').click();
-  expect(await page.evaluate(() => localStorage.getItem('iptv_live_preview'))).toBe('true');
+  expect(await page.evaluate(() => localStorage.getItem('iptv_live_preview'))).toBe('false');
   await page.reload();
   await expect(page.locator(ROW)).toHaveCount(2);
-  await selectFirst(page);
   await enterTab(page, 'settings');
   await page.locator('[data-settings-target="playback"]').click();
-  await page.locator(`${toggle} [data-value="off"]`).click();
+  await expect(page.locator(`${toggle} .active`)).toHaveAttribute('data-value', 'off');
+  await page.locator(`${toggle} [data-value="on"]`).click();
   await page.locator('#cancel-settings').click();
-  expect(await page.evaluate(() => localStorage.getItem('iptv_live_preview'))).toBe('true');
-  await selectFirst(page);
+  expect(await page.evaluate(() => localStorage.getItem('iptv_live_preview'))).toBe('false');
+  await page.locator(ROW).first().click();
+  await expect(page.locator('#view-player')).toBeVisible();
 });
 
 test('row clicks tune preview and retain mute across channel changes', async ({ page }) => {

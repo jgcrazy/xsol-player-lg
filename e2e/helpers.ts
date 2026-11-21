@@ -151,8 +151,20 @@ const POST_TARGET_APIS = postTargetApis();
 
 // Every spec imports `test` from here; it auto-stubs the service probe
 // before each test so no file has to repeat it.
-export const test = base.extend({
-  page: async ({ page }, use, testInfo) => {
+export const test = base.extend<{ livePreviewBaseline: 'off' | 'app-default' }>({
+  // The app ships with Live preview on, which turns "select a channel" into an
+  // in-list preview. Most specs are about full-screen playback, so the suite
+  // starts from Off unless a spec asks for the shipped default. A stored
+  // preference, including one the app itself saves, is never overwritten.
+  livePreviewBaseline: ['off', { option: true }],
+  page: async ({ page, livePreviewBaseline }, use, testInfo) => {
+    if (livePreviewBaseline === 'off') {
+      await page.addInitScript(() => {
+        if (localStorage.getItem('iptv_live_preview') === null) {
+          localStorage.setItem('iptv_live_preview', 'false');
+        }
+      });
+    }
     // The simulation project strips every API Chromium 53 lacks before the app
     // loads, so unguarded use fails here instead of on a TV.
     if (testInfo.project.name === 'chromium-53-simulation') {

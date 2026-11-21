@@ -17,6 +17,13 @@ export async function newLegacyPage(browser: Browser): Promise<{ page: Page; clo
   });
   const page = await context.newPage();
   await page.addInitScript(removeApis, POST_TARGET_APIS);
+  // Same starting preference as the fixture page it is compared against (see
+  // `livePreviewBaseline` in helpers.ts); this page is built outside that fixture.
+  await page.addInitScript(() => {
+    if (localStorage.getItem('iptv_live_preview') === null) {
+      localStorage.setItem('iptv_live_preview', 'false');
+    }
+  });
   await stubUploadService(page);
   return { page, close: () => context.close() };
 }

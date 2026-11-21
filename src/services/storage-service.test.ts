@@ -109,8 +109,8 @@ describe('StorageService', () => {
     expect(StorageService.getXtreamCatalogRefreshIntervalHours()).toBe(6);
   });
 
-  it('defaults live preview to off without writing a preference', () => {
-    expect(StorageService.getLivePreview()).toBe(false);
+  it('defaults live preview to on without writing a preference', () => {
+    expect(StorageService.getLivePreview()).toBe(true);
     expect(localStorage.getItem('iptv_live_preview')).toBeNull();
   });
 
@@ -144,18 +144,18 @@ describe('StorageService', () => {
   });
 
   it.each(['null', '"true"', '1', '{}', 'invalid'])(
-    'keeps live preview off for a malformed stored preference %s',
+    'keeps live preview on for a malformed stored preference %s',
     (value) => {
       localStorage.setItem('iptv_live_preview', value);
-      expect(StorageService.getLivePreview()).toBe(false);
+      expect(StorageService.getLivePreview()).toBe(true);
     },
   );
 
-  it('reads persisted live preview on upgrade and clears it on reset', () => {
-    localStorage.setItem('iptv_live_preview', 'true');
-    expect(StorageService.getLivePreview()).toBe(true);
-    StorageService.clearAll();
+  it('reads a persisted live preview off on upgrade and returns to on after reset', () => {
+    localStorage.setItem('iptv_live_preview', 'false');
     expect(StorageService.getLivePreview()).toBe(false);
+    StorageService.clearAll();
+    expect(StorageService.getLivePreview()).toBe(true);
   });
 
   it('clears all local storage when resetting the app', () => {

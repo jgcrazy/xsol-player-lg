@@ -918,8 +918,9 @@ export const StorageService = {
     set('auto_play', val);
   },
 
+  // On unless the user turned it off: only an explicit stored `false` disables it.
   getLivePreview(): boolean {
-    return get<unknown>('live_preview', false) === true;
+    return get<unknown>('live_preview', true) !== false;
   },
   setLivePreview(val: boolean): void {
     set('live_preview', val);
