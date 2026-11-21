@@ -177,25 +177,86 @@
   font-weight: 700;
 }
 
-.access-playlist {
-  margin-top: 14px;
-  display: flex;
-  align-items: baseline;
-  font-size: calc(24px * var(--font-scale));
+.access-list {
+  margin-top: 20px;
 }
 
-.access-playlist-label {
-  flex-shrink: 0;
-  margin-right: 12px;
+.access-list-title {
+  font-size: calc(22px * var(--font-scale));
+  font-weight: 600;
   color: var(--text-secondary);
 }
 
-.access-playlist-name {
+.access-list-empty {
+  margin-top: 8px;
+  font-size: calc(24px * var(--font-scale));
+  font-weight: 600;
+}
+
+.access-rows {
+  margin: 10px 0 0;
+  padding: 4px;
+  list-style: none;
+  max-width: 900px;
+  max-height: 204px;
+  overflow-y: auto;
+}
+
+.access-row {
+  display: flex;
+  align-items: center;
+}
+
+.access-row + .access-row {
+  margin-top: 8px;
+}
+
+.access-row-main {
+  flex: 1;
+  min-width: 0;
+  height: 56px;
+  padding: 0 20px;
+  display: flex;
+  align-items: center;
+  border: 2px solid transparent;
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: calc(22px * var(--font-scale));
+  text-align: left;
+}
+
+.access-row.is-in-use .access-row-main {
+  color: var(--text-primary);
+  font-weight: 600;
+}
+
+.access-row-name {
+  flex: 1;
   min-width: 0;
   overflow: hidden;
   white-space: nowrap;
   text-overflow: ellipsis;
+}
+
+.access-row-state {
+  flex-shrink: 0;
+  margin-left: 16px;
+  color: var(--success);
+  font-size: calc(19px * var(--font-scale));
   font-weight: 600;
+}
+
+.access-row-remove {
+  flex-shrink: 0;
+  margin-left: 12px;
+}
+
+.access-row-remove.is-confirming {
+  background: var(--danger);
+  color: #fff;
+  font-weight: 700;
 }
 
 /* Refresh: the icon turns for as long as the check is in flight. */
@@ -265,12 +326,6 @@
 .access-input:focus {
   border-color: var(--accent);
   outline: none;
-}
-
-.access-locked-server {
-  margin-top: 10px;
-  font-size: calc(20px * var(--font-scale));
-  color: var(--text-secondary);
 }
 
 .access-form-actions {

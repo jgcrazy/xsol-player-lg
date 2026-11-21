@@ -1,4 +1,4 @@
-import type { Action } from '../types';
+import type { Action, PlaylistEntry } from '../types';
 import { CONFIG } from '../config';
 import { SpatialNav } from '../navigation/spatial-nav';
 import {
@@ -6,6 +6,7 @@ import {
   type ActivationSnapshot,
 } from '../services/xsol/activation-service';
 import { LoginService, type LoginResult } from '../services/xsol/login-service';
+import { StorageService } from '../services/storage-service';
 import { html, raw, type Safe } from '../utils/dom';
 import { morph } from '../utils/morph';
 import { qrDataUrl } from '../utils/qr';
@@ -20,7 +21,6 @@ interface AccessHandlers {
   onRevealTabBar: () => boolean;
 }
 
-type LoginMode = 'closed' | 'code' | 'account';
 type Notice = { kind: 'error' | 'info' | 'success'; text: string } | null;
 
 const STATUS_KEY: Record<ActivationSnapshot['status'], TextMessageKey> = {
@@ -57,7 +57,8 @@ function formatExpiry(raw: string): string {
  * a QR code that opens the portal for this device, the activation state, and the
  * playlist the panel has linked. While it is on screen it polls the panel, so a
  * playlist saved on the portal reaches the TV without the user doing anything
- * here. It also lets the user sign in on the TV, with a code or an account.
+ * here. It lists the configured accesses, to pick the one in use or remove
+ * one, and lets the user sign in on the TV with a server or code plus an account.
  */
 export class Access {
   private nav: SpatialNav;
@@ -67,9 +68,11 @@ export class Access {
   private refreshing = false;
   private qrFor = '';
   private qrSrc = '';
-  private mode: LoginMode = 'closed';
-  private lockedServer = '';
+  private formOpen = false;
   private submitting = false;
+  // The row whose Remove was pressed once; a second press on it removes.
+  private pendingRemove = '';
+  private removing = false;
   private notice: Notice = null;
 
   constructor(
@@ -112,14 +115,15 @@ export class Access {
     this.unsubscribe = null;
     if (this.timer !== null) clearTimeout(this.timer);
     this.timer = null;
-    this.mode = 'closed';
-    this.lockedServer = '';
+    this.formOpen = false;
+    this.pendingRemove = '';
     this.notice = null;
   }
 
   handleAction(action: Action): void {
     if (action === 'back') {
-      if (this.mode !== 'closed') this.setMode('closed');
+      if (this.pendingRemove) this.cancelRemove();
+      else if (this.formOpen) this.setFormOpen(false);
       else this.handlers.onBack();
       return;
     }
@@ -131,6 +135,8 @@ export class Access {
     // A field keeps DOM focus while the D-pad moves on; let go of it first.
     const active = document.activeElement;
     if (active instanceof HTMLInputElement && this.container.contains(active)) active.blur();
+    // Moving away from a half-confirmed Remove withdraws it.
+    if (this.pendingRemove) this.cancelRemove();
     if (!this.nav.move(action) && action === 'up') this.handlers.onRevealTabBar();
   }
 
@@ -140,23 +146,86 @@ export class Access {
       return;
     }
     const action = control.dataset.accessAction;
+    const id = control.dataset.id ?? '';
+    if (action !== 'remove' && this.pendingRemove) this.cancelRemove();
     if (action === 'back') this.handlers.onBack();
     else if (action === 'refresh') void this.poll(true);
-    else if (action === 'login-code') this.setMode('code');
-    else if (action === 'login-account') this.setMode('account');
-    else if (action === 'login-cancel') this.setMode('closed');
+    else if (action === 'login-open') this.setFormOpen(true);
+    else if (action === 'login-cancel') this.setFormOpen(false);
     else if (action === 'login-submit') void this.submit();
+    else if (action === 'use') this.usePlaylist(id);
+    else if (action === 'remove') void this.removePlaylist(id);
   }
 
-  private setMode(mode: LoginMode): void {
-    this.mode = mode;
-    this.lockedServer = '';
+  private setFormOpen(open: boolean): void {
+    this.formOpen = open;
     this.notice = null;
     this.render();
-    const target = mode === 'closed'
-      ? this.container.querySelector<HTMLElement>('[data-access-action="login-code"]')
-      : this.container.querySelector<HTMLElement>('.access-form [data-focusable]');
+    const target = open
+      ? this.container.querySelector<HTMLElement>('.access-form [data-focusable]')
+      : this.container.querySelector<HTMLElement>('[data-access-action="login-open"]');
     if (target) this.nav.focus(target);
+  }
+
+  private cancelRemove(): void {
+    this.pendingRemove = '';
+    this.render();
+  }
+
+  // Selecting an access makes it the one the TV plays: the others stay
+  // configured but are switched off.
+  private usePlaylist(id: string): void {
+    const playlists = StorageService.getPlaylists();
+    const chosen = playlists.filter(item => item.id === id)[0];
+    if (!chosen) return;
+    const alreadyAlone = playlists.every(item => (item.id === id) === (item.enabled !== false));
+    if (alreadyAlone) {
+      this.notice = { kind: 'info', text: t('access.list.alreadyInUse', { name: chosen.name }) };
+      this.render();
+      return;
+    }
+    StorageService.setPlaylists(playlists.map((item) => {
+      const copy: PlaylistEntry = { ...item };
+      if (item.id === id) delete copy.enabled;
+      else copy.enabled = false;
+      return copy;
+    }));
+    if (chosen.source === 'xtream') StorageService.setSelectedXtreamAccountId(id);
+    this.notice = { kind: 'success', text: t('access.list.selected', { name: chosen.name }) };
+    this.render();
+    this.handlers.onPlaylistChanged();
+  }
+
+  private async removePlaylist(id: string): Promise<void> {
+    if (this.removing) return;
+    if (this.pendingRemove !== id) {
+      this.pendingRemove = id;
+      this.notice = null;
+      this.render();
+      return;
+    }
+    this.removing = true;
+    this.pendingRemove = '';
+    this.notice = { kind: 'info', text: t('access.list.removing') };
+    this.render();
+    let removed = false;
+    try {
+      removed = await ActivationService.removePlaylist(id);
+    } finally {
+      this.removing = false;
+    }
+    if (!this.opened) return;
+    this.notice = removed
+      ? { kind: 'success', text: t('access.list.removed') }
+      : { kind: 'error', text: t('access.list.removeFailed') };
+    this.render();
+    if (!removed) return;
+    if (!this.nav.focused || !this.container.contains(this.nav.focused)) {
+      const next = this.container.querySelector<HTMLElement>('[data-access-action="use"]')
+        ?? this.container.querySelector<HTMLElement>('[data-access-action="login-open"]');
+      if (next) this.nav.focus(next);
+    }
+    this.handlers.onPlaylistChanged();
   }
 
   private field(name: string): string {
@@ -164,20 +233,17 @@ export class Access {
   }
 
   private async submit(): Promise<void> {
-    if (this.submitting || this.mode === 'closed') return;
-    const mode = this.mode;
+    if (this.submitting || !this.formOpen) return;
     this.submitting = true;
     this.notice = { kind: 'info', text: t('access.login.working') };
     this.render();
     let result: LoginResult;
     try {
-      result = mode === 'code'
-        ? await LoginService.redeemCode(this.field('code'))
-        : await LoginService.signIn({
-            server: this.lockedServer || this.field('server'),
-            username: this.field('username'),
-            password: this.field('password'),
-          });
+      result = await LoginService.signIn({
+        target: this.field('target'),
+        username: this.field('username'),
+        password: this.field('password'),
+      });
     } finally {
       this.submitting = false;
     }
@@ -185,8 +251,6 @@ export class Access {
 
     if (result.status === 'needs_account') {
       // The code was good and named the server; only the account is missing.
-      this.mode = 'account';
-      this.lockedServer = result.server;
       this.notice = { kind: 'info', text: t('access.login.codeNeedsAccount') };
       this.render();
       const first = this.container.querySelector<HTMLElement>('[data-access-field="username"]');
@@ -198,8 +262,7 @@ export class Access {
       this.render();
       return;
     }
-    this.mode = 'closed';
-    this.lockedServer = '';
+    this.formOpen = false;
     this.notice = { kind: 'success', text: t('access.login.success') };
     this.render();
     // The panel now holds the playlist; the same check that serves the portal picks it up.
@@ -217,6 +280,8 @@ export class Access {
       case 'blocked': return t('access.status.blocked');
       case 'missing_fields': return t('access.error.missingFields');
       case 'invalid_url': return t('access.error.invalidUrl');
+      case 'invalid_credentials': return t('access.error.invalidCredentials');
+      case 'server_unreachable': return t('access.error.serverUnreachable');
       case 'network': return t('access.status.offline');
       default: return t('access.detail.code', { code: result.detail ?? '' });
     }
@@ -266,9 +331,31 @@ export class Access {
     return t(snapshot.trial ? 'access.detail.trialUntil' : 'access.detail.validUntil', { date });
   }
 
-  private playlistText(snapshot: ActivationSnapshot): string {
-    if (snapshot.playlistName) return snapshot.playlistName;
-    return t(snapshot.hasPlaylist ? 'access.playlist.linked' : 'access.playlist.none');
+  private listBlock(snapshot: ActivationSnapshot): Safe {
+    const playlists = StorageService.getPlaylists();
+    const rows = playlists.map((item) => {
+      const inUse = item.enabled !== false;
+      const confirming = this.pendingRemove === item.id;
+      return html`
+        <li class="access-row ${inUse ? 'is-in-use' : ''}" data-key="row:${item.id}">
+          <button class="access-row-main" data-focusable data-access-action="use"
+                  data-id="${item.id}" data-key="use:${item.id}">
+            <span class="access-row-name">${item.name}</span>
+            ${inUse ? html`<span class="access-row-state">${t('access.list.inUse')}</span>` : ''}
+          </button>
+          <button class="access-button access-row-remove ${confirming ? 'is-confirming' : ''}" data-focusable
+                  data-access-action="remove" data-id="${item.id}" data-key="remove:${item.id}">${
+            t(confirming ? 'access.list.confirmRemove' : 'common.remove')}</button>
+        </li>`;
+    });
+    return html`
+      <div class="access-list" data-key="access-list">
+        <h2 class="access-list-title">${t('access.list.title')}</h2>
+        ${rows.length
+          ? html`<ul class="access-rows" id="access-rows" data-nav-container>${rows}</ul>`
+          : html`<p class="access-list-empty" id="access-playlist">${
+              t(snapshot.hasPlaylist ? 'access.playlist.linked' : 'access.playlist.none')}</p>`}
+      </div>`;
   }
 
   private qr(deviceId: string): string {
@@ -284,35 +371,26 @@ export class Access {
       ? html`<p class="access-notice access-notice--${this.notice.kind}" id="access-notice"
                 data-key="access-notice">${this.notice.text}</p>`
       : '';
-    if (this.mode === 'closed') {
+    if (!this.formOpen) {
       return html`
         <div class="access-login" data-key="access-login">
           <h2 class="access-login-title">${t('access.login.title')}</h2>
           <div class="access-login-actions" data-nav-container>
-            <button class="access-button" data-focusable data-access-action="login-code"
-                    data-key="login-code">${t('access.login.withCode')}</button>
-            <button class="access-button" data-focusable data-access-action="login-account"
-                    data-key="login-account">${t('access.login.withAccount')}</button>
+            <button class="access-button" data-focusable data-access-action="login-open"
+                    data-key="login-open">${t('access.login.fill')}</button>
           </div>
           ${notice}
         </div>`;
     }
-    const fields = this.mode === 'code'
-      ? html`
-          <label class="access-field" data-key="field-code">
-            <span>${t('access.field.code')}</span>
-            <input class="access-input" data-focusable data-access-field="code" data-key="input-code"
-                   type="text" inputmode="numeric" maxlength="6" autocomplete="off">
-          </label>`
-      : html`
-          ${this.lockedServer
-            ? html`<p class="access-locked-server" data-key="locked-server">${this.lockedServer}</p>`
-            : html`
-              <label class="access-field" data-key="field-server">
-                <span>${t('access.field.server')}</span>
-                <input class="access-input" data-focusable data-access-field="server" data-key="input-server"
-                       type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
-              </label>`}
+    return html`
+      <div class="access-login" data-key="access-login">
+        <h2 class="access-login-title">${t('access.login.title')}</h2>
+        <div class="access-form" data-key="access-form" data-nav-container>
+          <label class="access-field" data-key="field-target">
+            <span>${t('access.field.target')}</span>
+            <input class="access-input" data-focusable data-access-field="target" data-key="input-target"
+                   type="text" autocomplete="off" autocapitalize="off" spellcheck="false">
+          </label>
           <label class="access-field" data-key="field-username">
             <span>${t('access.field.username')}</span>
             <input class="access-input" data-focusable data-access-field="username" data-key="input-username"
@@ -322,13 +400,7 @@ export class Access {
             <span>${t('access.field.password')}</span>
             <input class="access-input" data-focusable data-access-field="password" data-key="input-password"
                    type="password" autocomplete="off">
-          </label>`;
-    return html`
-      <div class="access-login" data-key="access-login">
-        <h2 class="access-login-title">${
-          t(this.mode === 'code' ? 'access.login.withCode' : 'access.login.withAccount')}</h2>
-        <div class="access-form" data-key="access-form:${this.mode}" data-nav-container>
-          ${fields}
+          </label>
           <div class="access-form-actions">
             <button class="access-button access-button--primary" data-focusable
                     data-access-action="login-submit" data-key="login-submit">${t('access.login.submit')}</button>
@@ -382,10 +454,7 @@ export class Access {
             </div>
             ${ActivationService.locked ? html`
               <p class="access-locked" id="access-locked" data-key="access-locked">${t('access.lockedHint')}</p>` : ''}
-            <div class="access-playlist" data-key="access-playlist">
-              <span class="access-playlist-label">${t('access.playlist.label')}</span>
-              <span class="access-playlist-name" id="access-playlist">${this.playlistText(snapshot)}</span>
-            </div>
+            ${this.formOpen ? '' : this.listBlock(snapshot)}
             ${this.loginBlock()}
           </section>
           <section class="access-portal" data-key="access-portal">

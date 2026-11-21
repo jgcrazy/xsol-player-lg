@@ -405,3 +405,81 @@ describe('ActivationService.refresh', () => {
     expect(calls).toHaveLength(1);
   });
 });
+
+describe('ActivationService.removePlaylist', () => {
+  const ok = { status: 200, data: { success: true } };
+  let deleteWeb: ReturnType<typeof vi.spyOn>;
+  let deleteActive: ReturnType<typeof vi.spyOn>;
+
+  beforeEach(() => {
+    deleteWeb = vi.spyOn(PanelClient, 'deleteWebPlaylist').mockClear().mockResolvedValue(ok);
+    deleteActive = vi.spyOn(PanelClient, 'deletePlaylist').mockClear().mockResolvedValue(ok);
+  });
+
+  it('removes a source added on the TV without calling the panel', async () => {
+    StorageService.setPlaylists([{ id: 'p1', name: 'P1', url: 'http://host/a' }]);
+
+    expect(await ActivationService.removePlaylist('p1')).toBe(true);
+
+    expect(StorageService.getPlaylists()).toEqual([]);
+    expect(deleteWeb).not.toHaveBeenCalled();
+    expect(deleteActive).not.toHaveBeenCalled();
+  });
+
+  it('deletes a portal playlist on the panel, by the portal id', async () => {
+    checkReply.data = active({
+      web_playlists: [
+        { id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' },
+        { id: 9, name: 'N2', m3u_url: 'http://host/b.m3u' },
+      ],
+    });
+    await ActivationService.refresh();
+
+    expect(await ActivationService.removePlaylist('xsol-web-7')).toBe(true);
+
+    expect(deleteWeb).toHaveBeenCalledWith('7');
+    expect(deleteActive).not.toHaveBeenCalled();
+    expect(StorageService.getPlaylists().map(item => item.id)).toEqual(['xsol-web-9']);
+  });
+
+  it('also clears the active playlist when that is the one removed, so it does not come back', async () => {
+    checkReply.data = active({
+      domain: 'http://host/a.m3u', has_playlist: true,
+      web_playlists: [{ id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' }],
+    });
+    await ActivationService.refresh();
+
+    expect(await ActivationService.removePlaylist('xsol-web-7')).toBe(true);
+
+    expect(deleteWeb).toHaveBeenCalledWith('7');
+    expect(deleteActive).toHaveBeenCalledOnce();
+  });
+
+  it('clears the active playlist that was never saved on the portal', async () => {
+    checkReply.data = active({ domain: 'http://host/a.m3u', has_playlist: true });
+    await ActivationService.refresh();
+
+    expect(await ActivationService.removePlaylist('xsol-panel')).toBe(true);
+
+    expect(deleteActive).toHaveBeenCalledOnce();
+    expect(deleteWeb).not.toHaveBeenCalled();
+    expect(StorageService.getPlaylists()).toEqual([]);
+  });
+
+  it.each([
+    ['refuses', () => Promise.resolve({ status: 404, data: {} })],
+    ['cannot be reached', () => Promise.reject(new PanelError(0, 'network'))],
+  ])('keeps the source when the panel %s', async (_label, answer) => {
+    checkReply.data = active({ web_playlists: [{ id: 7, name: 'N1', m3u_url: 'http://host/a.m3u' }] });
+    await ActivationService.refresh();
+    deleteWeb.mockImplementation(answer);
+
+    expect(await ActivationService.removePlaylist('xsol-web-7')).toBe(false);
+
+    expect(StorageService.getPlaylists().map(item => item.id)).toEqual(['xsol-web-7']);
+  });
+
+  it('is fine with an id that is no longer there', async () => {
+    expect(await ActivationService.removePlaylist('gone')).toBe(true);
+  });
+});

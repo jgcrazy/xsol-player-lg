@@ -265,6 +265,11 @@ export const PanelClient = {
     return signedPost('delete-playlist', {});
   },
 
+  /** Deletes one playlist saved on the portal; `playlistId` is the portal's own id. */
+  deleteWebPlaylist(playlistId: string): Promise<PanelResponse> {
+    return signedPost('delete-device-web-playlist', { playlist_id: playlistId });
+  },
+
   redeemPlaylistCode(code: string): Promise<PanelResponse> {
     return signedPost('redeem-playlist-code', { code, device_name: CONFIG.XSOL.DEVICE_NAME });
   },

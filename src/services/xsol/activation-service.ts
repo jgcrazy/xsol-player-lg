@@ -252,6 +252,39 @@ function statusFrom(data: PanelData): ActivationStatus {
   return 'inactive';
 }
 
+// The playlist the panel has as this device's active one, as last reported.
+let activeDomain = '';
+
+function panelAccepted(response: { status: number; data: PanelData }): boolean {
+  return response.status === 200 && response.data.success === true;
+}
+
+async function removeSource(id: string): Promise<boolean> {
+  const stored = StorageService.getPlaylists();
+  const entry = stored.filter(item => item.id === id)[0];
+  if (!entry) return true;
+  try {
+    if (isPanelManaged(entry)) {
+      if (id.indexOf(WEB_PLAYLIST_ID_PREFIX) === 0) {
+        const response = await PanelClient.deleteWebPlaylist(id.slice(WEB_PLAYLIST_ID_PREFIX.length));
+        if (!panelAccepted(response)) return false;
+      }
+      // Left as the active playlist, it would come straight back on the next check.
+      const active = activeDomain ? playlistFromDomain(activeDomain, '') : null;
+      if (id === PANEL_PLAYLIST_ID || (active && sameSource(active, entry))) {
+        if (!panelAccepted(await PanelClient.deletePlaylist())) return false;
+        activeDomain = '';
+      }
+    }
+  } catch (error) {
+    log.warn('Playlist removal failed', 'event=activation.playlist.remove_failed', error);
+    return false;
+  }
+  StorageService.setPlaylists(StorageService.getPlaylists().filter(item => item.id !== id));
+  log.info('Playlist removed', 'event=activation.playlist.removed');
+  return true;
+}
+
 async function check(): Promise<boolean> {
   hydrate();
   const identity = await resolveDeviceIdentity();
@@ -268,6 +301,7 @@ async function check(): Promise<boolean> {
       publish({ ...base, status: 'refused', errorCode: text(data.message) || `http_${response.status}` });
       return false;
     }
+    activeDomain = text(data.domain);
     const synced = applyPanelPlaylist(data);
     const changed = synced.changed;
     const expiry = data.expiry_date;
@@ -338,7 +372,17 @@ export const ActivationService = {
     return inFlight;
   },
 
+  /**
+   * Removes one source for good: on the panel too when it lives there, so the
+   * next check does not bring it back. Resolves false when the panel refused
+   * or could not be reached, leaving the source in place.
+   */
+  removePlaylist(id: string): Promise<boolean> {
+    return removeSource(id);
+  },
+
   resetForTests(): void {
+    activeDomain = '';
     hydrated = false;
     inFlight = null;
     listeners.length = 0;

@@ -4,6 +4,7 @@ import { CONFIG } from '../config';
 import { Access } from './access';
 import { ActivationService, type ActivationSnapshot } from '../services/xsol/activation-service';
 import { LoginService } from '../services/xsol/login-service';
+import { StorageService } from '../services/storage-service';
 
 vi.mock('../utils/qr', () => ({
   qrDataUrl: vi.fn((text: string) => `data:qr,${text}`),
@@ -31,6 +32,7 @@ describe('Access', () => {
 
   beforeEach(() => {
     vi.useFakeTimers();
+    StorageService.setPlaylists([]);
     // jsdom has no layout; SpatialNav scrolls the focused control into view.
     Element.prototype.scrollIntoView = vi.fn();
     root = document.createElement('div');
@@ -192,7 +194,7 @@ describe('Access', () => {
 
     expect(text('#access-locked')).toMatch(/renew/i);
     // Signing in stays available: a new account or code can bring the device back.
-    expect(root.querySelector('[data-access-action="login-code"]')).not.toBeNull();
+    expect(root.querySelector('[data-access-action="login-open"]')).not.toBeNull();
   });
 
   it('shows no lock notice on an active device', async () => {
@@ -202,20 +204,125 @@ describe('Access', () => {
     expect(root.querySelector('#access-locked')).toBeNull();
   });
 
-  it('names the linked playlist, or says there is none', async () => {
+  it('says so when no access is configured', async () => {
     access.open();
     await settle();
     expect(text('#access-playlist')).toBe('None linked yet');
+    expect(root.querySelector('.access-row')).toBeNull();
 
-    current = snapshot({ hasPlaylist: true, playlistName: 'N1' });
-    access.open();
-    await settle();
-    expect(text('#access-playlist')).toBe('N1');
-
+    // The panel holds one it has not disclosed yet.
     current = snapshot({ hasPlaylist: true, playlistName: '' });
     access.open();
     await settle();
     expect(text('#access-playlist')).toBe('Linked');
+  });
+
+  describe('the configured accesses', () => {
+    const names = (): string[] => Array.from(root.querySelectorAll('.access-row-name')).map(n => n.textContent ?? '');
+    const press = (action: string, id: string): void => {
+      root.querySelector<HTMLElement>(`[data-access-action="${action}"][data-id="${id}"]`)!.click();
+    };
+
+    beforeEach(() => {
+      StorageService.setPlaylists([
+        { id: 'p1', name: 'N1', url: 'http://host/a' },
+        { id: 'xsol-web-7', name: 'N2', url: 'http://host/b', enabled: false },
+      ]);
+    });
+
+    it('lists every access, even a single one, as something to select', async () => {
+      access.open();
+      await settle();
+      expect(names()).toEqual(['N1', 'N2']);
+      expect(root.querySelectorAll('.access-row.is-in-use .access-row-name')).toHaveLength(1);
+      expect(text('.access-row.is-in-use .access-row-state')).toBe('In use');
+
+      StorageService.setPlaylists([{ id: 'p1', name: 'N1', url: 'http://host/a' }]);
+      access.open();
+      await settle();
+      expect(root.querySelectorAll('[data-access-action="use"][data-focusable]')).toHaveLength(1);
+    });
+
+    it('selecting one makes it the only access in use and reloads', async () => {
+      access.open();
+      await settle();
+
+      press('use', 'xsol-web-7');
+
+      const stored = StorageService.getPlaylists();
+      expect(stored.map(item => [item.id, item.enabled !== false])).toEqual([['p1', false], ['xsol-web-7', true]]);
+      expect(text('.access-row.is-in-use .access-row-name')).toBe('N2');
+      expect(onPlaylistChanged).toHaveBeenCalledOnce();
+    });
+
+    it('does nothing but say so when the one in use is selected again', async () => {
+      access.open();
+      await settle();
+
+      press('use', 'p1');
+
+      expect(onPlaylistChanged).not.toHaveBeenCalled();
+      expect(text('#access-notice')).toBe('N1 is already the access in use.');
+    });
+
+    it('asks twice before removing, and moving away withdraws the question', async () => {
+      const remove = vi.spyOn(ActivationService, 'removePlaylist').mockResolvedValue(true);
+      access.open();
+      await settle();
+
+      press('remove', 'p1');
+      expect(text('[data-access-action="remove"][data-id="p1"]')).toBe('Confirm removal');
+      expect(remove).not.toHaveBeenCalled();
+
+      access.handleAction('down');
+      expect(text('[data-access-action="remove"][data-id="p1"]')).toBe('Remove');
+
+      press('remove', 'p1');
+      access.handleAction('back');
+      expect(text('[data-access-action="remove"][data-id="p1"]')).toBe('Remove');
+      expect(onBack).not.toHaveBeenCalled();
+      expect(remove).not.toHaveBeenCalled();
+    });
+
+    it('removes on the second press and reloads', async () => {
+      const remove = vi.spyOn(ActivationService, 'removePlaylist').mockImplementation(async (id) => {
+        StorageService.setPlaylists(StorageService.getPlaylists().filter(item => item.id !== id));
+        return true;
+      });
+      access.open();
+      await settle();
+
+      press('remove', 'xsol-web-7');
+      press('remove', 'xsol-web-7');
+      await settle();
+
+      expect(remove).toHaveBeenCalledWith('xsol-web-7');
+      expect(names()).toEqual(['N1']);
+      expect(text('#access-notice')).toBe('Access removed.');
+      expect(onPlaylistChanged).toHaveBeenCalledOnce();
+    });
+
+    it('keeps the access and explains when the panel refuses the removal', async () => {
+      vi.spyOn(ActivationService, 'removePlaylist').mockResolvedValue(false);
+      access.open();
+      await settle();
+
+      press('remove', 'xsol-web-7');
+      press('remove', 'xsol-web-7');
+      await settle();
+
+      expect(names()).toEqual(['N1', 'N2']);
+      expect(text('#access-notice')).toBe('Could not remove it. Check the connection and try again.');
+      expect(onPlaylistChanged).not.toHaveBeenCalled();
+    });
+
+    it('escapes a playlist name', async () => {
+      StorageService.setPlaylists([{ id: 'p1', name: '<img src=x onerror=1>', url: 'http://host/a' }]);
+      access.open();
+      await settle();
+      expect(root.querySelector('.access-row img')).toBeNull();
+      expect(names()).toEqual(['<img src=x onerror=1>']);
+    });
   });
 
   it('spins the refresh icon for the whole of a manual check', async () => {
@@ -241,15 +348,18 @@ describe('Access', () => {
     const type = (field: string, value: string): void => {
       root.querySelector<HTMLInputElement>('[data-access-field="' + field + '"]')!.value = value;
     };
+    const value = (field: string): string | undefined =>
+      root.querySelector<HTMLInputElement>('[data-access-field="' + field + '"]')?.value;
 
-    it('offers a code or an account, and Back closes the form before leaving', async () => {
+    it('opens one form from Fill in, and Back closes it before leaving', async () => {
       access.open();
       await settle();
       expect(root.querySelector('.access-form')).toBeNull();
 
-      click('login-code');
-      expect(root.querySelector('[data-access-field="code"]')).not.toBeNull();
-      expect(root.querySelector<HTMLElement>('.focused')?.dataset.accessField).toBe('code');
+      click('login-open');
+      expect(Array.from(root.querySelectorAll<HTMLElement>('[data-access-field]')).map(f => f.dataset.accessField))
+        .toEqual(['target', 'username', 'password']);
+      expect(root.querySelector<HTMLElement>('.focused')?.dataset.accessField).toBe('target');
 
       access.handleAction('back');
       expect(root.querySelector('.access-form')).toBeNull();
@@ -259,121 +369,103 @@ describe('Access', () => {
       expect(onBack).toHaveBeenCalledOnce();
     });
 
-    it('redeems a code and then checks the panel for the playlist', async () => {
-      const redeem = vi.spyOn(LoginService, 'redeemCode').mockResolvedValue({ status: 'done' });
+    it('signs in with a server or code plus the account, then checks the panel', async () => {
+      const signIn = vi.spyOn(LoginService, 'signIn').mockResolvedValue({ status: 'done' });
       access.open();
       await settle();
-      click('login-code');
-      type('code', '12345');
+      click('login-open');
+      type('target', '12345');
+      type('username', 'u1');
+      type('password', 'p1');
 
       click('login-submit');
       await settle();
 
-      expect(redeem).toHaveBeenCalledWith('12345');
+      expect(signIn).toHaveBeenCalledWith({ target: '12345', username: 'u1', password: 'p1' });
       expect(root.querySelector('.access-form')).toBeNull();
+      expect(root.querySelector('input[type="password"]')).toBeNull();
       expect(text('#access-notice')).toBe('List received. Loading channels\u2026');
       expect(refresh).toHaveBeenCalledTimes(2);
     });
 
-    it('moves on to the account when the code only names the server', async () => {
-      vi.spyOn(LoginService, 'redeemCode').mockResolvedValue({ status: 'needs_account', server: 'http://host' });
-      const signIn = vi.spyOn(LoginService, 'signIn').mockResolvedValue({ status: 'done' });
+    it('keeps the code and moves to the username when only the account is missing', async () => {
+      vi.spyOn(LoginService, 'signIn').mockResolvedValue({ status: 'needs_account', server: 'http://host' });
       access.open();
       await settle();
-      click('login-code');
-      type('code', '12345');
+      click('login-open');
+      type('target', '12345');
+
       click('login-submit');
       await settle();
 
-      // The server came from the code: it is shown, not asked for.
-      expect(root.querySelector('[data-access-field="server"]')).toBeNull();
-      expect(text('.access-locked-server')).toBe('http://host');
+      expect(value('target')).toBe('12345');
       expect(text('#access-notice')).toBe('Code accepted. Enter the username and password.');
-
-      type('username', 'u1');
-      type('password', 'p1');
-      click('login-submit');
-      await settle();
-
-      expect(signIn).toHaveBeenCalledWith({ server: 'http://host', username: 'u1', password: 'p1' });
-    });
-
-    it('signs in with server, username and password', async () => {
-      const signIn = vi.spyOn(LoginService, 'signIn').mockResolvedValue({ status: 'done' });
-      access.open();
-      await settle();
-      click('login-account');
-      type('server', 'http://host');
-      type('username', 'u1');
-      type('password', 'p1');
-
-      click('login-submit');
-      await settle();
-
-      expect(signIn).toHaveBeenCalledWith({ server: 'http://host', username: 'u1', password: 'p1' });
-      expect(root.querySelector('input[type="password"]')).toBeNull();
+      expect(root.querySelector<HTMLElement>('.focused')?.dataset.accessField).toBe('username');
     });
 
     it.each([
       [{ status: 'error', code: 'code_not_found' } as const, 'Code not found. Check it and try again.'],
       [{ status: 'error', code: 'max_devices', max: 2 } as const, 'This account has reached its limit of 2 devices.'],
       [{ status: 'error', code: 'max_devices' } as const, 'This account has reached its device limit.'],
+      [{ status: 'error', code: 'invalid_credentials' } as const, 'Wrong username or password.'],
+      [{ status: 'error', code: 'server_unreachable' } as const,
+        'Could not reach that server. Check the address or the code.'],
       [{ status: 'error', code: 'network' } as const, 'No connection to the server'],
       [{ status: 'error', code: 'server', detail: 'x1' } as const, 'Code: x1'],
     ])('keeps the form open and explains %j', async (result, message) => {
-      vi.spyOn(LoginService, 'redeemCode').mockResolvedValue(result);
+      vi.spyOn(LoginService, 'signIn').mockResolvedValue(result);
       access.open();
       await settle();
-      click('login-code');
-      type('code', '12345');
+      click('login-open');
+      type('target', '12345');
 
       click('login-submit');
       await settle();
 
       expect(text('#access-notice')).toBe(message);
-      expect(root.querySelector<HTMLInputElement>('[data-access-field="code"]')?.value).toBe('12345');
+      expect(value('target')).toBe('12345');
     });
 
     it('keeps what was typed across a background check', async () => {
       access.open();
       await settle();
-      click('login-account');
-      type('server', 'http://host');
+      click('login-open');
+      type('target', 'http://host');
 
       await vi.advanceTimersByTimeAsync(CONFIG.XSOL.ACTIVATION_POLL_INTERVAL_MS);
 
-      expect(root.querySelector<HTMLInputElement>('[data-access-field="server"]')?.value).toBe('http://host');
+      expect(value('target')).toBe('http://host');
     });
 
     it('ignores a second submit while one is in flight', async () => {
       let release: () => void = () => {};
-      const redeem = vi.spyOn(LoginService, 'redeemCode').mockImplementation(
+      const signIn = vi.spyOn(LoginService, 'signIn').mockImplementation(
         () => new Promise((resolve) => { release = () => resolve({ status: 'done' }); }),
       );
       access.open();
       await settle();
-      click('login-code');
-      type('code', '12345');
+      click('login-open');
+      type('target', '12345');
 
       click('login-submit');
       click('login-submit');
       release();
       await settle();
 
-      expect(redeem).toHaveBeenCalledOnce();
+      expect(signIn).toHaveBeenCalledOnce();
     });
 
     it('Enter in a field moves to the next control instead of submitting half a form', async () => {
       const signIn = vi.spyOn(LoginService, 'signIn').mockResolvedValue({ status: 'done' });
       access.open();
       await settle();
-      click('login-account');
-      const server = root.querySelector<HTMLInputElement>('[data-access-field="server"]')!;
-      server.focus();
+      click('login-open');
+      const target = root.querySelector<HTMLInputElement>('[data-access-field="target"]')!;
+      target.focus();
 
-      server.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+      target.dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
 
-      expect(document.activeElement).not.toBe(server);
+      expect(document.activeElement).not.toBe(target);
       expect(signIn).not.toHaveBeenCalled();
     });
   });
