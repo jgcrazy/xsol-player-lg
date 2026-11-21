@@ -2,6 +2,7 @@ import {
   test,
   expect,
   enterTab,
+  openSettingsPane,
   seedPlaylist,
   routePlaylist,
   routeLiveManifest,
@@ -55,6 +56,7 @@ test('Cancel dismisses the prompt and stays on the channel list', async ({ page 
   await expect(page.locator('#view-channels')).toBeVisible();
 
   await page.locator('.tab-bar-item[data-section="settings"]').click();
+  await openSettingsPane(page, 'guide');
   await expect(page.locator('#manage-reminders')).toContainText('(0)');
 });
 
@@ -96,6 +98,7 @@ test('long reminder text stays on one line inside the card', async ({ page }) =>
 
   await page.goto('/');
   await page.locator('.tab-bar-item[data-section="settings"]').click();
+  await openSettingsPane(page, 'guide');
   await page.locator('#manage-reminders').click();
 
   for (const selector of ['.reminder-manager-program', '.reminder-manager-channel']) {

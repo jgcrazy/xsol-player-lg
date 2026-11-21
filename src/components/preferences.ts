@@ -7,13 +7,14 @@ import { html, raw, type Safe } from '../utils/dom';
 import { morph } from '../utils/morph';
 import { localeOptions, t, tp, type TextMessageKey } from '../i18n';
 import { ConfirmationPrompt } from './confirmation-prompt';
+import type { SettingsCategory } from './settings';
 import {
   APPEARANCE_ICON, BELL_ICON, CAPTIONS_ICON, CHECK_ICON, CHEVRON_LEFT_ICON, CLOCK_ICON, CLOUD_ICON, DATABASE_ICON,
   EYE_OFF_ICON, GLOBE_ICON, GUIDE_ICON, LOCK_ICON, PLAYBACK_ICON, REFRESH_ICON, SOURCES_ICON, TRASH_ICON,
 } from './icons';
 
-/** The detailed option panes a card can open (the classic Settings page). */
-export type PreferencePane = 'sources' | 'guide' | 'appearance' | 'playback' | 'subtitles' | 'data';
+/** The option screens a card can open, one per category. */
+export type PreferencePane = SettingsCategory;
 
 export interface PreferencesHandlers {
   onBack: () => void;
@@ -500,7 +501,7 @@ export class Preferences {
             icon: CHECK_ICON,
             title: 'settings.channelHealth',
             subtitle: () => t('prefs.healthHint'),
-            run: () => this.handlers.onOpenPane('sources'),
+            run: () => this.handlers.onOpenPane('channels'),
           },
           {
             id: 'guide',
@@ -547,7 +548,7 @@ export class Preferences {
         </span>
         ${on === null ? '' : html`
           <span class="prefs-switch ${on ? 'is-on' : ''}">
-            <span class="prefs-switch-dot"></span>${t(on ? 'prefs.on' : 'prefs.off')}
+            <span class="prefs-switch-dot"></span><span>${t(on ? 'prefs.on' : 'prefs.off')}</span>
           </span>`}
       </button>`;
   }
@@ -575,7 +576,7 @@ export class Preferences {
                         data-key="row:${row.key}" data-row-key="${row.key}">
                   <span class="prefs-row-name">${row.label}</span>
                   <span class="prefs-switch ${row.hidden ? 'is-on' : ''}">
-                    <span class="prefs-switch-dot"></span>${t(row.hidden ? 'prefs.hidden' : 'prefs.visible')}
+                    <span class="prefs-switch-dot"></span><span>${t(row.hidden ? 'prefs.hidden' : 'prefs.visible')}</span>
                   </span>
                 </button>`)}
             </div>`}

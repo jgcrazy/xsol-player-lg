@@ -48,20 +48,7 @@ import {
   applyAnimationMode,
   type AnimationMode,
 } from '../services/motion-service';
-import {
-  ADVANCED_ICON,
-  APPEARANCE_ICON,
-  CHEVRON_DOWN,
-  CHEVRON_UP,
-  CAPTIONS_ICON,
-  DATABASE_ICON,
-  GLOBE_ICON,
-  GUIDE_ICON,
-  NAV_HORIZONTAL_ICON,
-  NAV_VERTICAL_ICON,
-  PLAYBACK_ICON,
-  SOURCES_ICON,
-} from './icons';
+import { CHEVRON_DOWN, CHEVRON_LEFT_ICON, CHEVRON_UP } from './icons';
 
 const log = createLogger('Settings');
 
@@ -180,64 +167,29 @@ function timeoutOptions(values: readonly number[]): { value: string; label: stri
   });
 }
 
-type SettingsCategory = 'general' | 'sources' | 'guide' | 'appearance'
-  | 'playback' | 'subtitles' | 'data' | 'advanced';
+export type SettingsCategory = 'sources' | 'channels' | 'guide' | 'appearance'
+  | 'playback' | 'subtitles' | 'data';
 
-const SETTINGS_CATEGORIES: readonly {
-  id: SettingsCategory;
-  label: TextMessageKey;
-  icon: Safe;
-}[] = [
-  {
-    id: 'general',
-    label: 'settings.general',
-    icon: raw(GLOBE_ICON),
-  },
-  {
-    id: 'sources',
-    label: 'settings.sources',
-    icon: raw(SOURCES_ICON),
-  },
-  {
-    id: 'guide',
-    label: 'settings.guide',
-    icon: raw(GUIDE_ICON),
-  },
-  {
-    id: 'appearance',
-    label: 'settings.appearance',
-    icon: raw(APPEARANCE_ICON),
-  },
-  {
-    id: 'playback',
-    label: 'settings.playback',
-    icon: raw(PLAYBACK_ICON),
-  },
-  {
-    id: 'subtitles',
-    label: 'settings.onlineSubtitles',
-    icon: raw(CAPTIONS_ICON),
-  },
-  {
-    id: 'advanced',
-    label: 'settings.advanced',
-    icon: raw(ADVANCED_ICON),
-  },
-  {
-    id: 'data',
-    label: 'settings.dataManagement',
-    icon: raw(DATABASE_ICON),
-  },
+const SETTINGS_CATEGORIES: readonly { id: SettingsCategory; label: TextMessageKey }[] = [
+  { id: 'sources', label: 'settings.sources' },
+  { id: 'channels', label: 'settings.channels' },
+  { id: 'guide', label: 'settings.guide' },
+  { id: 'appearance', label: 'settings.appearance' },
+  { id: 'playback', label: 'settings.playback' },
+  { id: 'subtitles', label: 'settings.onlineSubtitles' },
+  { id: 'data', label: 'settings.dataManagement' },
 ];
 
-function settingsNavItem(category: typeof SETTINGS_CATEGORIES[number], active: boolean): Safe {
+/** One option on a line: what it is on the left, its control on the right. */
+function optionRow(title: string, control: Safe, hint: Safe | string = '', modifier = ''): Safe {
   return html`
-    <button class="settings-nav-item ${active ? 'active' : ''}" data-focusable
-            data-settings-target="${category.id}">
-      <span class="settings-nav-icon">${category.icon}</span>
-      <span>${t(category.label)}</span>
-    </button>
-  `;
+    <div class="settings-item settings-option ${modifier}">
+      <div class="settings-option-text">
+        <div class="settings-item-title">${title}</div>
+        ${hint ? html`<div class="settings-item-hint">${hint}</div>` : ''}
+      </div>
+      <div class="settings-option-control">${control}</div>
+    </div>`;
 }
 
 /** Custom single-select dropdown — remote/D-pad friendly and app-styled (the app
@@ -418,10 +370,6 @@ export class Settings {
   private storedEpgOffsets: Record<string, number> = {};
   private confirmationPrompt = new ConfirmationPrompt();
   private watchlistAccount: PlaylistEntry | null = null;
-  private ignoreCategoryScroll = false;
-  private categoryScrollFrame: number | null = null;
-  private categorySyncFrame: number | null = null;
-  private categoryFocusFrame: number | null = null;
   private onManageReminders: () => void;
   private healthController: AbortController | null = null;
   private healthCheckPromise: Promise<void> | null = null;
@@ -485,18 +433,9 @@ export class Settings {
       }
     });
 
-    this.container.addEventListener('scroll', (e: Event) => {
-      const target = e.target as HTMLElement;
-      if (!target.classList.contains('settings-scroll') || this.ignoreCategoryScroll) return;
-      if (this.categorySyncFrame !== null) return;
-      this.categorySyncFrame = window.requestAnimationFrame(() => {
-        this.categorySyncFrame = null;
-        this.syncCategoryFromScroll(target);
-      });
-    }, true);
   }
 
-  render(): void {
+  render(category: SettingsCategory = 'sources'): void {
     const allPlaylists = StorageService.getPlaylists();
     const playlists = allPlaylists.filter(pl => pl.source !== 'xtream');
     const accounts = allPlaylists.filter(pl => pl.source === 'xtream');
@@ -537,39 +476,22 @@ export class Settings {
       label: size === DEFAULT_TEXT_SIZE ? t('settings.textSizeDefault', { percent: size }) : `${size}%`,
     }));
 
+    const onOff = [{ value: 'on', label: t('settings.on') }, { value: 'off', label: t('settings.off') }];
+    const sectionTitle = SETTINGS_CATEGORIES.filter(item => item.id === category)[0];
+
     this.container.innerHTML = String(html`
       <div class="settings-view">
-        <nav class="settings-sidebar" data-nav-container aria-label="${t('common.settings')}">
-          <h2 class="settings-title">${t('common.settings')}</h2>
-          <div class="settings-nav-list">
-            ${SETTINGS_CATEGORIES.map((category, index) => settingsNavItem(category, index === 0))}
+        <header class="settings-head" data-nav-container>
+          <button class="settings-back" data-focusable id="settings-back"
+                  aria-label="${t('common.back')}">${raw(CHEVRON_LEFT_ICON)}</button>
+          <div class="settings-head-text">
+            <div class="settings-eyebrow">${t('common.settings')}</div>
+            <h2 class="settings-title" id="settings-pane-title">${sectionTitle ? t(sectionTitle.label) : ''}</h2>
           </div>
-          <div class="settings-nav-help">
-            <div class="settings-nav-help-row">
-              <span class="settings-nav-key">${raw(NAV_VERTICAL_ICON)}</span>
-              <span>${t('settings.navChooseCategory')}</span>
-            </div>
-            <div class="settings-nav-help-row">
-              <span class="settings-nav-key">${raw(NAV_HORIZONTAL_ICON)}</span>
-              <span>${t('settings.navEnterReturn')}</span>
-            </div>
-          </div>
-        </nav>
+        </header>
 
         <div class="settings-main">
           <div class="settings-scroll">
-            <div class="settings-category" id="settings-general" data-settings-category="general">
-              <div class="settings-general-row">
-                <div class="settings-section settings-general-language">
-                  <h3 class="settings-section-title">${languageHeading()}</h3>
-                  <div class="settings-item">
-                    ${dropdown('app-language', languageOptions(), localePreference)}
-                    <div class="settings-item-hint">${t('settings.languageHint')}</div>
-                  </div>
-                </div>
-              </div>
-            </div>
-
             <div class="settings-category ${managedSources ? 'sources-managed' : ''}"
                  id="settings-sources" data-settings-category="sources">
               <div class="settings-section">
@@ -616,35 +538,67 @@ export class Settings {
                 </div>
                 <button class="btn btn-primary" data-focusable id="add-playlist">${t('settings.addPlaylist')}</button>
               </div>
+            </div>
 
+            <div class="settings-category" id="settings-channels" data-settings-category="channels">
               <div class="settings-section" id="channel-customization-settings">
-                <h3 class="settings-section-title">${t('settings.channels')}</h3>
-                ${this.channelHealthPanel()}
-                <div class="settings-item settings-item--action">
-                  <div class="settings-item-title">${t('settings.editChannelList')}</div>
-                  <button class="btn btn-secondary" data-focusable id="edit-channel-list"
-                          aria-label="${t('settings.editChannelList')}">${t('settings.editChannelList')}</button>
-                  <div class="settings-item-hint">${t('settings.editChannelListHint')}</div>
-                </div>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.showHidden')}</div>
-                  ${toggleGroup('show-hidden', [{ value: 'on', label: t('settings.on') }, { value: 'off', label: t('settings.off') }], showHidden ? 'on' : 'off')}
-                  <div class="settings-item-hint">${t('settings.showHiddenHint')}</div>
-                </div>
-                <div class="settings-item settings-item--action">
-                  <div class="settings-item-title">${t('settings.resetCustomization')}</div>
-                  <button class="btn btn-danger" data-focusable id="reset-customization"
-                          aria-label="${t('settings.resetCustomization')}">${t('settings.resetCustomization')}</button>
-                  <div class="settings-item-hint">${t('settings.resetCustomizationHint')}</div>
+                <div class="settings-panel">
+                  ${this.channelHealthPanel()}
+                  ${optionRow(
+                    t('settings.editChannelList'),
+                    html`<button class="btn btn-secondary" data-focusable id="edit-channel-list"
+                                 aria-label="${t('settings.editChannelList')}">${t('settings.editChannelList')}</button>`,
+                    t('settings.editChannelListHint'),
+                    'settings-item--action',
+                  )}
+                  ${optionRow(
+                    t('settings.showHidden'),
+                    toggleGroup('show-hidden', onOff, showHidden ? 'on' : 'off'),
+                    t('settings.showHiddenHint'),
+                  )}
+                  ${optionRow(
+                    t('settings.resetCustomization'),
+                    html`<button class="btn btn-danger" data-focusable id="reset-customization"
+                                 aria-label="${t('settings.resetCustomization')}">${t('settings.resetCustomization')}</button>`,
+                    t('settings.resetCustomizationHint'),
+                    'settings-item--action',
+                  )}
                 </div>
               </div>
             </div>
 
             <div class="settings-category" id="settings-guide" data-settings-category="guide">
               <div class="settings-section">
-                <h3 class="settings-section-title">${t('settings.epg')}</h3>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.manualEpgSources')}</div>
+                <div class="settings-panel">
+                  ${optionRow(
+                    t('settings.timeZone'),
+                    toggleGroup('tz-mode', [{ value: 'device', label: t('settings.device') }, { value: 'feed', label: t('settings.feed') }], feedTime ? 'feed' : 'device'),
+                    tzOffset === null
+                      ? t('settings.timeZoneUnknown')
+                      : t('settings.timeZoneKnown', { offset: formatOffset(tzOffset) }),
+                  )}
+                  <div class="settings-item settings-block">
+                    <div class="settings-item-title">${t('settings.timeCorrection')}</div>
+                    <div class="settings-item-hint">${t('settings.timeCorrectionHint')}</div>
+                    <div class="epg-offset-editor">
+                      ${this.epgOffsetEditor(epgSources, allPlaylists, epgSources[0]?.url)}
+                    </div>
+                  </div>
+                  ${optionRow(
+                    t('reminderManager.title'),
+                    html`<button class="btn btn-secondary" data-focusable id="manage-reminders">
+                      ${t('settings.manageReminders', {
+                        count: ReminderService.listManageable().length,
+                      })}
+                    </button>`,
+                    '',
+                    'settings-item--action',
+                  )}
+                </div>
+              </div>
+              <div class="settings-section">
+                <h3 class="settings-section-title">${t('settings.manualEpgSources')}</h3>
+                <div class="settings-panel"><div class="settings-item settings-block">
                   <div class="manual-epg-sources">
                     ${manualEpgSources.length
                       ? manualEpgSources.map((source, index) =>
@@ -660,278 +614,199 @@ export class Settings {
                     <span class="btn-add-icon" aria-hidden="true">+</span>${t('settings.addEpgSource')}
                   </button>
                   <div class="settings-item-hint">${t('settings.xmltvUrlsHint')}</div>
-                </div>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.timeZone')}</div>
-                  ${toggleGroup('tz-mode', [{ value: 'device', label: t('settings.device') }, { value: 'feed', label: t('settings.feed') }], feedTime ? 'feed' : 'device')}
-                  <div class="settings-item-hint">
-                    ${tzOffset === null
-                      ? t('settings.timeZoneUnknown')
-                      : t('settings.timeZoneKnown', { offset: formatOffset(tzOffset) })}
-                  </div>
-                </div>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.timeCorrection')}</div>
-                  <div class="epg-offset-editor">
-                    ${this.epgOffsetEditor(epgSources, allPlaylists, epgSources[0]?.url)}
-                  </div>
-                  <div class="settings-item-hint">${t('settings.timeCorrectionHint')}</div>
-                </div>
-                <div class="settings-item settings-item--action">
-                  <div class="settings-item-title">${t('reminderManager.title')}</div>
-                  <button class="btn btn-secondary" data-focusable id="manage-reminders">
-                    ${t('settings.manageReminders', {
-                      count: ReminderService.listManageable().length,
-                    })}
-                  </button>
-                </div>
+                </div></div>
               </div>
             </div>
 
             <div class="settings-category" id="settings-appearance" data-settings-category="appearance">
               <div class="settings-section">
-                <h3 class="settings-section-title">${t('settings.appearance')}</h3>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.overlayGlass')}</div>
-                  ${toggleGroup('overlay-style', overlayStyles, overlayStyle)}
-                  <div class="settings-item-hint">${t('settings.overlayHint')}</div>
-                </div>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.textSize')}</div>
-                  ${dropdown('text-size', textSizes, textSize)}
+                <div class="settings-panel">
+                  ${optionRow(
+                    languageHeading(),
+                    dropdown('app-language', languageOptions(), localePreference),
+                    t('settings.languageHint'),
+                  )}
+                  ${optionRow(t('settings.textSize'), dropdown('text-size', textSizes, textSize))}
+                  ${optionRow(
+                    t('settings.overlayGlass'),
+                    toggleGroup('overlay-style', overlayStyles, overlayStyle),
+                    t('settings.overlayHint'),
+                  )}
+                  ${optionRow(
+                    t('settings.animationMode'),
+                    toggleGroup('animation-mode', animationModeOptions(), animationMode),
+                    t('settings.animationHint'),
+                  )}
                 </div>
               </div>
             </div>
 
             <div class="settings-category" id="settings-playback" data-settings-category="playback">
               <div class="settings-section">
-                <h3 class="settings-section-title">${t('settings.playback')}</h3>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.autoPlay')}</div>
-                  ${toggleGroup('auto-play', [{ value: 'on', label: t('settings.on') }, { value: 'off', label: t('settings.off') }], autoPlay ? 'on' : 'off')}
-                </div>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.livePreview')}</div>
-                  ${toggleGroup('live-preview-setting', [{ value: 'on', label: t('settings.on') }, { value: 'off', label: t('settings.off') }], livePreview ? 'on' : 'off')}
-                  <div class="settings-item-hint">${t('settings.livePreviewHint')}</div>
-                </div>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.channelCycleMode')}</div>
-                  ${toggleGroup('channel-cycle-mode', [
-                    { value: 'global', label: t('settings.channelCycleGlobal') },
-                    { value: 'active', label: t('settings.channelCycleActive') },
-                  ], channelCycleMode)}
-                  <div class="settings-item-hint">${t('settings.channelCycleModeHint')}</div>
+                <div class="settings-panel">
+                  ${optionRow(
+                    t('settings.autoPlay'),
+                    toggleGroup('auto-play', onOff, autoPlay ? 'on' : 'off'),
+                  )}
+                  ${optionRow(
+                    t('settings.livePreview'),
+                    toggleGroup('live-preview-setting', onOff, livePreview ? 'on' : 'off'),
+                    t('settings.livePreviewHint'),
+                  )}
+                  ${optionRow(
+                    t('settings.channelCycleMode'),
+                    toggleGroup('channel-cycle-mode', [
+                      { value: 'global', label: t('settings.channelCycleGlobal') },
+                      { value: 'active', label: t('settings.channelCycleActive') },
+                    ], channelCycleMode),
+                    t('settings.channelCycleModeHint'),
+                  )}
+                  ${optionRow(
+                    t('settings.liveReconnectAttempts'),
+                    dropdown(
+                      'live-reconnect-attempts',
+                      LIVE_RECONNECT_ATTEMPT_OPTIONS.map(value => ({
+                        value: String(value), label: String(value),
+                      })),
+                      String(liveReconnectAttempts),
+                    ),
+                    t('settings.liveReconnectHint'),
+                  )}
+                  ${optionRow(
+                    t('settings.numberEntryOsdTimeout'),
+                    dropdown(
+                      'number-entry-osd-timeout',
+                      timeoutOptions(NUMBER_ENTRY_OSD_TIMEOUT_MS_OPTIONS),
+                      String(numberEntryOsdTimeoutMs),
+                    ),
+                    t('settings.numberEntryOsdTimeoutHint'),
+                  )}
+                  ${optionRow(
+                    t('settings.playerOsdTimeout'),
+                    dropdown(
+                      'player-osd-timeout',
+                      timeoutOptions(PLAYER_OSD_TIMEOUT_MS_OPTIONS),
+                      String(playerOsdTimeoutMs),
+                    ),
+                    t('settings.playerOsdTimeoutHint'),
+                  )}
                 </div>
               </div>
             </div>
 
             <div class="settings-category" id="settings-subtitles" data-settings-category="subtitles">
               <div class="settings-section">
-                <h3 class="settings-section-title">${t('settings.onlineSubtitles')}</h3>
-                <div class="settings-item">
-                  <div class="settings-item-title">${t('settings.preferredSubtitle')}</div>
-                  ${dropdown('os-pref-lang', subtitleLanguages(), os.preferredLanguage)}
-                </div>
-                <div class="settings-row">
-                  <div class="settings-field wide">
-                    <label><span class="settings-domain">SubDL.com</span> ${t('settings.apiKey')}</label>
-                    <input type="text" class="settings-input" data-focusable id="subdl-key"
-                           value="${os.subdl.apiKey}" placeholder="api_key">
-                  </div>
-                </div>
-                <div class="settings-row">
-                  <div class="settings-field wide">
-                    <label><span class="settings-domain">Assrt.net</span> ${t('settings.assrtToken')}</label>
-                    <input type="text" class="settings-input" data-focusable id="assrt-key"
-                           value="${os.assrt.apiKey}" placeholder="token">
-                    <div class="settings-item-hint">${t('settings.assrtDescription')}</div>
-                  </div>
-                </div>
-                <div class="settings-row">
-                  <div class="settings-field">
-                    <label><span class="settings-domain">OpenSubtitles.com</span> ${t('settings.apiKey')}</label>
-                    <input type="text" class="settings-input" data-focusable id="os-key"
-                           value="${os.opensubtitles.apiKey}" placeholder="api_key">
-                  </div>
-                  <div class="settings-field">
-                    <label>${t('settings.username')}</label>
-                    <input type="text" class="settings-input" data-focusable id="os-user"
-                           value="${os.opensubtitles.username}" placeholder="username">
-                  </div>
-                  <div class="settings-field">
-                    <label>${t('settings.password')}</label>
-                    <input type="password" class="settings-input" data-focusable id="os-pass"
-                           value="${os.opensubtitles.password}" placeholder="password">
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div class="settings-category" id="settings-advanced"
-                 data-settings-category="advanced">
-              <div class="settings-section">
-                <h3 class="settings-section-title">${t('settings.advanced')}</h3>
-                <div class="settings-advanced-matrix">
-                  <div class="settings-advanced-row">
-                    <div class="settings-advanced-group">
-                      ${t('settings.advancedGroupInterface')}
-                    </div>
-                    <div class="settings-advanced-description">
-                      <div class="settings-item-title">${t('settings.animationMode')}</div>
-                      <div class="settings-item-hint">${t('settings.animationHint')}</div>
-                    </div>
-                    <div class="settings-advanced-control">
-                    ${toggleGroup(
-                      'animation-mode',
-                      animationModeOptions(),
-                      animationMode,
-                    )}
-                    </div>
-                  </div>
-                  <div class="settings-advanced-row">
-                    <div class="settings-advanced-group">
-                      ${t('settings.advancedGroupPlayback')}
-                    </div>
-                    <div class="settings-advanced-description">
-                      <div class="settings-item-title">${t('settings.liveReconnectAttempts')}</div>
-                      <div class="settings-item-hint">${t('settings.liveReconnectHint')}</div>
-                    </div>
-                    <div class="settings-advanced-control">
-                    ${dropdown(
-                      'live-reconnect-attempts',
-                      LIVE_RECONNECT_ATTEMPT_OPTIONS.map(value => ({
-                        value: String(value), label: String(value),
-                      })),
-                      String(liveReconnectAttempts),
-                    )}
-                    </div>
-                  </div>
-                  <div class="settings-advanced-row">
-                    <div class="settings-advanced-group">
-                      ${t('settings.advancedGroupOnScreenDisplay')}
-                    </div>
-                    <div class="settings-advanced-description">
-                      <div class="settings-item-title">${t('settings.numberEntryOsdTimeout')}</div>
-                      <div class="settings-item-hint">${t('settings.numberEntryOsdTimeoutHint')}</div>
-                    </div>
-                    <div class="settings-advanced-control">
-                    ${dropdown(
-                      'number-entry-osd-timeout',
-                      timeoutOptions(NUMBER_ENTRY_OSD_TIMEOUT_MS_OPTIONS),
-                      String(numberEntryOsdTimeoutMs),
-                    )}
-                    </div>
-                  </div>
-                  <div class="settings-advanced-row">
-                    <div class="settings-advanced-group" aria-hidden="true"></div>
-                    <div class="settings-advanced-description">
-                      <div class="settings-item-title">${t('settings.playerOsdTimeout')}</div>
-                      <div class="settings-item-hint">${t('settings.playerOsdTimeoutHint')}</div>
-                    </div>
-                    <div class="settings-advanced-control">
-                    ${dropdown(
-                      'player-osd-timeout',
-                      timeoutOptions(PLAYER_OSD_TIMEOUT_MS_OPTIONS),
-                      String(playerOsdTimeoutMs),
-                    )}
-                    </div>
-                  </div>
-                  <div class="settings-advanced-row">
-                    <div class="settings-advanced-group">
-                      ${t('settings.advancedGroupBackgroundRefresh')}
-                    </div>
-                    <div class="settings-advanced-description">
-                      <div class="settings-item-title">${t('settings.playlistRefreshInterval')}</div>
-                      <div class="settings-item-hint">${t('settings.playlistRefreshHint', {
-                        action: t('settings.refreshAll'),
-                      })}</div>
-                    </div>
-                    <div class="settings-advanced-control">
-                    ${dropdown(
-                      'playlist-refresh-interval',
-                      refreshIntervalOptions(),
-                      String(playlistRefreshHours),
-                    )}
-                    </div>
-                  </div>
-                  <div class="settings-advanced-row">
-                    <div class="settings-advanced-group" aria-hidden="true"></div>
-                    <div class="settings-advanced-description">
-                      <div class="settings-item-title">${t('settings.epgRefreshInterval')}</div>
-                      <div class="settings-item-hint">${t('settings.epgRefreshHint', {
-                        action: t('settings.refreshAll'),
-                      })}</div>
-                    </div>
-                    <div class="settings-advanced-control">
-                    ${dropdown(
-                      'epg-refresh-interval',
-                      refreshIntervalOptions(),
-                      String(epgRefreshHours),
-                    )}
-                    </div>
-                  </div>
-                  ${enabledAccounts.length ? html`
-                    <div class="settings-advanced-row">
-                      <div class="settings-advanced-group" aria-hidden="true"></div>
-                      <div class="settings-advanced-description">
-                        <div class="settings-item-title">${t('settings.xtreamCatalogRefreshInterval')}</div>
-                        <div class="settings-item-hint">${t('settings.xtreamCatalogRefreshHint', {
-                          action: t('settings.refreshAll'),
-                        })}</div>
-                      </div>
-                      <div class="settings-advanced-control">
-                      ${dropdown(
-                        'xtream-catalog-refresh-interval',
-                        xtreamCatalogRefreshIntervalOptions(),
-                        String(xtreamCatalogRefreshHours),
-                      )}
+                <div class="settings-panel">
+                  ${optionRow(
+                    t('settings.preferredSubtitle'),
+                    dropdown('os-pref-lang', subtitleLanguages(), os.preferredLanguage),
+                  )}
+                  <div class="settings-item settings-block">
+                    <div class="settings-row">
+                      <div class="settings-field wide">
+                        <label><span class="settings-domain">SubDL.com</span> ${t('settings.apiKey')}</label>
+                        <input type="text" class="settings-input" data-focusable id="subdl-key"
+                               value="${os.subdl.apiKey}" placeholder="api_key">
                       </div>
                     </div>
-                  ` : ''}
+                  </div>
+                  <div class="settings-item settings-block">
+                    <div class="settings-row">
+                      <div class="settings-field wide">
+                        <label><span class="settings-domain">Assrt.net</span> ${t('settings.assrtToken')}</label>
+                        <input type="text" class="settings-input" data-focusable id="assrt-key"
+                               value="${os.assrt.apiKey}" placeholder="token">
+                        <div class="settings-item-hint">${t('settings.assrtDescription')}</div>
+                      </div>
+                    </div>
+                  </div>
+                  <div class="settings-item settings-block">
+                    <div class="settings-row">
+                      <div class="settings-field">
+                        <label><span class="settings-domain">OpenSubtitles.com</span> ${t('settings.apiKey')}</label>
+                        <input type="text" class="settings-input" data-focusable id="os-key"
+                               value="${os.opensubtitles.apiKey}" placeholder="api_key">
+                      </div>
+                      <div class="settings-field">
+                        <label>${t('settings.username')}</label>
+                        <input type="text" class="settings-input" data-focusable id="os-user"
+                               value="${os.opensubtitles.username}" placeholder="username">
+                      </div>
+                      <div class="settings-field">
+                        <label>${t('settings.password')}</label>
+                        <input type="password" class="settings-input" data-focusable id="os-pass"
+                               value="${os.opensubtitles.password}" placeholder="password">
+                      </div>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
 
             <div class="settings-category" id="settings-data" data-settings-category="data">
-              <div class="settings-section">
-                <h3 class="settings-section-title">${t('settings.dataManagement')}</h3>
-                <div class="settings-item settings-item--action">
-                  <div class="settings-item-title">${t('channel.recentlyWatched')}</div>
-                  <button class="btn btn-danger" data-focusable id="clear-recently-watched"
-                          aria-label="${t('settings.clearRecentlyWatched')}">${t('settings.clearRecentlyWatched')}</button>
-                  <div class="settings-item-hint">
-                    ${t('settings.clearRecentDescription')}
-                  </div>
-                </div>
-                ${this.watchlistAccount ? html`
-                  <div class="settings-item settings-item--action">
-                    <div class="settings-item-title">${t('common.watchlist')}</div>
-                    <button class="btn btn-danger" data-focusable id="clear-watchlist"
-                            aria-label="${t('settings.clearWatchlist')}">${t('settings.clearWatchlist')}</button>
-                    <div class="settings-item-hint">
-                      ${t('settings.clearWatchlistDescription', { account: this.watchlistAccount.name })}
+              <div class="settings-columns">
+                <div class="settings-column">
+                  <div class="settings-section">
+                    <h3 class="settings-section-title">${t('settings.advancedGroupBackgroundRefresh')}</h3>
+                    <div class="settings-panel">
+                      ${optionRow(
+                        t('settings.playlistRefreshInterval'),
+                        dropdown('playlist-refresh-interval', refreshIntervalOptions(), String(playlistRefreshHours)),
+                        t('settings.playlistRefreshHint', { action: t('settings.refreshAll') }),
+                      )}
+                      ${optionRow(
+                        t('settings.epgRefreshInterval'),
+                        dropdown('epg-refresh-interval', refreshIntervalOptions(), String(epgRefreshHours)),
+                        t('settings.epgRefreshHint', { action: t('settings.refreshAll') }),
+                      )}
+                      ${enabledAccounts.length ? optionRow(
+                        t('settings.xtreamCatalogRefreshInterval'),
+                        dropdown(
+                          'xtream-catalog-refresh-interval',
+                          xtreamCatalogRefreshIntervalOptions(),
+                          String(xtreamCatalogRefreshHours),
+                        ),
+                        t('settings.xtreamCatalogRefreshHint', { action: t('settings.refreshAll') }),
+                      ) : ''}
                     </div>
                   </div>
-                ` : ''}
-                <div class="cache-usage" id="cache-usage" aria-live="polite">
-                  <div class="cache-usage-loading">${t('common.loading')}</div>
+                  <div class="settings-section">
+                    <h3 class="settings-section-title">${t('settings.dataManagement')}</h3>
+                    <div class="settings-panel">
+                      ${optionRow(
+                        t('channel.recentlyWatched'),
+                        html`<button class="btn btn-danger" data-focusable id="clear-recently-watched"
+                                     aria-label="${t('settings.clearRecentlyWatched')}">${t('settings.clearRecentlyWatched')}</button>`,
+                        t('settings.clearRecentDescription'),
+                        'settings-item--action',
+                      )}
+                      ${this.watchlistAccount ? optionRow(
+                        t('common.watchlist'),
+                        html`<button class="btn btn-danger" data-focusable id="clear-watchlist"
+                                     aria-label="${t('settings.clearWatchlist')}">${t('settings.clearWatchlist')}</button>`,
+                        t('settings.clearWatchlistDescription', { account: this.watchlistAccount.name }),
+                        'settings-item--action',
+                      ) : ''}
+                      ${optionRow(
+                        t('settings.resetApp'),
+                        html`<button class="btn btn-danger" data-focusable id="reset-app"
+                                     aria-label="${t('settings.resetApp')}">${t('settings.resetApp')}</button>`,
+                        t('settings.resetAppDescription'),
+                        'settings-item--action settings-reset',
+                      )}
+                    </div>
+                  </div>
                 </div>
-                <div class="settings-maintenance">
-                  <button class="btn btn-secondary" data-focusable id="refresh-data">${t('settings.refreshAll')}</button>
-                  <button class="btn btn-danger" data-focusable id="clear-cache">${t('settings.clearCache')}</button>
-                </div>
-                <div class="settings-item settings-item--action settings-reset">
-                  <div class="settings-item-title">${t('settings.resetApp')}</div>
-                  <button class="btn btn-danger" data-focusable id="reset-app"
-                          aria-label="${t('settings.resetApp')}">${t('settings.resetApp')}</button>
-                  <div class="settings-item-hint">${t('settings.resetAppDescription')}</div>
+                <div class="settings-column settings-column-side">
+                  <div class="cache-usage" id="cache-usage" aria-live="polite">
+                    <div class="cache-usage-loading">${t('common.loading')}</div>
+                  </div>
+                  <div class="settings-maintenance">
+                    <button class="btn btn-secondary" data-focusable id="refresh-data">${t('settings.refreshAll')}</button>
+                    <button class="btn btn-danger" data-focusable id="clear-cache">${t('settings.clearCache')}</button>
+                  </div>
                 </div>
               </div>
-            </div>
-
-            <div class="settings-about">
-              ${CONFIG.APP_NAME} v${CONFIG.VERSION}
             </div>
           </div>
 
@@ -943,7 +818,7 @@ export class Settings {
       </div>
     `);
 
-    this.nav.focusFirst();
+    this.openCategory(category);
     void this.loadCacheUsage();
   }
 
@@ -1096,7 +971,13 @@ export class Settings {
   // after: the pane is re-morphed on every render, so a held element goes stale.
   private moveFocus(action: NavDirection): void {
     const open = this.container.querySelector<HTMLElement>('.dropdown.open');
-    this.nav.setRestrict(open?.querySelector<HTMLElement>('.dropdown-menu') ?? null);
+    // Sideways moves stay in the block they started in: a control at the edge
+    // of a pane must not jump to the header or the action bar.
+    const sideways = action === 'left' || action === 'right';
+    const block = sideways
+      ? this.nav.focused?.closest<HTMLElement>('.settings-category, .settings-actions, .settings-head') ?? null
+      : null;
+    this.nav.setRestrict(open?.querySelector<HTMLElement>('.dropdown-menu') ?? block);
     this.nav.move(action);
     this.nav.setRestrict(null);
   }
@@ -1120,26 +1001,15 @@ export class Settings {
         break;
 
       case 'right':
-        if (this.nav.focused?.classList.contains('settings-nav-item')) {
-          this.focusCategoryFirst(this.nav.focused.dataset.settingsTarget as SettingsCategory);
-          break;
-        }
         this.moveFocus(action);
         break;
 
-      case 'left':
-        if (this.nav.focused?.classList.contains('settings-nav-item')) {
-          this.nav.move(action);
-          break;
-        }
-        {
-          const openDropdown = this.container.querySelector<HTMLElement>('.dropdown.open');
-          if (openDropdown) this.closeDropdown(openDropdown);
-          const peer = this.leftPeer(this.nav.focused);
-          if (peer) this.nav.focus(peer);
-          else this.focusActiveCategory();
-        }
+      case 'left': {
+        const openDropdown = this.container.querySelector<HTMLElement>('.dropdown.open');
+        if (openDropdown) this.closeDropdown(openDropdown);
+        else this.moveFocus(action);
         break;
+      }
 
       case 'select': {
         const focused = this.nav.focused;
@@ -1165,8 +1035,8 @@ export class Settings {
   }
 
   private activate(el: HTMLElement): void {
-    if (el.classList.contains('settings-nav-item')) {
-      this.scrollToCategory(el.dataset.settingsTarget as SettingsCategory);
+    if (el.id === 'settings-back') {
+      this.onSave('cancel');
     } else if (el.id === 'add-playlist') {
       this.addPlaylistEntry();
     } else if (el.classList.contains('remove-playlist')) {
@@ -1291,7 +1161,7 @@ export class Settings {
     const channels = PlaylistService.allChannels;
     const summary = ChannelHealthService.getSummary(channels);
     return html`
-      <div class="settings-item settings-item--action channel-health-panel">
+      <div class="settings-item settings-block settings-item--action channel-health-panel">
         <div class="settings-item-title">${t('settings.channelHealth')}</div>
         ${this.healthController
           ? html`
@@ -1519,152 +1389,41 @@ export class Settings {
   }
 
   private onNavFocus(el: HTMLElement | null): void {
-    this.container.querySelector('.settings-advanced-row.focused')
-      ?.classList.remove('focused');
-    el?.closest('.settings-advanced-row')?.classList.add('focused');
+    this.container.querySelector('.settings-option.is-current')
+      ?.classList.remove('is-current');
+    el?.closest('.settings-option')?.classList.add('is-current');
   }
 
-  private setActiveCategory(category: SettingsCategory): void {
-    this.container.querySelectorAll('.settings-nav-item').forEach((item) => {
-      item.classList.toggle(
-        'active',
-        (item as HTMLElement).dataset.settingsTarget === category,
-      );
-    });
-  }
-
-  /** Lands on one category, for a caller that opens the page for that purpose. */
+  /** Shows one category - the only one on screen - and lands on its first control. */
   openCategory(category: SettingsCategory): void {
-    this.scrollToCategory(category);
-    const target = this.container.querySelector<HTMLElement>(`[data-settings-target="${category}"]`);
-    if (target) this.nav.focus(target);
-  }
-
-  private scrollToCategory(category: SettingsCategory): void {
-    const target = this.container.querySelector<HTMLElement>(`#settings-${category}`);
-    if (!target) return;
-    const main = target.closest<HTMLElement>('.settings-scroll');
-    if (!main) return;
-    this.setActiveCategory(category);
-    this.ignoreCategoryScroll = true;
-    if (this.categoryScrollFrame !== null) {
-      window.cancelAnimationFrame(this.categoryScrollFrame);
-    }
-    const maxScrollTop = Math.max(0, main.scrollHeight - main.clientHeight);
-    const targetScrollTop = Math.max(
-      0,
-      Math.min(
-        main.scrollTop + target.getBoundingClientRect().top - main.getBoundingClientRect().top,
-        maxScrollTop,
-      ),
-    );
-    target.scrollIntoView({
-      block: 'start',
-      inline: 'nearest',
-      behavior: 'auto',
+    this.container.querySelectorAll<HTMLElement>('.settings-category').forEach((pane) => {
+      pane.classList.toggle('is-active', pane.dataset.settingsCategory === category);
     });
-    this.watchCategoryScroll(main, category, targetScrollTop);
-  }
-
-  private watchCategoryScroll(
-    main: HTMLElement,
-    category: SettingsCategory,
-    targetScrollTop: number,
-  ): void {
-    let lastScrollTop = main.scrollTop;
-    let moving = false;
-    let stableFrames = 0;
-    const watch = () => {
-      const current = main.scrollTop;
-      const delta = Math.abs(current - lastScrollTop);
-      const reachedTarget = Math.abs(current - targetScrollTop) <= 1;
-      if (delta > 0.5) {
-        moving = true;
-        stableFrames = 0;
-      } else if (moving) {
-        stableFrames++;
-      }
-      lastScrollTop = current;
-
-      if (reachedTarget || stableFrames >= 4) {
-        this.ignoreCategoryScroll = false;
-        this.categoryScrollFrame = null;
-        if (reachedTarget) this.setActiveCategory(category);
-        else this.syncCategoryFromScroll(main);
-        return;
-      }
-      this.categoryScrollFrame = window.requestAnimationFrame(watch);
-    };
-    this.categoryScrollFrame = window.requestAnimationFrame(watch);
-  }
-
-  private leftPeer(el: HTMLElement | null): HTMLElement | null {
-    if (!el) return null;
-    const group = el.closest<HTMLElement>(
-      '.toggle-group, .settings-row, .xtream-fields, .xtream-card-foot, .settings-actions, .epg-offset-controls',
-    );
-    if (!group) return null;
-    const rect = el.getBoundingClientRect();
-    let best: HTMLElement | null = null;
-    let bestScore = Infinity;
-    for (const candidate of group.querySelectorAll<HTMLElement>('[data-focusable]')) {
-      if (candidate === el) continue;
-      const other = candidate.getBoundingClientRect();
-      const overlap = Math.min(rect.bottom, other.bottom) - Math.max(rect.top, other.top);
-      if (other.left >= rect.left - 5 || overlap <= 5) continue;
-      const score = rect.left - other.right
-        + Math.abs((rect.top + rect.bottom) - (other.top + other.bottom));
-      if (score < bestScore) {
-        best = candidate;
-        bestScore = score;
-      }
-    }
-    return best;
-  }
-
-  private focusActiveCategory(): void {
-    const active = this.container.querySelector<HTMLElement>('.settings-nav-item.active')
-      ?? this.container.querySelector<HTMLElement>('.settings-nav-item');
-    if (active) this.nav.focus(active);
+    const title = this.container.querySelector<HTMLElement>('#settings-pane-title');
+    const meta = SETTINGS_CATEGORIES.filter(item => item.id === category)[0];
+    if (title && meta) title.textContent = t(meta.label);
+    const scroll = this.container.querySelector<HTMLElement>('.settings-scroll');
+    if (scroll) scroll.scrollTop = 0;
+    this.focusCategoryFirst(category);
   }
 
   // Entry takes the pane's first focusable in DOM order, with no geometry to
-  // fall back on, so measurement is what keeps focus off an invisible control —
+  // fall back on, so measurement is what keeps focus off an invisible control -
   // a closed menu's options stay focusable.
   private focusCategoryFirst(category: SettingsCategory): void {
     const pane = this.container.querySelector<HTMLElement>(`#settings-${category}`);
-    if (!pane) return;
-    if (this.categorySyncFrame !== null) {
-      window.cancelAnimationFrame(this.categorySyncFrame);
-      this.categorySyncFrame = null;
+    if (pane) {
+      this.nav.setRestrict(pane);
+      const focused = this.nav.focusFirst();
+      this.nav.setRestrict(null);
+      if (focused) {
+        // The first control scrolls itself into view; the pane starts at its top.
+        const scroll = this.container.querySelector<HTMLElement>('.settings-scroll');
+        if (scroll) scroll.scrollTop = 0;
+        return;
+      }
     }
-    if (this.categoryFocusFrame !== null) {
-      window.cancelAnimationFrame(this.categoryFocusFrame);
-    }
-    this.ignoreCategoryScroll = true;
-    this.nav.setRestrict(pane);
-    const focused = this.nav.focusFirst();
-    this.nav.setRestrict(null);
-    if (focused) this.setActiveCategory(category);
-    this.categoryFocusFrame = window.requestAnimationFrame(() => {
-      this.categoryFocusFrame = null;
-      if (this.categoryScrollFrame === null) this.ignoreCategoryScroll = false;
-    });
-  }
-
-  private syncCategoryFromScroll(main: HTMLElement): void {
-    if (main.scrollTop + main.clientHeight >= main.scrollHeight - 2) {
-      this.setActiveCategory(SETTINGS_CATEGORIES[SETTINGS_CATEGORIES.length - 1].id);
-      return;
-    }
-    const threshold = main.getBoundingClientRect().top + 48;
-    let active: SettingsCategory = 'general';
-    for (const category of SETTINGS_CATEGORIES) {
-      const section = this.container.querySelector<HTMLElement>(`#settings-${category.id}`);
-      if (!section || section.getBoundingClientRect().top > threshold) break;
-      active = category.id;
-    }
-    this.setActiveCategory(active);
+    this.nav.focusFirst();
   }
 
   // Opening moves focus to the active option, or the first one when the stored

@@ -8,7 +8,7 @@ import {
   neuterVideo,
   measureRowTextFit,
   enterTab,
-  SEARCH_M3U,
+  SEARCH_M3U, enterSettings, openSettingsPane, backToLive
 } from './helpers';
 
 // The player view: playback start, sidebar, action menu, OSD, and live DVR.
@@ -58,13 +58,12 @@ test('live playback retries the current channel before switching', async ({ page
   await seedPlaylist(page);
   await page.goto('/');
   await expect(page.locator('#view-channels')).toBeVisible();
-  await enterTab(page, 'settings');
-  await page.locator('[data-settings-target="advanced"]').click();
+  await enterSettings(page, 'playback');
   const attempts = page.locator('#live-reconnect-attempts');
   await attempts.locator('.dropdown-trigger').click();
   await attempts.locator('[data-dropdown-value="1"]').click();
   await page.locator('#save-settings').click();
-  await expect(page.locator('#view-channels')).toBeVisible();
+  await backToLive(page);
   await page.keyboard.press('Enter');
   await expect(page.locator('.osd-channel-name')).toHaveText('Channel One');
 

@@ -253,33 +253,118 @@ function click(selector: string): void {
     .dispatchEvent(new MouseEvent('click', { bubbles: true }));
 }
 
+function activeCategories(): (string | undefined)[] {
+  return Array.from(container.querySelectorAll<HTMLElement>('.settings-category.is-active'))
+    .map(pane => pane.dataset.settingsCategory);
+}
+
+function categoryOf(selector: string): string | null | undefined {
+  return container.querySelector(selector)?.closest('[data-settings-category]')
+    ?.getAttribute('data-settings-category');
+}
+
+function optionTitles(panel: Element): (string | null)[] {
+  return Array.from(panel.querySelectorAll('.settings-option > .settings-option-text > .settings-item-title'))
+    .map(title => title.textContent);
+}
+
+// jsdom lays nothing out: place the listed elements on one row at the given
+// left edge and leave every other element collapsed.
+function withRowLayout(lefts: Map<Element, number>, run: () => void): void {
+  const original = Element.prototype.getBoundingClientRect;
+  Element.prototype.getBoundingClientRect = function stub(this: Element): DOMRect {
+    const left = lefts.get(this);
+    if (left === undefined) return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0 } as DOMRect;
+    return { width: 100, height: 100, top: 0, left, bottom: 100, right: left + 100 } as DOMRect;
+  };
+  try {
+    run();
+  } finally {
+    Element.prototype.getBoundingClientRect = original;
+  }
+}
+
 describe('Settings.render', () => {
-  it('renders the category sidebar with General first', () => {
+  it('renders one pane per category and shows Stream first', () => {
     settings.render();
-    const labels = Array.from(container.querySelectorAll('.settings-nav-item'))
-      .map((item) => item.textContent?.trim());
-    expect(labels).toEqual([
-      'General',
-      'Stream',
-      'Program Guide',
-      'Appearance',
-      'Playback',
-      'Online Subtitles',
-      'Advanced',
-      'Data Management',
-    ]);
-    const navOrder = Array.from(container.querySelectorAll<HTMLElement>('.settings-nav-item'))
-      .map(item => item.dataset.settingsTarget);
-    const contentOrder = Array.from(
+    const panes = Array.from(
       container.querySelectorAll<HTMLElement>('.settings-scroll > .settings-category'),
-    ).map(item => item.dataset.settingsCategory);
-    expect(contentOrder).toEqual(navOrder);
-    expect(container.querySelector('.settings-nav-item.active')?.getAttribute('data-settings-target'))
-      .toBe('general');
-    expect(container.querySelector('.settings-nav-help')?.textContent)
-      .toContain('Choose category');
-    expect(container.querySelector('.settings-nav-help')?.textContent)
-      .toContain('Enter / return');
+    );
+    expect(panes.map(pane => pane.dataset.settingsCategory)).toEqual([
+      'sources',
+      'channels',
+      'guide',
+      'appearance',
+      'playback',
+      'subtitles',
+      'data',
+    ]);
+    expect(panes.map(pane => pane.id))
+      .toEqual(panes.map(pane => `settings-${pane.dataset.settingsCategory}`));
+    expect(activeCategories()).toEqual(['sources']);
+    expect(container.querySelector('.settings-eyebrow')?.textContent).toBe('Settings');
+    expect(container.querySelector('#settings-pane-title')?.textContent).toBe('Stream');
+    expect(container.querySelector('.settings-sidebar')).toBeNull();
+    expect(container.querySelector('[data-settings-target]')).toBeNull();
+  });
+
+  it.each([
+    ['sources', 'Stream'],
+    ['channels', 'Channels'],
+    ['guide', 'Program Guide'],
+    ['appearance', 'Appearance'],
+    ['playback', 'Playback'],
+    ['subtitles', 'Online Subtitles'],
+    ['data', 'Data Management'],
+  ] as const)('renders straight into the %s pane', (category, label) => {
+    settings.render(category);
+    expect(activeCategories()).toEqual([category]);
+    expect(container.querySelector('#settings-pane-title')?.textContent).toBe(label);
+    expect(container.querySelector(`#settings-${category} .focused`)).not.toBeNull();
+  });
+
+  it('openCategory switches the pane, retitles the header, and focuses its first control', () => {
+    settings.render();
+    const scroll = container.querySelector<HTMLElement>('.settings-scroll')!;
+    scroll.scrollTop = 120;
+
+    settings.openCategory('appearance');
+
+    expect(activeCategories()).toEqual(['appearance']);
+    expect(container.querySelector('#settings-pane-title')?.textContent).toBe('Appearance');
+    expect(scroll.scrollTop).toBe(0);
+    expect(container.querySelectorAll('.focused')).toHaveLength(1);
+    expect(container.querySelector('#app-language .dropdown-trigger')?.classList.contains('focused'))
+      .toBe(true);
+  });
+
+  it('cancels from the header back button', () => {
+    settings.render();
+    const back = container.querySelector<HTMLElement>('.settings-head #settings-back')!;
+    expect(back.getAttribute('aria-label')).toBe('Back');
+
+    back.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
+    settings.handleAction('select');
+
+    expect(onSave).toHaveBeenCalledWith('cancel');
+    expect(storageMock.setPlaylists).not.toHaveBeenCalled();
+  });
+
+  it('marks only the row of the focused control as current', () => {
+    settings.render('playback');
+    const rowOf = (selector: string) => container.querySelector(selector)!.closest('.settings-option')!;
+    const hover = (selector: string) => container.querySelector<HTMLElement>(selector)!
+      .dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
+
+    hover('#auto-play .toggle-option');
+    expect(rowOf('#auto-play').classList.contains('is-current')).toBe(true);
+
+    hover('#live-preview-setting .toggle-option');
+    expect(rowOf('#auto-play').classList.contains('is-current')).toBe(false);
+    expect(rowOf('#live-preview-setting').classList.contains('is-current')).toBe(true);
+
+    hover('#save-settings');
+    expect(container.querySelector('.settings-option.is-current')).toBeNull();
   });
 
   it('starts a manual channel health check from the Channels section', async () => {
@@ -364,20 +449,69 @@ describe('Settings.render', () => {
     await vi.waitFor(() => expect(container.querySelector('#check-channel-health')).not.toBeNull());
   });
 
-  it('groups language and time zone under General, with autoplay under Playback', () => {
+  it('places every control in the pane of its category', () => {
     settings.render();
-    expect(container.querySelectorAll('.settings-section > .settings-section-title'))
-      .toHaveLength(container.querySelectorAll('.settings-section').length);
-    expect(container.querySelector('#app-language')?.closest('[data-settings-category]')
-      ?.getAttribute('data-settings-category')).toBe('general');
-    expect(container.querySelector('#tz-mode')?.closest('[data-settings-category]')
-      ?.getAttribute('data-settings-category')).toBe('guide');
-    expect(container.querySelector('#auto-play')?.closest('[data-settings-category]')
-      ?.getAttribute('data-settings-category')).toBe('playback');
-    expect(container.querySelector('#clear-recently-watched')?.closest('[data-settings-category]')
-      ?.getAttribute('data-settings-category')).toBe('data');
-    expect(container.querySelector('#settings-general')?.textContent).not.toContain('Display');
+    const expected: Record<string, string[]> = {
+      sources: ['#xtream-entries', '#add-xtream', '#playlist-entries', '#add-playlist'],
+      channels: [
+        '.channel-health-summary',
+        '#check-channel-health',
+        '#edit-channel-list',
+        '#show-hidden',
+        '#reset-customization',
+      ],
+      guide: ['#tz-mode', '.epg-offset-editor', '#manage-reminders', '.manual-epg-sources', '#add-epg-source'],
+      appearance: ['#app-language', '#text-size', '#overlay-style', '#animation-mode'],
+      playback: [
+        '#auto-play',
+        '#live-preview-setting',
+        '#channel-cycle-mode',
+        '#live-reconnect-attempts',
+        '#number-entry-osd-timeout',
+        '#player-osd-timeout',
+      ],
+      subtitles: ['#os-pref-lang', '#subdl-key', '#assrt-key', '#os-key', '#os-user', '#os-pass'],
+      data: [
+        '#playlist-refresh-interval',
+        '#epg-refresh-interval',
+        '#clear-recently-watched',
+        '#reset-app',
+        '#cache-usage',
+        '#refresh-data',
+        '#clear-cache',
+      ],
+    };
+    for (const category of Object.keys(expected)) {
+      for (const selector of expected[category]) {
+        expect(container.querySelectorAll(selector), selector).toHaveLength(1);
+        expect(categoryOf(selector), selector).toBe(category);
+      }
+    }
+    expect(container.querySelector('#edit-channel-list')?.closest('.settings-section')?.id)
+      .toBe('channel-customization-settings');
+    expect(container.querySelector('#settings-general')).toBeNull();
+    expect(container.querySelector('#settings-advanced')).toBeNull();
     expect(container.querySelector('.settings-section .settings-section')).toBeNull();
+  });
+
+  it('builds each option as a text block beside its control inside a panel', () => {
+    settings.render();
+    const rows = Array.from(container.querySelectorAll('.settings-option'));
+    expect(rows.length).toBeGreaterThan(0);
+    for (const row of rows) {
+      expect(row.classList.contains('settings-item')).toBe(true);
+      expect(Array.from(row.children).map(child => child.className))
+        .toEqual(['settings-option-text', 'settings-option-control']);
+      expect(row.querySelector('.settings-option-text > .settings-item-title')?.textContent?.trim())
+        .toBeTruthy();
+      expect(row.querySelector('.settings-option-control')?.children).toHaveLength(1);
+      expect(row.parentElement?.classList.contains('settings-panel')).toBe(true);
+      expect(row.parentElement?.parentElement?.classList.contains('settings-section')).toBe(true);
+    }
+    const textSize = container.querySelector('#text-size')!.closest('.settings-option')!;
+    expect(textSize.querySelector('.settings-item-hint')).toBeNull();
+    const language = container.querySelector('#app-language')!.closest('.settings-option')!;
+    expect(language.querySelector('.settings-option-text > .settings-item-hint')).not.toBeNull();
   });
 
   it('opens reminder management from the count-bearing guide entry', () => {
@@ -450,45 +584,47 @@ describe('Settings.render', () => {
     expect(container.querySelector('#auto-play .toggle-option.active')!.getAttribute('data-value')).toBe('on');
   });
 
-  it('renders animation, reconnect, and refresh controls under Advanced', () => {
+  it('renders animation, reconnect, OSD, and refresh rows in their panes', () => {
     settings.render();
-    const advanced = container.querySelector('#settings-advanced')!;
-    expect(advanced.querySelector('.settings-section-title')?.textContent).toBe('Advanced');
-    const items = advanced.querySelectorAll('.settings-advanced-row');
-    expect(items).toHaveLength(6);
-    expect(Array.from(advanced.querySelectorAll('.settings-advanced-group'))
-      .map(group => group.textContent?.trim())
-      .filter(Boolean))
-      .toEqual(['Interface', 'Playback', 'On-screen display', 'Background refresh']);
-    expect(items[0].querySelector('.settings-item-title')?.textContent)
-      .toBe('Animation mode');
-    expect(items[0].querySelector('.settings-advanced-control')?.children)
-      .toHaveLength(1);
+    expect(optionTitles(container.querySelector('#settings-appearance')!)).toEqual([
+      'Language',
+      'Text size',
+      'Player overlay style',
+      'Animation mode',
+    ]);
+    expect(optionTitles(container.querySelector('#settings-playback')!)).toEqual([
+      'Play the last watched channel on startup',
+      'Live preview',
+      'Channel Up/Down',
+      'Live reconnect attempts',
+      'Number Entry OSD timeout',
+      'Player OSD auto-hide delay',
+    ]);
+    const refresh = container.querySelector('#playlist-refresh-interval')!.closest('.settings-section')!;
+    expect(refresh.querySelector('.settings-section-title')?.textContent).toBe('Background refresh');
+    expect(optionTitles(refresh)).toEqual([
+      'Channel list refresh interval',
+      'Guide refresh interval',
+    ]);
+    expect(container.querySelector('[class*="settings-advanced"]')).toBeNull();
     expect(Array.from(container.querySelectorAll<HTMLElement>(
       '#animation-mode .toggle-option',
     )).map(option => option.dataset.value))
       .toEqual(['essential', 'reduced', 'full']);
     expect(container.querySelector('#animation-mode .toggle-option.active')
       ?.getAttribute('data-value')).toBe('reduced');
-    expect(items[1].querySelector('.settings-item-title')?.textContent)
-      .toBe('Live reconnect attempts');
-    expect(items[1].querySelector('.settings-advanced-control')?.children).toHaveLength(1);
     expect(container.querySelector('#live-reconnect-attempts')?.getAttribute('data-value'))
       .toBe('3');
     expect(Array.from(container.querySelectorAll<HTMLElement>(
       '#live-reconnect-attempts [data-dropdown-value]',
     )).map(option => option.dataset.dropdownValue))
       .toEqual(['0', '1', '2', '3', '4', '5']);
-    expect(items[2].querySelector('.settings-item-title')?.textContent)
-      .toBe('Number Entry OSD timeout');
     expect(container.querySelector('#number-entry-osd-timeout')?.getAttribute('data-value'))
       .toBe('1200');
     expect(Array.from(container.querySelectorAll<HTMLElement>(
       '#number-entry-osd-timeout [data-dropdown-value]',
     )).map(option => option.textContent))
       .toEqual(['1.2 seconds', '1.8 seconds', '2.5 seconds', '3 seconds', '3.5 seconds']);
-    expect(items[3].querySelector('.settings-item-title')?.textContent)
-      .toBe('Player OSD auto-hide delay');
     expect(container.querySelector('#player-osd-timeout')?.getAttribute('data-value'))
       .toBe('5000');
     expect(Array.from(container.querySelectorAll<HTMLElement>(
@@ -521,8 +657,13 @@ describe('Settings.render', () => {
 
     settings.render();
 
-    expect(container.querySelectorAll('#settings-advanced .settings-advanced-row'))
-      .toHaveLength(7);
+    const refresh = container.querySelector('#playlist-refresh-interval')!.closest('.settings-panel')!;
+    expect(optionTitles(refresh)).toEqual([
+      'Channel list refresh interval',
+      'Guide refresh interval',
+      'Xtream content catalog refresh interval',
+    ]);
+    expect(categoryOf('#xtream-catalog-refresh-interval')).toBe('data');
     expect(container.querySelector('#xtream-catalog-refresh-interval')
       ?.getAttribute('data-value')).toBe('6');
     expect(Array.from(container.querySelectorAll<HTMLElement>(
@@ -548,33 +689,25 @@ describe('Settings.render', () => {
     expect(storageMock.setPlayerOsdTimeoutMs).toHaveBeenCalledWith(8000);
   });
 
-  // Left moves within a row by measuring peers, and a collapsed control has no
-  // vertical overlap with its row, so the overlap guard alone rejects it. With
-  // the leading swatch collapsed the second one has no peer to its left, so
-  // left leaves the row for the category sidebar.
-  it('left skips a collapsed peer instead of focusing it', () => {
-    settings.render();
+  // A collapsed control measures zero and is never a move target. With the
+  // leading swatch collapsed the second one has no peer to its left, and the
+  // back button further left sits outside the pane, so focus stays put.
+  it('left skips a collapsed peer and stays at the pane edge', () => {
+    settings.render('appearance');
 
     const swatches = Array.from(container.querySelectorAll<HTMLElement>('#overlay-style .toggle-option'));
     expect(swatches.length).toBeGreaterThan(1);
     swatches[1].dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
 
-    const original = Element.prototype.getBoundingClientRect;
-    Element.prototype.getBoundingClientRect = function stub(this: Element): DOMRect {
-      const index = swatches.indexOf(this as HTMLElement);
-      if (index < 0) return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0 } as DOMRect;
-      if (index === 0) return { width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0 } as DOMRect;
-      const left = 110 * index;
-      return { width: 100, height: 100, top: 0, left, bottom: 100, right: left + 100 } as DOMRect;
-    };
-    try {
-      settings.handleAction('left');
-    } finally {
-      Element.prototype.getBoundingClientRect = original;
-    }
+    const lefts = new Map<Element, number>([
+      [container.querySelector('#settings-back')!, 0],
+      [swatches[1], 220],
+    ]);
+    withRowLayout(lefts, () => settings.handleAction('left'));
 
     expect(swatches[0].classList.contains('focused')).toBe(false);
-    expect(container.querySelector('.settings-nav-item.focused')).not.toBeNull();
+    expect(swatches[1].classList.contains('focused')).toBe(true);
+    expect(container.querySelectorAll('.focused')).toHaveLength(1);
   });
 
   it('shows and restores the empty hint for manual EPG sources', () => {
@@ -1113,18 +1246,37 @@ describe('Settings Recently Watched clearing', () => {
     expect(action?.textContent).toContain('Clear recent live channels and catch-up progress');
     expect(action?.querySelector('#clear-recently-watched')).not.toBeNull();
     expect(Array.from(action?.children ?? []).map(child => child.className)).toEqual([
-      'settings-item-title',
-      'btn btn-danger',
-      'settings-item-hint',
+      'settings-option-text',
+      'settings-option-control',
     ]);
+    expect(Array.from(action?.querySelector('.settings-option-text')?.children ?? [])
+      .map(child => child.className))
+      .toEqual(['settings-item-title', 'settings-item-hint']);
+    expect(Array.from(action?.querySelector('.settings-option-control')?.children ?? [])
+      .map(child => child.className))
+      .toEqual(['btn btn-danger']);
   });
 
-  it('places maintenance actions after history settings', () => {
-    const section = container.querySelector('#settings-data .settings-section')!;
-    const recent = section.querySelector('.settings-item--action')!;
-    const maintenance = section.querySelector('.settings-maintenance')!;
-    expect(recent.compareDocumentPosition(maintenance) & Node.DOCUMENT_POSITION_FOLLOWING)
-      .toBeTruthy();
+  it('orders refresh intervals, history, then the cache side column', () => {
+    const data = container.querySelector('#settings-data')!;
+    const follows = (before: string, after: string) =>
+      data.querySelector(before)!.compareDocumentPosition(data.querySelector(after)!)
+        & Node.DOCUMENT_POSITION_FOLLOWING;
+    expect(follows('#playlist-refresh-interval', '#epg-refresh-interval')).toBeTruthy();
+    expect(follows('#epg-refresh-interval', '#clear-recently-watched')).toBeTruthy();
+    expect(follows('#clear-recently-watched', '#reset-app')).toBeTruthy();
+    expect(follows('#reset-app', '#cache-usage')).toBeTruthy();
+    expect(follows('#cache-usage', '.settings-maintenance')).toBeTruthy();
+
+    const side = data.querySelector('.settings-column-side')!;
+    expect(Array.from(side.children).map(child => child.className))
+      .toEqual(['cache-usage', 'settings-maintenance']);
+    expect(Array.from(side.querySelectorAll('.settings-maintenance > [data-focusable]'))
+      .map(button => button.id))
+      .toEqual(['refresh-data', 'clear-cache']);
+    expect(side.querySelector('.settings-option')).toBeNull();
+    expect(data.querySelector('.settings-column:not(.settings-column-side) #reset-app'))
+      .not.toBeNull();
   });
 
   describe('Settings Watchlist clearing', () => {
@@ -1354,12 +1506,16 @@ describe('Settings.save', () => {
     expect(storageMock.setXtreamCatalogRefreshIntervalHours).toHaveBeenCalledWith(12);
   });
 
-  it('renders the Settings title in Portuguese', () => {
+  it('renders the Settings header in Portuguese', () => {
     setLocale('pt-BR');
     settings.render();
-    expect(container.querySelector('.settings-title')?.textContent).toBe('Configurações');
-    expect(container.querySelector('#app-language')?.closest('.settings-section')
-      ?.querySelector('h3')?.textContent).toBe('Idioma / Language');
+    expect(container.querySelector('.settings-eyebrow')?.textContent).toBe('Configurações');
+    expect(container.querySelector('.settings-title')?.textContent).toBe('Fluxo de transmissão');
+    expect(container.querySelector('#settings-back')?.getAttribute('aria-label')).toBe('Voltar');
+    settings.openCategory('appearance');
+    expect(container.querySelector('.settings-title')?.textContent).toBe('Aparência');
+    expect(container.querySelector('#app-language')?.closest('.settings-option')
+      ?.querySelector('.settings-item-title')?.textContent).toBe('Idioma / Language');
     expect(container.querySelector('#app-language .dropdown-current')?.textContent).toBe('Sistema');
   });
 
@@ -1430,15 +1586,17 @@ describe('Settings.handleAction', () => {
     expect(container.querySelector('#app-language')?.classList.contains('open')).toBe(false);
   });
 
-  it('closes an open dropdown before moving left to the category sidebar', () => {
-    settings.render();
+  it('left closes an open dropdown and returns focus to its trigger', () => {
+    settings.render('appearance');
     click('#app-language [data-dropdown-trigger]');
+    expect(container.querySelector('#app-language .dropdown-option.focused')).not.toBeNull();
 
     settings.handleAction('left');
 
     expect(container.querySelector('#app-language')?.classList.contains('open')).toBe(false);
-    expect(container.querySelector('[data-settings-target="general"]')
-      ?.classList.contains('focused')).toBe(true);
+    expect(container.querySelector('#app-language .dropdown-trigger')?.classList.contains('focused'))
+      .toBe(true);
+    expect(container.querySelectorAll('.focused')).toHaveLength(1);
     expect(settings.dismissDropdown()).toBe(false);
   });
 
@@ -1471,79 +1629,84 @@ describe('Settings.handleAction', () => {
     expect(storageMock.setPlaylists).toHaveBeenCalled();
   });
 
-  it('moves right from a category to its first control', () => {
-    settings.render();
-    const appearance = container.querySelector<HTMLElement>(
-      '[data-settings-target="appearance"]',
-    )!;
-    appearance
-      .dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
-    settings.handleAction('right');
-    expect(container.querySelector('#settings-appearance .focused')).not.toBeNull();
-    container.querySelector('.settings-scroll')!
-      .dispatchEvent(new Event('scroll', { bubbles: true }));
-    expect(appearance.classList.contains('active')).toBe(true);
-  });
+  describe('sideways moves', () => {
+    let back: HTMLElement;
+    let addEpg: HTMLElement;
+    let cancel: HTMLElement;
+    let save: HTMLElement;
+    let lefts: Map<Element, number>;
+    const hover = (el: HTMLElement) => el.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
+    const focusedId = () => container.querySelector('.focused')?.id;
 
-  it('moves left from a content boundary back to the active category', () => {
-    settings.render();
-    click('[data-settings-target="guide"]');
-    container.querySelector<HTMLElement>('#add-epg-source')!
-      .dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
-    settings.handleAction('left');
-    expect(container.querySelector('[data-settings-target="guide"]')?.classList.contains('focused'))
-      .toBe(true);
-  });
-
-  it('leaves category scrolling to the selected CSS profile', () => {
-    settings.render();
-    const target = container.querySelector<HTMLElement>('#settings-subtitles')!;
-    target.scrollIntoView = vi.fn();
-    click('[data-settings-target="subtitles"]');
-    expect(target.scrollIntoView).toHaveBeenCalledWith({
-      block: 'start',
-      inline: 'nearest',
-      behavior: 'auto',
+    // One row, left to right: header back button, a pane control, the action bar.
+    beforeEach(() => {
+      settings.render('guide');
+      back = container.querySelector<HTMLElement>('#settings-back')!;
+      addEpg = container.querySelector<HTMLElement>('#add-epg-source')!;
+      cancel = container.querySelector<HTMLElement>('#cancel-settings')!;
+      save = container.querySelector<HTMLElement>('#save-settings')!;
+      lefts = new Map<Element, number>([[back, 0], [addEpg, 200], [cancel, 400], [save, 600]]);
     });
-    expect(target.scrollIntoView).toHaveBeenCalledTimes(1);
-  });
 
-  it('still delegates category scrolling to CSS in full mode', () => {
-    state.animationMode = 'full';
-    settings.render();
-    const target = container.querySelector<HTMLElement>('#settings-subtitles')!;
-    target.scrollIntoView = vi.fn();
-    click('[data-settings-target="subtitles"]');
-    expect(target.scrollIntoView).toHaveBeenCalledWith({
-      block: 'start',
-      inline: 'nearest',
-      behavior: 'auto',
+    it('keeps a pane control in its pane at either edge', () => {
+      hover(addEpg);
+      withRowLayout(lefts, () => settings.handleAction('left'));
+      expect(focusedId()).toBe('add-epg-source');
+      withRowLayout(lefts, () => settings.handleAction('right'));
+      expect(focusedId()).toBe('add-epg-source');
+      expect(activeCategories()).toEqual(['guide']);
     });
-  });
 
-  it('updates the weak active category when content scrolling reaches the bottom', async () => {
-    settings.render();
-    const main = container.querySelector<HTMLElement>('.settings-scroll')!;
-    Object.defineProperties(main, {
-      scrollTop: { value: 900, configurable: true },
-      clientHeight: { value: 100, configurable: true },
-      scrollHeight: { value: 1000, configurable: true },
+    it('moves between the action bar buttons without leaving the bar', () => {
+      hover(cancel);
+      withRowLayout(lefts, () => settings.handleAction('right'));
+      expect(focusedId()).toBe('save-settings');
+      withRowLayout(lefts, () => settings.handleAction('right'));
+      expect(focusedId()).toBe('save-settings');
+      withRowLayout(lefts, () => settings.handleAction('left'));
+      expect(focusedId()).toBe('cancel-settings');
+      withRowLayout(lefts, () => settings.handleAction('left'));
+      expect(focusedId()).toBe('cancel-settings');
     });
-    main.dispatchEvent(new Event('scroll'));
-    await new Promise<void>((resolve) => requestAnimationFrame(() => resolve()));
-    expect(container.querySelector('.settings-nav-item.active')?.getAttribute('data-settings-target'))
-      .toBe('data');
-  });
 
-  it('keeps the active category while Magic Remote hover moves elsewhere', () => {
-    settings.render();
-    click('[data-settings-target="appearance"]');
-    container.querySelector<HTMLElement>('[data-settings-target="playback"]')!
-      .dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
-    expect(container.querySelector('.settings-nav-item.active')?.getAttribute('data-settings-target'))
-      .toBe('appearance');
-    expect(container.querySelector('[data-settings-target="playback"]')?.classList.contains('focused'))
-      .toBe(true);
+    it('keeps the back button in the header', () => {
+      hover(back);
+      withRowLayout(lefts, () => settings.handleAction('right'));
+      expect(focusedId()).toBe('settings-back');
+    });
+
+    it('moves between controls of one pane', () => {
+      settings.openCategory('appearance');
+      const swatches = Array.from(
+        container.querySelectorAll<HTMLElement>('#overlay-style .toggle-option'),
+      );
+      const row = new Map<Element, number>([[back, 0], [swatches[0], 200], [swatches[1], 400], [save, 600]]);
+      hover(swatches[0]);
+      withRowLayout(row, () => settings.handleAction('right'));
+      expect(swatches[1].classList.contains('focused')).toBe(true);
+      withRowLayout(row, () => settings.handleAction('left'));
+      expect(swatches[0].classList.contains('focused')).toBe(true);
+    });
+
+    // The restriction is only for sideways moves: vertical ones still cross blocks.
+    it('still leaves the pane on a vertical move', () => {
+      const stacked = new Map<Element, DOMRect>([
+        [addEpg, { width: 100, height: 100, top: 0, left: 0, bottom: 100, right: 100 } as DOMRect],
+        [save, { width: 100, height: 100, top: 200, left: 0, bottom: 300, right: 100 } as DOMRect],
+      ]);
+      const original = Element.prototype.getBoundingClientRect;
+      Element.prototype.getBoundingClientRect = function stub(this: Element): DOMRect {
+        return stacked.get(this)
+          ?? ({ width: 0, height: 0, top: 0, left: 0, bottom: 0, right: 0 } as DOMRect);
+      };
+      try {
+        hover(addEpg);
+        settings.handleAction('down');
+      } finally {
+        Element.prototype.getBoundingClientRect = original;
+      }
+      expect(focusedId()).toBe('save-settings');
+    });
   });
 });
 
@@ -1619,13 +1782,12 @@ describe('Settings Xtream section', () => {
     expect(container.querySelector<HTMLElement>('#add-xtream')).not.toBeNull();
   });
 
-  it('keeps Language first and Xtream Accounts above Playlists, with no local setup card', () => {
+  it('opens on Xtream Accounts above Playlists, with no local setup card', () => {
     settings.render();
-    const heads = Array.from(container.querySelectorAll('.settings-section-title'))
+    const heads = Array.from(container.querySelectorAll('#settings-sources .settings-section-title'))
       .map((h) => h.textContent);
-    expect(heads[0]).toBe('Language');
-    expect(heads.indexOf('Language')).toBeLessThan(heads.indexOf('Xtream Accounts'));
-    expect(heads.indexOf('Xtream Accounts')).toBeLessThan(heads.indexOf('Playlists'));
+    expect(heads).toEqual(['Xtream Accounts', 'Playlists']);
+    expect(activeCategories()).toEqual(['sources']);
     // Device setup is online now: no LAN QR card and no phone-upload list.
     expect(container.querySelector('#setup-info')).toBeNull();
     expect(container.querySelector('#upload-entries')).toBeNull();

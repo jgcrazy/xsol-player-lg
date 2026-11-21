@@ -5,7 +5,7 @@ import {
   LIVE_MANIFEST,
   routeLiveManifest,
   routePlaylist,
-  type Page,
+  type Page, enterSettings, openSettingsPane, backToLive
 } from './helpers';
 import { THEMES, TEXT_SIZES } from '../src/config/themes';
 
@@ -203,9 +203,8 @@ test('Off retains full-screen playback and stop-on-Back', async ({ page }) => {
 
 test('Settings saves Off across reload and Cancel discards On', async ({ page }) => {
   await setup(page);
-  await enterTab(page, 'settings');
+  await enterSettings(page, 'playback');
   const toggle = '#view-settings #live-preview-setting';
-  await page.locator('[data-settings-target="playback"]').click();
   await expect(page.locator('#live-preview')).toHaveCount(1);
   await expect(page.locator(`${toggle} .active`)).toHaveAttribute('data-value', 'on');
   await page.locator(`${toggle} [data-value="off"]`).click();
@@ -214,12 +213,12 @@ test('Settings saves Off across reload and Cancel discards On', async ({ page })
   expect(await page.evaluate(() => localStorage.getItem('iptv_live_preview'))).toBe('false');
   await page.reload();
   await expect(page.locator(ROW)).toHaveCount(2);
-  await enterTab(page, 'settings');
-  await page.locator('[data-settings-target="playback"]').click();
+  await enterSettings(page, 'playback');
   await expect(page.locator(`${toggle} .active`)).toHaveAttribute('data-value', 'off');
   await page.locator(`${toggle} [data-value="on"]`).click();
   await page.locator('#cancel-settings').click();
   expect(await page.evaluate(() => localStorage.getItem('iptv_live_preview'))).toBe('false');
+  await backToLive(page);
   await page.locator(ROW).first().click();
   await expect(page.locator('#view-player')).toBeVisible();
 });
@@ -743,9 +742,9 @@ test('Stop removes preview and section returns do not restart it', async ({ page
     sameNode: true, source: '', src: null, plays: stopped.plays,
   });
   await selectFirst(page);
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   await page.locator('#cancel-settings').click();
-  await expect(page.locator('#view-channels')).toBeVisible();
+  await backToLive(page);
   await expect(page.locator(PANEL)).toBeHidden();
 });
 
@@ -836,10 +835,10 @@ test('a preference disabled while backgrounded prevents preview playback resumin
 test('disabling the playing source in Settings leaves no preview or stale controls', async ({ page }) => {
   await setup(page, { enabled: true });
   await selectFirst(page);
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   await page.locator('#playlist-entries .source-toggle').click();
   await page.locator('#save-settings').click();
-  await expect(page.locator('#view-channels')).toBeVisible();
+  await backToLive(page);
   await expect(page.locator(PANEL)).toBeHidden();
   await expect(page.locator(ROW)).toHaveCount(0);
   await expect(page.locator('#view-channels')).not.toHaveClass(/has-live-preview/);
@@ -859,9 +858,10 @@ test.describe('display timezone', () => {
     await expect(page.locator(`${PANEL} .live-preview-title`)).toHaveText('Program 1');
     await expectPreviewGeometry(page);
 
-    await enterTab(page, 'settings');
+    await enterSettings(page, 'guide');
     await page.locator('#tz-mode [data-value="feed"]').click();
     await page.locator('#save-settings').click();
+    await backToLive(page);
     await selectFirst(page);
     await expect(page.locator(`${PANEL} .live-preview-program.is-upcoming time`).first())
       .toHaveText('13:00–14:00');
@@ -943,6 +943,6 @@ test('the idle preview column steps aside for the list editor and other views', 
   await expect(page.locator('.channel-view.editing')).toHaveCount(0);
   await expect(page.locator(IDLE)).toBeVisible();
 
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   await expect(page.locator(IDLE)).toBeHidden();
 });

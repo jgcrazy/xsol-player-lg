@@ -135,7 +135,47 @@ async function openFirstRunSettings(page: Page): Promise<void> {
   await page.evaluate(() => document.dispatchEvent(
     new KeyboardEvent('keydown', { keyCode: 406, bubbles: true }),
   ));
-  await expect(page.locator('#view-settings')).toBeVisible();
+  await openSettingsPane(page, 'sources');
+}
+
+export type SettingsPane = 'sources' | 'channels' | 'guide' | 'appearance' | 'playback' | 'subtitles' | 'data';
+
+const PANE_CARDS: Record<SettingsPane, string> = {
+  sources: 'stream',
+  channels: 'health',
+  guide: 'guide',
+  appearance: 'appearance',
+  playback: 'playback',
+  subtitles: 'subtitles',
+  data: 'data',
+};
+
+/**
+ * Opens one category of Settings from its card. From another category it goes
+ * back to the cards first, which drops that category's unsaved edits.
+ */
+export async function openSettingsPane(page: Page, pane: SettingsPane): Promise<void> {
+  if (await page.locator('#view-settings').isVisible()) {
+    await page.locator('#settings-back').click();
+  }
+  await expect(page.locator('#view-prefs')).toBeVisible();
+  await page.locator(`.prefs-card[data-card-id="${PANE_CARDS[pane]}"]`).click();
+  await expect(page.locator(`#settings-${pane}.is-active`)).toBeVisible();
+}
+
+/** The Settings tab, then one of its categories. */
+export async function enterSettings(page: Page, pane: SettingsPane = 'sources'): Promise<void> {
+  await enterTab(page, 'settings');
+  await openSettingsPane(page, pane);
+}
+
+/**
+ * Save and Cancel lead back to the Settings cards; a save that reloads the
+ * sources goes straight to the channel list. Either way, end on the list.
+ */
+export async function backToLive(page: Page): Promise<void> {
+  if (await page.locator('#view-prefs').isVisible()) await enterTab(page, 'live');
+  await expect(page.locator('#view-channels')).toBeVisible();
 }
 
 /** Enter a section via the docked tab bar (always visible for an Xtream account).
@@ -231,11 +271,6 @@ export const test = base.extend<{
       await page.addInitScript(() => {
         if (localStorage.getItem('iptv_start_view') === null) {
           localStorage.setItem('iptv_start_view', '"channels"');
-        }
-        // The same baseline keeps the Settings tab on the option panes, which is
-        // what the Settings specs drive; the card screen has its own spec.
-        if (localStorage.getItem('iptv_settings_entry') === null) {
-          localStorage.setItem('iptv_settings_entry', '"panes"');
         }
       });
     }

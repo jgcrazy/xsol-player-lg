@@ -5,6 +5,8 @@ import {
   type Page,
   routePlaylist,
   seedPlaylist,
+  backToLive,
+  openSettingsPane,
 } from './helpers';
 
 // EPG guide: the LIVE badge and the day/time-zone handling. Both need a fixed
@@ -280,10 +282,10 @@ test.describe('EPG time zone', () => {
     await page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 461, bubbles: true })));
     await expect(page.locator('#view-channels')).toBeVisible();
     await page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 406, bubbles: true })));
-    await expect(page.locator('#view-settings')).toBeVisible();
+    await openSettingsPane(page, 'guide');
     await page.locator('#tz-mode [data-value="feed"]').click();
     await page.locator('#save-settings').click();
-    await expect(page.locator('#view-channels')).toBeVisible();
+    await backToLive(page);
 
     await openEpg(page);
     // Selection must follow "today" into the new timezone, not stick on 03/09.

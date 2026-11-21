@@ -1,4 +1,4 @@
-import { test, expect, routeLiveManifest, SAMPLE_M3U, enterTab } from './helpers';
+import { test, expect, routeLiveManifest, SAMPLE_M3U, enterTab, enterSettings, backToLive } from './helpers';
 
 // Seed one Xtream account so the tab bar is enabled; its get.php serves the
 // sample M3U so the channels view loads normally.
@@ -67,7 +67,7 @@ test('the Settings tab (after Series) opens the settings view', async ({ page })
   await page.goto('/');
   await expect(page.locator('#view-channels')).toBeVisible();
 
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   await expect(page.locator('#view-settings')).toBeVisible();
 });
 
@@ -201,18 +201,22 @@ test('no playlist or account configured shows Home/TV/Settings/Search only (no M
   await expect(page.locator('.account-avatar')).toHaveCount(0);
 });
 
-test('leaving Settings (Cancel) moves the active tab back to TV', async ({ page }) => {
+test('Cancel in a Settings category returns to the cards, still under Settings', async ({ page }) => {
   await seedXtream(page);
   await routeLiveManifest(page);
   await page.goto('/');
   await expect(page.locator('#view-channels')).toBeVisible();
 
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   await expect(page.locator('#view-settings')).toBeVisible();
   await expect(page.locator('.tab-bar-item.active')).toHaveText('Settings');
 
-  // Cancel returns to the channel list — and the active tab follows.
   await page.locator('#cancel-settings').click();
+  await expect(page.locator('#view-prefs')).toBeVisible();
+  await expect(page.locator('.tab-bar-item.active')).toHaveText('Settings');
+
+  // Leaving for the list moves the active tab with it.
+  await enterTab(page, 'live');
   await expect(page.locator('#view-channels')).toBeVisible();
   await expect(page.locator('.tab-bar-item.active')).toHaveText('TV');
 });

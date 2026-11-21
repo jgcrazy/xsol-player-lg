@@ -5,7 +5,7 @@ import {
   routePlaylist,
   SAMPLE_M3U,
   seedPlaylist,
-  test,
+  test, enterSettings, backToLive
 } from './helpers';
 
 test('disabling every M3U source hides channels until the source is enabled again', async ({
@@ -17,7 +17,7 @@ test('disabling every M3U source hides channels until the source is enabled agai
   await page.goto('/');
   await expect(page.locator('.channel-main .channel-item')).toHaveCount(2);
 
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   const sourceToggle = page.locator('#playlist-entries .source-toggle');
   await sourceToggle.hover();
   await expect(sourceToggle).toHaveClass(/focused/);
@@ -59,7 +59,7 @@ test('disabling every M3U source hides channels until the source is enabled agai
   await sourceToggle.click();
   await page.locator('#save-settings').click();
 
-  await expect(page.locator('#view-channels')).toBeVisible();
+  await backToLive(page);
   await expect(page.locator('.channel-main .channel-item')).toHaveCount(0);
   await expect(page.locator('.empty-state'))
     .toContainText('No sources are enabled. Enable one in Settings.');
@@ -68,11 +68,11 @@ test('disabling every M3U source hides channels until the source is enabled agai
     return sources[0]?.enabled;
   })).toBe(false);
 
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   await page.locator('#playlist-entries .source-toggle').click();
   await page.locator('#save-settings').click();
 
-  await expect(page.locator('#view-channels')).toBeVisible();
+  await backToLive(page);
   await expect(page.locator('.channel-main .channel-item')).toHaveCount(2);
   await expect.poll(() => page.evaluate(() => {
     const sources = JSON.parse(localStorage.getItem('iptv_playlists') || '[]');
@@ -113,20 +113,20 @@ test('disabling the only Xtream account hides its sections until re-enabled', as
   await expect(page.locator('[data-section="series"]')).toBeVisible();
   await expect(page.locator('.account-avatar')).toBeVisible();
 
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   await page.locator('#xtream-entries .source-toggle').click();
   await page.locator('#save-settings').click();
 
-  await expect(page.locator('#view-channels')).toBeVisible();
+  await backToLive(page);
   await expect(page.locator('[data-section="movies"]')).toHaveCount(0);
   await expect(page.locator('[data-section="series"]')).toHaveCount(0);
   await expect(page.locator('.account-avatar')).toHaveCount(0);
 
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   await page.locator('#xtream-entries .source-toggle').click();
   await page.locator('#save-settings').click();
 
-  await expect(page.locator('#view-channels')).toBeVisible();
+  await backToLive(page);
   await expect(page.locator('[data-section="movies"]')).toBeVisible();
   await expect(page.locator('[data-section="series"]')).toBeVisible();
   await expect(page.locator('.account-avatar')).toBeVisible();

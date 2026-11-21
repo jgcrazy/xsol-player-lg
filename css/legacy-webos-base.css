@@ -61,11 +61,7 @@
   .epg-programme-item > * + * { margin-left: 20px; }
   .epg-prog-dur > * + * { margin-left: 4px; }
   .epg-prog-title > * + * { margin-left: 10px; }
-  .settings-nav-list > * + * { margin-top: 6px; }
-  .settings-nav-item > * + * { margin-left: 14px; }
-  .settings-nav-help > * + * { margin-top: 8px; }
-  .settings-nav-help-row > * + * { margin-left: 9px; }
-  .settings-general-row > * + * { margin-left: 0; }
+  .settings-head > * + * { margin-left: 26px; }
   .settings-row > * + * { margin-left: 16px; }
   .epg-offset-controls > * + * { margin-left: 10px; }
   .epg-offset-stepper > * + * { margin-left: 10px; }

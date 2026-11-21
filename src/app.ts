@@ -969,13 +969,7 @@ class App {
       return;
     }
     if (section === 'settings') {
-      this.panesFromCards = false;
-      if (StorageService.getSettingsEntry() === 'cards') {
-        this.showPreferences();
-        return;
-      }
-      this.settings.render();
-      this.showView('settings');
+      this.showPreferences();
       return;
     }
     // Search: keep the current view; the results view only covers it once a
@@ -1435,9 +1429,8 @@ class App {
   // A card opens the pane that holds its detailed options.
   private openSettingsPane(pane: PreferencePane): void {
     this.panesFromCards = true;
-    this.settings.render();
     this.showView('settings');
-    this.settings.openCategory(pane);
+    this.settings.render(pane);
   }
 
   private leaveToStart(): void {

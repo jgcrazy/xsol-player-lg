@@ -6,7 +6,7 @@ import {
   readUserDataStore,
   SEARCH_M3U,
   enterTab,
-  type Page,
+  type Page, enterSettings, openSettingsPane, backToLive
 } from './helpers';
 
 // Channel customization: the in-place edit mode on the Live channel list —
@@ -472,33 +472,30 @@ test('Settings enters edit mode, reveals hidden channels, and resets everything'
   await key(page, YELLOW);
   await expect(page.locator('.channel-main .channel-item')).toHaveCount(3);
 
-  await enterTab(page, 'settings');
-  await page.locator('[data-settings-target="sources"]').click();
+  await enterSettings(page, 'channels');
   await expect(page.locator('#channel-customization-settings')).toBeVisible();
 
   // Show hidden reveals the hidden channel in the normal list, marked.
   await page.locator('#show-hidden [data-value="on"]').click();
   await page.locator('#save-settings').click();
-  await expect(page.locator('#view-channels')).toBeVisible();
+  await backToLive(page);
   await expect(page.locator('.channel-main .channel-item')).toHaveCount(4);
   await expect(page.locator('.channel-main .hidden-entry')).toHaveCount(1);
 
   // Reset clears the customization after a confirmation.
-  await enterTab(page, 'settings');
-  await page.locator('[data-settings-target="sources"]').click();
+  await enterSettings(page, 'channels');
   await page.locator('#reset-customization').click();
   await expect(page.locator('.confirmation-prompt')).toBeVisible();
   await page.locator('.confirmation-btn').first().click();
   await page.locator('#save-settings').click();
-  await expect(page.locator('#view-channels')).toBeVisible();
+  await backToLive(page);
   await expect(page.locator('.channel-main .hidden-entry')).toHaveCount(0);
   await expect(page.locator('.channel-main .channel-item')).toHaveCount(4);
 });
 
 test('the Settings edit-channel-list button jumps to the Live list in edit mode', async ({ page }) => {
   await boot(page);
-  await enterTab(page, 'settings');
-  await page.locator('[data-settings-target="sources"]').click();
+  await enterSettings(page, 'channels');
   await page.locator('#edit-channel-list').click();
 
   await expect(page.locator('#view-channels')).toBeVisible();

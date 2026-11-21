@@ -4,7 +4,7 @@ import {
   type Page,
   enterTab,
   LIVE_MANIFEST,
-  readUserDataStore,
+  readUserDataStore, enterSettings
 } from './helpers';
 
 test.use({ timezoneId: 'UTC' });
@@ -161,7 +161,7 @@ test('clears Recently Watched without clearing VOD resume', async ({ page }) => 
   await setup(page);
   await page.goto('/');
   await expect(page.locator('#view-channels')).toBeVisible();
-  await enterTab(page, 'settings');
+  await enterSettings(page, 'data');
 
   await page.locator('#clear-recently-watched').click();
   await expect(page.locator('.confirmation-prompt')).toBeVisible();

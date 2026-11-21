@@ -1,4 +1,4 @@
-import { enterTab, test, expect, isChromium53, neuterVideo, routeLiveManifest, routePlaylist, type Page } from './helpers';
+import { enterTab, test, expect, isChromium53, neuterVideo, routeLiveManifest, routePlaylist, type Page, enterSettings, openSettingsPane } from './helpers';
 import { type Browser } from '@playwright/test';
 import { mkdir, writeFile } from 'node:fs/promises';
 import { findGappedLooseText, measureLooseText, newLegacyPage, pixelDiff } from './pixel-parity';
@@ -125,48 +125,20 @@ const M3U_SCREENS: Screen[] = [
       await expect(p.locator('.epg-group-menu')).toHaveCount(0);
     },
   },
-  ...(['general', 'sources', 'guide', 'appearance', 'playback', 'subtitles', 'data']
+  ...((['sources', 'channels', 'guide', 'appearance', 'playback', 'subtitles', 'data'] as const)
     .map((pane) => ({
       name: `settings-${pane}`,
       // The data pane prints a storage quota, and `navigator.storage` is
       // Chromium 55 — so webOS 4 estimates it another way. Environment, not
       // layout.
       budget: pane === 'data' ? 0.0005 : 0,
-      go: async (p: Page) => {
-        await enterTab(p, 'settings');
-        // Clicking the nav item starts the app's scroll animation, which can
-        // still be running when the frame is taken; that behaviour has its own
-        // spec. Place the column where the animation would rest instead —
-        // sampling the top of every pane would be steadier, but then nothing
-        // below the fold is ever compared.
-        const reachesTop = await p.evaluate((name) => {
-          const scroll = document.querySelector('.settings-scroll') as HTMLElement;
-          const target = document.querySelector(`#settings-${name}`)!;
-          // The scroller sets `scroll-behavior: smooth`, so even assigning
-          // scrollTop animates. Go through `setProperty`: the simulation
-          // deletes the CSSOM reflection but cannot take the property away
-          // from the real engine.
-          scroll.style.setProperty('scroll-behavior', 'auto');
-          // The last panes are shorter than the viewport; give the column room
-          // so each one can be placed at the top, where both engines agree.
-          scroll.style.setProperty('padding-bottom', '1080px');
-          scroll.scrollTop += target.getBoundingClientRect().top
-            - scroll.getBoundingClientRect().top;
-          return Math.abs(target.getBoundingClientRect().top - scroll.getBoundingClientRect().top) < 2;
-        }, pane);
-        // A pane near the end cannot reach the top of a page this short; the
-        // rail then marks whichever pane the bottom of the scroll belongs to.
-        await expect(p.locator(reachesTop
-          ? `.settings-nav-item.active[data-settings-target="${pane}"]`
-          : '.settings-nav-item.active')).toBeVisible();
-      },
+      go: (p: Page) => enterSettings(p, pane),
     }))),
   {
     name: 'settings-guide-multi-source',
     budget: 0,
     go: async (p) => {
-      await enterTab(p, 'settings');
-      await p.locator('[data-settings-target="guide"]').click();
+      await enterSettings(p, 'guide');
       await p.locator('#add-epg-source').click();
       const sources = p.locator('[data-manual-epg-source]');
       await expect(sources).toHaveCount(2);
@@ -312,7 +284,7 @@ const M3U_SCREENS: Screen[] = [
     name: 'reminders',
     budget: 0,
     go: async (p) => {
-      await enterTab(p, 'settings');
+      await enterSettings(p);
       await p.locator('#manage-reminders').click();
       await expect(p.locator('.reminder-manager-view')).toBeVisible();
     },

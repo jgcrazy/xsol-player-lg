@@ -1,5 +1,5 @@
 import {
-  test, expect, enterTab, neuterVideo, routeLiveManifest, routePlaylist, seedPlaylist, type Page,
+  test, expect, enterTab, neuterVideo, routeLiveManifest, routePlaylist, seedPlaylist, type Page, enterSettings
 } from './helpers';
 
 // What the app does with the activation state while it runs: lock on expiry or a
@@ -159,6 +159,6 @@ test('an active device is never locked out of its own screens', async ({ page })
   await boot(page);
 
   await expect(page.locator('#view-channels')).toBeVisible();
-  await enterTab(page, 'settings');
+  await enterSettings(page);
   await expect(page.locator('#view-settings')).toBeVisible();
 });

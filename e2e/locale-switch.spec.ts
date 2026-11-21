@@ -1,4 +1,4 @@
-import { test, expect, routePlaylist, seedPlaylist, enterTab } from './helpers';
+import { test, expect, routePlaylist, seedPlaylist, enterTab, enterSettings, backToLive } from './helpers';
 
 test('switching between the two languages refreshes cached Recently Watched labels', async ({ page }) => {
   await routePlaylist(page);
@@ -15,10 +15,11 @@ test('switching between the two languages refreshes cached Recently Watched labe
     ['en', 'Recently Watched'],
   ];
   for (const [locale, label] of locales) {
-    await enterTab(page, 'settings');
+    await enterSettings(page, 'appearance');
     await page.locator('#app-language .dropdown-trigger').click();
     await page.locator(`#app-language [data-dropdown-value="${locale}"]`).click();
     await page.locator('#save-settings').click();
+    await backToLive(page);
     await expect(recentLabel).toHaveText(label);
   }
 });

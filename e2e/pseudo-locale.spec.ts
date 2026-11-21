@@ -5,7 +5,7 @@ import {
   routePlaylist,
   seedPlaylist,
   SEARCH_M3U,
-  type Page,
+  type Page, enterSettings
 } from './helpers';
 
 async function textOverflow(page: Page, selector: string): Promise<string[]> {
@@ -45,7 +45,7 @@ test('keeps pseudo-localized Settings controls within their boxes', async ({ pag
   await routePlaylist(page, SEARCH_M3U);
   await seedPlaylist(page);
   await page.goto('/?pseudo=1');
-  await enterTab(page, 'settings');
+  await enterSettings(page, 'appearance');
   await expect(page.locator('#view-settings')).toBeVisible();
 
   expect(await textOverflow(page, [

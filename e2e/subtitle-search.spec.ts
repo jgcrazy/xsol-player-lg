@@ -205,6 +205,6 @@ test('the overlay is dismissed on a view change (colored-button jump)', async ({
 
   // Blue jumps to Settings; App.showView must close the overlay so it can't linger.
   await page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 406, bubbles: true })));
-  await expect(page.locator('#view-settings')).toBeVisible();
+  await expect(page.locator('#view-prefs')).toBeVisible();
   await expect(page.locator('#subtitle-search .subs-overlay')).toBeHidden();
 });

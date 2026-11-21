@@ -68,7 +68,9 @@ test('a card opens its option pane, and Back returns to the cards', async ({ pag
 
   await page.locator('.prefs-card[data-card-id="appearance"]').click();
   await expect(page.locator('#view-settings')).toBeVisible();
-  await expect(page.locator('.settings-nav-item.active')).toHaveAttribute('data-settings-target', 'appearance');
+  await expect(page.locator('#settings-appearance.is-active')).toBeVisible();
+  await expect(page.locator('#settings-pane-title')).toHaveText('Appearance');
+  await expect(page.locator('.settings-category.is-active')).toHaveCount(1);
 
   await back(page);
   await expect(page.locator('#view-prefs')).toBeVisible();

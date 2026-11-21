@@ -827,12 +827,6 @@ export const StorageService = {
     set('time_format', format);
   },
 
-  // Which Settings the tab opens: the card screen, or straight into the option
-  // panes behind it (the classic page).
-  getSettingsEntry(): 'cards' | 'panes' {
-    return get<unknown>('settings_entry', 'cards') === 'panes' ? 'panes' : 'cards';
-  },
-
   getStartView(): 'home' | 'channels' {
     return get<unknown>('start_view', 'home') === 'channels' ? 'channels' : 'home';
   },

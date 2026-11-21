@@ -186,7 +186,7 @@ test('Blue leaves EPG search without stale keyboard focus', async ({ page }) => 
 
   await page.evaluate(() =>
     document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 406, bubbles: true })));
-  await expect(page.locator('#view-settings')).toBeVisible();
+  await expect(page.locator('#view-prefs')).toBeVisible();
   await expect(page.locator('.epg-search-input')).not.toBeFocused();
 
   await page.evaluate(() =>
