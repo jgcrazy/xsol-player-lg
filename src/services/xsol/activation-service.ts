@@ -289,6 +289,16 @@ export function settleSingleAccess(): boolean {
   return useOnlyPlaylist(keep.id);
 }
 
+/**
+ * The accesses to offer wherever one can be picked (the Access screen, the
+ * avatar in the top bar): every configured source once the panel delivers any.
+ * Null on a setup with no panel list, which keeps its own account switching.
+ */
+export function accessChoices(): PlaylistEntry[] | null {
+  const playlists = StorageService.getPlaylists();
+  return playlists.some(isPanelManaged) ? playlists : null;
+}
+
 // The playlist the panel has as this device's active one, as last reported.
 let activeDomain = '';
 

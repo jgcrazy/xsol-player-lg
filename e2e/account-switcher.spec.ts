@@ -165,3 +165,47 @@ test('switching on Live only persists, then applies when Movies is next opened',
   await expect(page.locator('#view-movies .catalog-head-name')).toContainText('Cat Bravo');
   await expect(page.locator('.catalog-tile[data-item-id="20"]')).toContainText('Bravo Movie');
 });
+
+test('with accesses from the panel, the avatar lists them all and puts the picked one in use', async ({ page }) => {
+  const one = '#EXTM3U\n#EXTINF:-1,Alpha\nhttp://host/alpha.m3u8\n';
+  const two = '#EXTM3U\n#EXTINF:-1,Bravo\nhttp://host/b1.m3u8\n#EXTINF:-1,Charlie\nhttp://host/b2.m3u8\n';
+  await page.route('**/one.m3u', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/x-mpegurl', body: one }));
+  await page.route('**/two.m3u', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/x-mpegurl', body: two }));
+  const lists = [
+    { id: 1, name: 'N1', m3u_url: 'http://host/one.m3u' },
+    { id: 2, name: 'N2', m3u_url: 'http://host/two.m3u' },
+  ];
+  await page.route('**/api/device/v1/check-activation', (route) => route.fulfill({
+    status: 200,
+    contentType: 'application/json',
+    headers: { 'access-control-allow-origin': '*' },
+    body: JSON.stringify({
+      activated: true, status: 'active', expiry_date: '2030-01-05 00:00:00', trial: false, lifetime: false,
+      domain: '', has_playlist: false, manage_key: '123456', web_playlists: lists,
+      server_time: Math.floor(Date.now() / 1000),
+    }),
+  }));
+  await page.addInitScript(() => {
+    if (localStorage.getItem('iptv_playlists')) return;
+    localStorage.setItem('iptv_playlists', JSON.stringify([
+      { id: 'xsol-web-1', name: 'N1', url: 'http://host/one.m3u', source: 'url' },
+      { id: 'xsol-web-2', name: 'N2', url: 'http://host/two.m3u', source: 'url', enabled: false },
+    ]));
+  });
+  await page.goto('/');
+  // Only the access in use is loaded.
+  await expect(page.locator('#view-channels .channel-item .channel-name')).toHaveText(['Alpha']);
+  await expect(page.locator('.account-avatar')).toHaveText('N');
+
+  await openAccountMenu(page);
+  await expect(page.locator('.account-menu-name')).toHaveText(['N1', 'N2']);
+  await pickAccount(page, 'xsol-web-2');
+
+  await expect(page.locator('#view-channels .channel-item .channel-name')).toHaveText(['Bravo', 'Charlie']);
+  const state = await page.evaluate(() =>
+    (JSON.parse(localStorage.getItem('iptv_playlists') || '[]') as Array<{ id: string; enabled?: boolean }>)
+      .map(item => item.id + ':' + (item.enabled !== false)));
+  expect(state).toEqual(['xsol-web-1:false', 'xsol-web-2:true']);
+});

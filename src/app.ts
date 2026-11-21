@@ -27,7 +27,9 @@ import { Access } from './components/access';
 import { Home, type HomeChannel, type HomeData, type HomeSection } from './components/home';
 import { RecentlyWatchedService } from './services/recently-watched';
 import { createXtreamClient } from './services/xtream-client';
-import { ActivationService, settleSingleAccess } from './services/xsol/activation-service';
+import {
+  ActivationService, accessChoices, settleSingleAccess, useOnlyPlaylist,
+} from './services/xsol/activation-service';
 import { PlayerPresentation } from './components/player-presentation';
 import { PanelClient, type WatchingInfo } from './services/xsol/panel-client';
 import { showToast } from './components/toast';
@@ -620,7 +622,7 @@ class App {
         .filter((playlist) =>
           playlist.source === 'xtream' && playlist.xtream && isSourceEnabled(playlist));
       this.tabBar.setSections(xtreamAccounts.length > 0);
-      this.tabBar.setAccounts(xtreamAccounts, this.activeXtreamAccount()?.id ?? '');
+      this.syncAccountSwitcher();
       this.channelList.render();
       this.sidebar.refresh();
       this.livePreview?.refresh();
@@ -695,9 +697,7 @@ class App {
       const hasXtream = StorageService.getPlaylists()
         .some((p) => p.source === 'xtream' && isSourceEnabled(p));
       this.tabBar.setSections(hasXtream);
-      const xtreamAccounts = StorageService.getPlaylists()
-        .filter((p) => p.source === 'xtream' && p.xtream && isSourceEnabled(p));
-      this.tabBar.setAccounts(xtreamAccounts, this.activeXtreamAccount()?.id ?? '');
+      this.syncAccountSwitcher();
 
       this.channelList.render();
       if (this.returnToAccess) {
@@ -972,9 +972,30 @@ class App {
     return accounts.find((a) => a.id === selId) ?? accounts[0] ?? null;
   }
 
+  // What the avatar in the top bar offers: every configured access when the
+  // panel delivers them (picking one puts it in use), else the Xtream accounts.
+  private syncAccountSwitcher(): void {
+    const accesses = accessChoices();
+    if (accesses) {
+      const inUse = accesses.filter(isSourceEnabled)[0];
+      this.tabBar.setAccounts(accesses, inUse?.id ?? '');
+      return;
+    }
+    this.tabBar.setAccounts(
+      StorageService.getPlaylists()
+        .filter((p) => p.source === 'xtream' && p.xtream && isSourceEnabled(p)),
+      this.activeXtreamAccount()?.id ?? '',
+    );
+  }
+
   // A different Xtream account was picked in the avatar dropdown: persist it and
   // reload whichever account-scoped section is showing. Live/Settings just store.
   private selectXtreamAccount(id: string): void {
+    if (accessChoices()) {
+      // Same as picking it on the Access screen: it becomes the one in use.
+      if (useOnlyPlaylist(id)) void this.onSettingsSaved('reload');
+      return;
+    }
     StorageService.setSelectedXtreamAccountId(id);
     const account = this.activeXtreamAccount();
     if (!account) return;
