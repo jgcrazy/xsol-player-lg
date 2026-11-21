@@ -360,7 +360,8 @@ describe('diagnostic report assembly', () => {
     });
   });
 
-  it('bounds native previews when the server ignores Range', () => {
+  // Drives /bin/sh with a POSIX PATH, which Windows has neither of.
+  it.skipIf(process.platform === 'win32')('bounds native previews when the server ignores Range', () => {
     const bin = mkdtempSync(path.join(tmpdir(), 'tv-diag-native-'));
     try {
       writeFileSync(path.join(bin, 'node'), '#!/bin/sh\nprintf 12\n', { mode: 0o755 });
