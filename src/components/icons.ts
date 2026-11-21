@@ -68,3 +68,15 @@ export function watchlistIcon(active: boolean): string {
   return `<svg class="watchlist-glyph ${active ? 'set' : 'unset'}" viewBox="0 0 24 24" aria-hidden="true">`
     + `<path d="${WATCHLIST_PATH}"/></svg>`;
 }
+
+// Navigation and home-screen glyphs: 24x24, stroked, so they take the colour of
+// their container (inactive, active and focused states share one path).
+const NAV_SVG = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"';
+export const HOME_ICON = `<svg ${NAV_SVG}><path d="M4 11 12 4l8 7v8a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1z"/></svg>`;
+export const TV_ICON = `<svg ${NAV_SVG}><rect x="3" y="7" width="18" height="12" rx="2"/><path d="m8 3 4 4 4-4"/></svg>`;
+export const TV_PLAY_ICON = `<svg ${NAV_SVG}><rect x="3" y="7" width="18" height="12" rx="2"/><path d="m8 3 4 4 4-4M10.5 10.5v5l4-2.5z"/></svg>`;
+export const FILM_ICON = `<svg ${NAV_SVG}><rect x="4" y="3" width="16" height="18" rx="2"/><path d="M8 3v18M16 3v18M4 8h4M4 16h4M16 8h4M16 16h4"/></svg>`;
+export const SERIES_ICON = `<svg ${NAV_SVG}><circle cx="8" cy="12" r="3.5"/><circle cx="16" cy="12" r="3.5"/></svg>`;
+export const ACCESS_ICON = `<svg ${NAV_SVG}><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3M13.5 9.5l2 2"/></svg>`;
+export const SETTINGS_ICON = `<svg ${NAV_SVG}><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5l1.6 2.6 3-.6.9 2.9 2.9.9-.6 3 2.2 1.7-2.2 1.7.6 3-2.9.9-.9 2.9-3-.6L12 21.5l-1.6-2.6-3 .6-.9-2.9-2.9-.9.6-3L2 12l2.2-1.7-.6-3 2.9-.9.9-2.9 3 .6z"/></svg>`;
+export const ARROW_RIGHT_ICON = `<svg ${NAV_SVG}><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;

@@ -104,7 +104,6 @@
   .access-button > * + * { margin-left: 12px; }
   .access-body > * + * { margin-left: 96px; }
   .access-codes > * + * { margin-left: 32px; }
-  .tab-bar-inner > * + * { margin-left: 32px; }
   .search-list > * + * { margin-top: 8px; }
   .search-channel-row > * + * { margin-left: 24px; }
   .search-program-list > * + * { margin-top: 8px; }

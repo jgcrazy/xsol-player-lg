@@ -1,3 +1,5 @@
+/* The bar keeps one fixed look in every theme: it is the app's identity, and it
+   has to read the same over the home screen and over any themed view below it. */
 .tab-bar {
   position: fixed;
   top: 0;
@@ -8,9 +10,11 @@
   box-sizing: border-box;
   display: flex;
   align-items: center;
-  padding: 0 80px;
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border);
+  padding: 0 54px;
+  background: #0d0b0a;
+  border-bottom: 1px solid rgba(255, 255, 255, .06);
+  color: #f2ece2;
+  font-family: "Manrope", "LG Smart UI", sans-serif;
 }
 
 /* Hidden on the full-screen player. */
@@ -20,6 +24,7 @@
 
 /* When the bar is docked, the section views sit below it (never overlapping);
    the full-screen player / loading views keep top:0 / full height. */
+body.tabbar-docked #view-home,
 body.tabbar-docked #view-channels,
 body.tabbar-docked #view-epg,
 body.tabbar-docked #view-movies,
@@ -39,50 +44,124 @@ body.tabbar-docked #view-epg .epg-view {
 .tab-bar-inner {
   display: flex;
   align-items: center;
-  gap: 32px;
   width: 100%;
 }
 
+.tab-bar-brand {
+  flex-shrink: 1;
+  min-width: 0;
+  margin-right: auto;
+  display: flex;
+  align-items: center;
+}
+
+.tab-bar-logo {
+  flex-shrink: 0;
+  width: 44px;
+  height: 44px;
+  margin-right: 14px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(232, 182, 95, .45);
+  border-radius: 10px;
+  background: linear-gradient(160deg, rgba(232, 182, 95, .18), rgba(232, 182, 95, .04));
+  color: #e8b65f;
+  font-family: "Newsreader", serif;
+  font-style: italic;
+  font-size: 22px;
+  line-height: 1;
+}
+
 .tab-bar-title {
-  font-size: 30px;
-  font-weight: 700;
-  color: var(--accent);
-  padding: 4px 2px;
-  border-bottom: 3px solid transparent;
-  margin-left: -24px;
-  margin-right: 32px;
-  white-space: nowrap;
   min-width: 0;
   overflow: hidden;
+  white-space: nowrap;
   text-overflow: ellipsis;
+  font-family: "Newsreader", serif;
+  font-size: 27px;
+  line-height: 1;
+  letter-spacing: .5px;
+}
+
+.tab-bar-items {
+  flex-shrink: 0;
+  display: flex;
+  align-items: flex-start;
 }
 
 .tab-bar-item {
   flex-shrink: 0;
-  font-family: inherit;
-  font-size: 30px;
-  font-weight: 700;
-  line-height: 1.4;
-  color: var(--text-secondary);
-  background: transparent;
+  min-width: 58px;
+  margin-left: 30px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
   border: none;
-  padding: 4px 2px;
-  border-bottom: 3px solid transparent;
+  background: transparent;
+  color: #8a8178;
+  font-family: inherit;
   cursor: pointer;
 }
 
-.tab-bar-item.active {
-  color: var(--text-primary);
-  border-bottom-color: var(--accent);
+.tab-bar-items > .tab-bar-item:first-child {
+  margin-left: 0;
 }
 
+.tab-bar-icon {
+  width: 48px;
+  height: 48px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .025);
+  transition: border-color .2s, background-color .2s, box-shadow .2s;
+}
+
+.tab-bar-icon svg {
+  width: 19px;
+  height: 19px;
+  display: block;
+}
+
+.tab-bar-label {
+  margin-top: 8px;
+  font-size: 9.5px;
+  font-weight: 700;
+  line-height: 1.2;
+  letter-spacing: 2.6px;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.tab-bar-item.active {
+  color: #e8b65f;
+}
+
+.tab-bar-item.active .tab-bar-icon {
+  border-color: rgba(232, 182, 95, .55);
+  background: radial-gradient(circle at 50% 40%, rgba(232, 182, 95, .28), rgba(232, 182, 95, .06));
+  box-shadow: 0 0 24px -4px rgba(232, 182, 95, .5);
+}
+
+/* D-pad focus on the bar: a brighter ring than "active", so the two can differ. */
 .tab-bar-item.focused {
-  color: var(--text-primary);
+  color: #f0c374;
+}
+
+.tab-bar-item.focused .tab-bar-icon {
+  border-color: #e8b65f;
+  box-shadow: 0 0 0 2px rgba(232, 182, 95, .35), 0 0 24px -4px rgba(232, 182, 95, .6);
 }
 
 .tab-bar-search {
   flex-shrink: 0;
-  margin-left: auto;
+  margin-left: 30px;
   display: flex;
   align-items: center;
   overflow: hidden;
@@ -95,18 +174,18 @@ body.tabbar-docked #view-epg .epg-view {
   margin: 0;
   border: none;
   box-sizing: border-box;
-  height: 52px;
-  background: var(--bg-tertiary);
-  color: var(--text-primary);
+  height: 48px;
+  background: rgba(255, 255, 255, .06);
+  color: #f2ece2;
   font-family: inherit;
-  font-size: 26px;
-  border-radius: 8px;
+  font-size: 22px;
+  border-radius: 999px;
   transition: width 260ms ease, opacity 200ms ease, padding 260ms ease, margin 260ms ease;
 }
 
 .tab-bar-search.expanded .tab-bar-search-input {
   opacity: 1;
-  padding: 0 18px;
+  padding: 0 22px;
   margin-right: 14px;
 }
 
@@ -114,26 +193,63 @@ body.tabbar-docked #view-epg .epg-view {
   outline: none;
 }
 
-.search-icon {
-  display: inline-flex;
-  align-items: center;
+.tab-bar-item.search-icon {
+  width: 48px;
+  min-width: 48px;
+  height: 48px;
+  margin-left: 0;
+  box-sizing: border-box;
+  flex-direction: row;
   justify-content: center;
-  padding: 4px 6px;
-  background: transparent;
-  border: none;
-  color: var(--text-secondary);
-  cursor: pointer;
+  border: 1px solid rgba(255, 255, 255, .1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, .025);
+  color: #8a8178;
 }
 
 .search-icon svg {
-  width: 32px;
-  height: 32px;
+  width: 19px;
+  height: 19px;
   display: block;
 }
 
-.search-icon.focused,
-.search-icon.active {
-  color: var(--text-primary);
-  border: none;
-  box-shadow: none;
+.tab-bar-item.search-icon.active {
+  border-color: rgba(232, 182, 95, .55);
+  color: #e8b65f;
+}
+
+.tab-bar-item.search-icon.focused {
+  border-color: #e8b65f;
+  color: #f0c374;
+  box-shadow: 0 0 0 2px rgba(232, 182, 95, .35);
+}
+
+.tab-bar-clock {
+  flex-shrink: 0;
+  margin-left: 34px;
+  padding-left: 34px;
+  min-height: 50px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  justify-content: center;
+  border-left: 1px solid rgba(255, 255, 255, .08);
+}
+
+.tab-bar-time {
+  font-family: "Newsreader", serif;
+  font-size: 28px;
+  line-height: 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.tab-bar-date {
+  margin-top: 6px;
+  font-size: 10px;
+  font-weight: 600;
+  line-height: 1.2;
+  letter-spacing: 3.5px;
+  text-transform: uppercase;
+  white-space: nowrap;
+  color: #8a8178;
 }

@@ -1,0 +1,11 @@
+The font files in this folder are redistributed under the SIL Open Font
+License, Version 1.1 (https://openfontlicense.org).
+
+  Newsreader - Copyright The Newsreader Project Authors
+               https://github.com/productiontype/Newsreader
+  Manrope    - Copyright The Manrope Project Authors
+               https://github.com/sharanda/manrope
+
+They are static instances (one weight per file) of the upstream families,
+subset to Latin, Latin Extended and, for Manrope, Cyrillic. The Reserved
+Font Names, if any, belong to their respective authors.

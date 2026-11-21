@@ -23,7 +23,7 @@ test('the tab bar is docked (always visible) and offsets the content below it', 
 
   // Always visible on the channels view — no pointer reveal needed.
   await expect(page.locator('.tab-bar')).toBeVisible();
-  await expect(page.locator('.tab-bar-item')).toHaveText(['Live', 'Guide', 'Movies', 'Series', 'Access', 'Settings', '']);
+  await expect(page.locator('.tab-bar-item')).toHaveText(['Home', 'TV', 'Movies', 'Series', 'Settings', '']);
   // Search is the far-right magnifier icon (no text label).
   await expect(page.locator('.tab-bar-item[data-section="search"] svg')).toBeVisible();
   // Docked → the view sits below the bar (top offset applied via the body class).
@@ -40,7 +40,7 @@ test('clicking the Movies tab enters the Movies view', async ({ page }) => {
   await expect(page.locator('#view-movies')).toBeVisible();
 });
 
-test('the Guide tab opens the EPG below the docked bar, and Back returns to Live', async ({ page }) => {
+test('the guide opens below the docked bar under TV, and Back returns to the list', async ({ page }) => {
   await seedXtream(page);
   await routeLiveManifest(page);
   await page.goto('/');
@@ -48,9 +48,10 @@ test('the Guide tab opens the EPG below the docked bar, and Back returns to Live
 
   await enterTab(page, 'epg');
   await expect(page.locator('#view-epg')).toBeVisible();
-  // The guide is a section now: the bar stays docked with Guide active.
+  // The guide has no item of its own: the bar stays docked with TV lit.
   await expect(page.locator('.tab-bar')).toBeVisible();
-  await expect(page.locator('.tab-bar-item[data-section="epg"].active')).toHaveCount(1);
+  await expect(page.locator('.tab-bar-item[data-section="epg"]')).toHaveCount(0);
+  await expect(page.locator('.tab-bar-item[data-section="live"].active')).toHaveCount(1);
   const bar = (await page.locator('.tab-bar').boundingBox())!;
   const epg = (await page.locator('#view-epg .epg-view').boundingBox())!;
   expect(epg.y).toBeGreaterThanOrEqual(bar.y + bar.height - 1);
@@ -157,7 +158,7 @@ test('opening Search does not cancel the catalog loading underneath it', async (
   await expect(page.locator('#view-movies')).toContainText('Movie One');
 });
 
-test('M3U-only shows a docked bar with Live/Guide/Access/Settings/Search only (no Movies/Series)', async ({ page }) => {
+test('M3U-only shows a docked bar with Home/TV/Settings/Search only (no Movies/Series)', async ({ page }) => {
   await page.route('**/playlist.m3u', (route) =>
     route.fulfill({ status: 200, contentType: 'application/x-mpegurl', body: SAMPLE_M3U }));
   await routeLiveManifest(page);
@@ -171,21 +172,23 @@ test('M3U-only shows a docked bar with Live/Guide/Access/Settings/Search only (n
 
   // The bar is docked, but with the reduced M3U section set.
   await expect(page.locator('.tab-bar')).toBeVisible();
-  await expect(page.locator('.tab-bar-item')).toHaveText(['Live', 'Guide', 'Access', 'Settings', '']);
+  await expect(page.locator('.tab-bar-item')).toHaveText(['Home', 'TV', 'Settings', '']);
   await expect(page.locator('.tab-bar-item[data-section="movies"]')).toHaveCount(0);
   await expect(page.locator('.tab-bar-item[data-section="series"]')).toHaveCount(0);
   await expect(page.locator('.tab-bar-item[data-section="search"] svg')).toBeVisible();
   await expect(page.locator('body.tabbar-docked')).toHaveCount(1);
 
   // With no Xtream account the account slot is empty and collapses, so the
-  // search magnifier stays flush against the bar's right edge (no dangling gap).
+  // search magnifier sits right before the clock's divider (no dangling gap).
   await expect(page.locator('.account-avatar')).toHaveCount(0);
-  const inner = (await page.locator('.tab-bar-inner').boundingBox())!;
+  const clock = (await page.locator('.tab-bar-clock').boundingBox())!;
   const icon = (await page.locator('.tab-bar-search .search-icon').boundingBox())!;
-  expect((inner.x + inner.width) - (icon.x + icon.width)).toBeLessThan(4);
+  expect(clock.x - (icon.x + icon.width)).toBe(34);
+  const inner = (await page.locator('.tab-bar-inner').boundingBox())!;
+  expect((inner.x + inner.width) - (clock.x + clock.width)).toBeLessThan(1);
 });
 
-test('no playlist or account configured shows Live/Guide/Access/Settings/Search only (no Movies/Series)', async ({ page }) => {
+test('no playlist or account configured shows Home/TV/Settings/Search only (no Movies/Series)', async ({ page }) => {
   // Seed nothing — first run opens the Access screen with the bar docked.
   await page.goto('/');
   await expect(page.locator('#view-access')).toBeVisible();
@@ -194,11 +197,11 @@ test('no playlist or account configured shows Live/Guide/Access/Settings/Search 
   await expect(page.locator('.tab-bar')).toBeVisible();
   await expect(page.locator('.tab-bar-item[data-section="movies"]')).toHaveCount(0);
   await expect(page.locator('.tab-bar-item[data-section="series"]')).toHaveCount(0);
-  await expect(page.locator('.tab-bar-item')).toHaveText(['Live', 'Guide', 'Access', 'Settings', '']);
+  await expect(page.locator('.tab-bar-item')).toHaveText(['Home', 'TV', 'Settings', '']);
   await expect(page.locator('.account-avatar')).toHaveCount(0);
 });
 
-test('leaving Settings (Cancel) moves the active tab back to Live', async ({ page }) => {
+test('leaving Settings (Cancel) moves the active tab back to TV', async ({ page }) => {
   await seedXtream(page);
   await routeLiveManifest(page);
   await page.goto('/');
@@ -211,5 +214,5 @@ test('leaving Settings (Cancel) moves the active tab back to Live', async ({ pag
   // Cancel returns to the channel list — and the active tab follows.
   await page.locator('#cancel-settings').click();
   await expect(page.locator('#view-channels')).toBeVisible();
-  await expect(page.locator('.tab-bar-item.active')).toHaveText('Live');
+  await expect(page.locator('.tab-bar-item.active')).toHaveText('TV');
 });

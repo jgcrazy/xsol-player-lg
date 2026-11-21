@@ -432,8 +432,19 @@ const M3U_SCREENS: Screen[] = [
       // prepareM3U's init script re-seeds the playlist on every navigation, so
       // drop it from a later one, which runs after it.
       await p.addInitScript(() => localStorage.removeItem('iptv_playlists'));
+      // First run lands on the Access screen. Its MAC is generated per install, so
+      // both pages are given the same identity or their QR codes would differ.
+      await p.addInitScript(() => localStorage.setItem('iptv_deviceLink', JSON.stringify({
+        deviceId: '02:00:00:00:00:01',
+        proof: new Array(65).join('a'),
+        source: 'install',
+        secret: new Array(65).join('s'),
+        deviceToken: new Array(65).join('t'),
+        manageKey: '123456',
+      })));
       await p.reload();
-      await expect(p.locator('#view-settings')).toBeVisible();
+      await expect(p.locator('#view-access')).toBeVisible();
+      await expect(p.locator('#access-status')).toHaveText('Activated');
     },
   },
 ];

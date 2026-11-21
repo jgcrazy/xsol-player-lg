@@ -155,8 +155,22 @@ async function openFirstRunSettings(page: Page): Promise<void> {
  *  bar's coordinate hit-test. */
 export async function enterTab(
   page: Page,
-  section: 'live' | 'epg' | 'movies' | 'series' | 'access' | 'settings' | 'search',
+  section: 'home' | 'live' | 'epg' | 'movies' | 'series' | 'access' | 'settings' | 'search',
 ): Promise<void> {
+  // The guide and the Access screen have no item of their own in the bar.
+  if (section === 'epg') {
+    // The Red key only means something once the app has a view up.
+    await expect(page.locator('.tab-bar-item[data-section="live"]')).toBeVisible();
+    await page.evaluate(() => document.dispatchEvent(
+      new KeyboardEvent('keydown', { keyCode: 403, bubbles: true }),
+    ));
+    return;
+  }
+  if (section === 'access') {
+    await enterTab(page, 'home');
+    await page.locator('#view-home [data-section="access"]').click();
+    return;
+  }
   const tab = page.locator(`.tab-bar-item[data-section="${section}"]`);
   await expect(tab).toBeVisible();
   const box = await tab.boundingBox();
@@ -205,17 +219,30 @@ const POST_TARGET_APIS = postTargetApis();
 
 // Every spec imports `test` from here; it auto-stubs the service probe
 // before each test so no file has to repeat it.
-export const test = base.extend<{ livePreviewBaseline: 'off' | 'app-default' }>({
+export const test = base.extend<{
+  livePreviewBaseline: 'off' | 'app-default';
+  startViewBaseline: 'channels' | 'app-default';
+}>({
   // The app ships with Live preview on, which turns "select a channel" into an
   // in-list preview. Most specs are about full-screen playback, so the suite
   // starts from Off unless a spec asks for the shipped default. A stored
   // preference, including one the app itself saves, is never overwritten.
   livePreviewBaseline: ['off', { option: true }],
-  page: async ({ page, livePreviewBaseline }, use, testInfo) => {
+  // Likewise the app ships with a home screen, while nearly every spec is about a
+  // view it reaches from the channel list. The suite boots there unless a spec opts out.
+  startViewBaseline: ['channels', { option: true }],
+  page: async ({ page, livePreviewBaseline, startViewBaseline }, use, testInfo) => {
     if (livePreviewBaseline === 'off') {
       await page.addInitScript(() => {
         if (localStorage.getItem('iptv_live_preview') === null) {
           localStorage.setItem('iptv_live_preview', 'false');
+        }
+      });
+    }
+    if (startViewBaseline === 'channels') {
+      await page.addInitScript(() => {
+        if (localStorage.getItem('iptv_start_view') === null) {
+          localStorage.setItem('iptv_start_view', '"channels"');
         }
       });
     }

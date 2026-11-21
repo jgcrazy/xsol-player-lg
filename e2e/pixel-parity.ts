@@ -23,6 +23,9 @@ export async function newLegacyPage(browser: Browser): Promise<{ page: Page; clo
     if (localStorage.getItem('iptv_live_preview') === null) {
       localStorage.setItem('iptv_live_preview', 'false');
     }
+    if (localStorage.getItem('iptv_start_view') === null) {
+      localStorage.setItem('iptv_start_view', '"channels"');
+    }
   });
   await stubUploadService(page);
   await stubPanel(page);

@@ -10,7 +10,8 @@ test('opens the Access screen on first run when no playlist is configured', asyn
   await expect(page.locator('#access-key')).toHaveText('123 456');
   await expect(page.locator('#access-status')).toHaveText('Activated');
   await expect(page.locator('#view-access img.access-qr')).toBeVisible();
-  await expect(page.locator('.tab-bar-item.active')).toHaveAttribute('data-section', 'access');
+  // Access has no item of its own in the bar; it sits under Home.
+  await expect(page.locator('.tab-bar-item.active')).toHaveAttribute('data-section', 'home');
 });
 
 test('a playlist saved on the portal reaches the TV while the Access screen is open', async ({ page }) => {

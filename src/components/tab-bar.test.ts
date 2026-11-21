@@ -32,20 +32,20 @@ describe('TabBar', () => {
   it('renders the app title and the full section set for an Xtream account', () => {
     expect(bar.shown).toBe(true);
     expect(document.querySelector('.tab-bar-title')?.textContent).toBe('XSol Player');
-    expect(items()).toEqual(['Live', 'Guide', 'Movies', 'Series', 'Access', 'Settings', 'Search']);
+    expect(items()).toEqual(['Home', 'TV', 'Movies', 'Series', 'Settings', 'Search']);
     expect(focusedLabel()).toBe(null); // shown but not focused → no ring
     expect(document.body.classList.contains('tabbar-docked')).toBe(true);
   });
 
-  it('renders only Live/Guide/Access/Settings/Search for an M3U-only account', () => {
+  it('renders only Home/TV/Settings/Search for an M3U-only account', () => {
     bar.setSections(false);
-    expect(items()).toEqual(['Live', 'Guide', 'Access', 'Settings', 'Search']);
+    expect(items()).toEqual(['Home', 'TV', 'Settings', 'Search']);
   });
 
   it('focus() puts the ring on the active tab', () => {
     bar.focus();
     expect(bar.focused).toBe(true);
-    expect(focusedLabel()).toBe('Live');
+    expect(focusedLabel()).toBe('TV');
   });
 
   it('blur() gives up focus so later input is no longer captured', () => {
@@ -61,32 +61,68 @@ describe('TabBar', () => {
   it('right/left switch the active section live and call onSwitch, staying focused', () => {
     bar.focus();
     bar.handleAction('right');
-    expect(focusedLabel()).toBe('Guide');
+    expect(focusedLabel()).toBe('Movies');
     expect(bar.focused).toBe(true);
-    expect(onSwitch).toHaveBeenLastCalledWith('epg');
+    expect(onSwitch).toHaveBeenLastCalledWith('movies');
     bar.handleAction('right');
+    expect(onSwitch).toHaveBeenLastCalledWith('series');
+    bar.handleAction('left');
     expect(onSwitch).toHaveBeenLastCalledWith('movies');
     bar.handleAction('left');
-    expect(onSwitch).toHaveBeenLastCalledWith('epg');
+    bar.handleAction('left');
+    expect(onSwitch).toHaveBeenLastCalledWith('home');
     expect(bar.focused).toBe(true);
   });
 
-  it('right from Live on an M3U account skips to Guide then Access (no Movies/Series)', () => {
+  it('right from TV on an M3U account goes straight to Settings (no Movies/Series)', () => {
     bar.setSections(false);
     bar.focus();
-    bar.handleAction('right');
-    expect(onSwitch).toHaveBeenLastCalledWith('epg');
-    bar.handleAction('right');
-    expect(onSwitch).toHaveBeenLastCalledWith('access');
     bar.handleAction('right');
     expect(onSwitch).toHaveBeenLastCalledWith('settings');
   });
 
+  it('lights the TV item for the guide and the Home item for the Access screen', () => {
+    const activeLabel = () => document.querySelector('.tab-bar-item.active')?.textContent ?? null;
+    bar.setActive('epg');
+    expect(activeLabel()).toBe('TV');
+    bar.focus();
+    expect(focusedLabel()).toBe('TV');
+    bar.blur();
+
+    bar.setActive('access');
+    expect(activeLabel()).toBe('Home');
+    // Neither has an item of its own to offer.
+    expect(items()).toEqual(['Home', 'TV', 'Movies', 'Series', 'Settings', 'Search']);
+  });
+
+  it('shows a clock and keeps it current while docked', () => {
+    vi.useFakeTimers();
+    try {
+      vi.setSystemTime(new Date(2026, 8, 15, 9, 5));
+      bar.setShown(false);
+      bar.setShown(true);
+      expect(document.querySelector('.tab-bar-time')?.textContent).toBe('09:05');
+      expect(document.querySelector('.tab-bar-date')?.textContent).toMatch(/15/);
+
+      vi.setSystemTime(new Date(2026, 8, 15, 9, 6));
+      vi.advanceTimersByTime(20 * 1000);
+      expect(document.querySelector('.tab-bar-time')?.textContent).toBe('09:06');
+
+      // Hidden (full-screen player): the timer stops with it.
+      bar.setShown(false);
+      vi.setSystemTime(new Date(2026, 8, 15, 9, 30));
+      vi.advanceTimersByTime(60 * 1000);
+      expect(document.querySelector('.tab-bar-time')?.textContent).toBe('09:06');
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   it('down/select enters the active section and drops focus', () => {
     bar.focus();
-    bar.handleAction('right');   // → guide (live switch)
+    bar.handleAction('right');   // → movies (live switch)
     bar.handleAction('select');
-    expect(onEnter).toHaveBeenCalledWith('epg');
+    expect(onEnter).toHaveBeenCalledWith('movies');
     expect(bar.focused).toBe(false);
     expect(focusedLabel()).toBe(null);
   });
@@ -102,7 +138,7 @@ describe('TabBar', () => {
     bar.focus();
     bar.handleAction('up');
     expect(bar.focused).toBe(true);
-    expect(focusedLabel()).toBe('Live');
+    expect(focusedLabel()).toBe('TV');
     expect(onEnter).not.toHaveBeenCalled();
     expect(onSwitch).not.toHaveBeenCalled();
   });
@@ -127,7 +163,7 @@ describe('TabBar', () => {
     bar.setActive('movies');
     bar.setSections(false); // M3U has no Movies
     bar.focus();
-    expect(focusedLabel()).toBe('Live');
+    expect(focusedLabel()).toBe('TV');
   });
 
   it('enters a tab on a pointer click by coordinate hit-test', () => {
@@ -256,13 +292,13 @@ describe('TabBar account switcher', () => {
     expect(onSwitch).not.toHaveBeenCalled();
   });
 
-  it('Right past the avatar wraps back to Live', () => {
+  it('Right past the avatar wraps back to the first item', () => {
     bar.setAccounts(A, 'a1');
     bar.setActive('search');
     bar.focus();
     bar.handleAction('right'); // -> account
-    bar.handleAction('right'); // wrap -> live
-    expect(onSwitch).toHaveBeenLastCalledWith('live');
+    bar.handleAction('right'); // wrap -> home
+    expect(onSwitch).toHaveBeenLastCalledWith('home');
   });
 
   it('Select on the avatar opens the menu; Select on a row fires onSelectAccount', () => {

@@ -15,6 +15,7 @@ const MIME = {
   '.m3u8': 'application/vnd.apple.mpegurl',
   '.mp4': 'video/mp4',
   '.png': 'image/png',
+  '.woff2': 'font/woff2',
   '.svg': 'image/svg+xml',
   '.ts': 'video/mp2t',
   '.ttml': 'application/ttml+xml',

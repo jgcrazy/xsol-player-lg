@@ -779,6 +779,15 @@ export const StorageService = {
     syncUserRecords('reminders', previous, next);
   },
 
+  // Where the app lands once channels are loaded. 'home' is the shipped default;
+  // 'channels' opens straight on the channel list, as the app did before it had a home screen.
+  getStartView(): 'home' | 'channels' {
+    return get<unknown>('start_view', 'home') === 'channels' ? 'channels' : 'home';
+  },
+  setStartView(view: 'home' | 'channels'): void {
+    set('start_view', view);
+  },
+
   getLastChannel(): number {
     return get<number>('last_channel', 0);
   },

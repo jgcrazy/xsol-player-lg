@@ -1,33 +1,50 @@
 import type { Action, PlaylistEntry } from '../types';
-import { html } from '../utils/dom';
+import { html, raw } from '../utils/dom';
 import { morph } from '../utils/morph';
 import { CONFIG } from '../config';
-import { SEARCH_ICON } from './icons';
+import {
+  FILM_ICON,
+  HOME_ICON,
+  SEARCH_ICON,
+  SERIES_ICON,
+  SETTINGS_ICON,
+  TV_ICON,
+} from './icons';
 import { AccountSwitcher } from './account-switcher';
-import { t } from '../i18n';
+import { getLocale, t } from '../i18n';
 
 // Cap for the expanded inline search box.
 export const SEARCH_INPUT_MAX_WIDTH = 600;
 
 // The single source of truth for the sections: order, label, the view each maps
-// to, and whether it needs an Xtream account.
+// to, whether it needs an Xtream account, and whether it has its own item in the
+// bar. Sections without one (the guide, the Access screen) still dock the bar
+// and light up the item they are reached from.
 export const SECTIONS = [
-  { id: 'live', labelKey: 'nav.live', view: 'channels', xtreamOnly: false },
-  { id: 'epg', labelKey: 'nav.epg', view: 'epg', xtreamOnly: false },
-  { id: 'movies', labelKey: 'nav.movies', view: 'movies', xtreamOnly: true },
-  { id: 'series', labelKey: 'nav.series', view: 'series', xtreamOnly: true },
-  { id: 'access', labelKey: 'nav.access', view: 'access', xtreamOnly: false },
-  { id: 'settings', labelKey: 'nav.settings', view: 'settings', xtreamOnly: false },
-  { id: 'search', labelKey: 'nav.search', view: 'search', xtreamOnly: false },
+  { id: 'home', labelKey: 'nav.home', view: 'home', xtreamOnly: false, inBar: true, icon: HOME_ICON },
+  { id: 'live', labelKey: 'nav.live', view: 'channels', xtreamOnly: false, inBar: true, icon: TV_ICON },
+  { id: 'epg', labelKey: 'nav.epg', view: 'epg', xtreamOnly: false, inBar: false, icon: '' },
+  { id: 'movies', labelKey: 'nav.movies', view: 'movies', xtreamOnly: true, inBar: true, icon: FILM_ICON },
+  { id: 'series', labelKey: 'nav.series', view: 'series', xtreamOnly: true, inBar: true, icon: SERIES_ICON },
+  { id: 'access', labelKey: 'nav.access', view: 'access', xtreamOnly: false, inBar: false, icon: '' },
+  { id: 'settings', labelKey: 'nav.settings', view: 'settings', xtreamOnly: false, inBar: true, icon: SETTINGS_ICON },
+  { id: 'search', labelKey: 'nav.search', view: 'search', xtreamOnly: false, inBar: true, icon: '' },
 ] as const;
 
 export type Section = typeof SECTIONS[number]['id'];
 type SectionDef = typeof SECTIONS[number];
 
 // Xtream accounts get the full set; M3U-only accounts have no VOD/series catalog,
-// so they see Live, Guide, Settings and Search only.
-const FULL_SECTIONS: readonly SectionDef[] = SECTIONS;
-const LITE_SECTIONS: readonly SectionDef[] = SECTIONS.filter((s) => !s.xtreamOnly);
+// so Movies and Series are left out.
+const FULL_SECTIONS: readonly SectionDef[] = SECTIONS.filter((s) => s.inBar);
+const LITE_SECTIONS: readonly SectionDef[] = FULL_SECTIONS.filter((s) => !s.xtreamOnly);
+
+// The bar item a section without its own item belongs under.
+const PARENT: Partial<Record<Section, Section>> = { epg: 'live', access: 'home' };
+
+function barItemFor(section: Section): Section {
+  return PARENT[section] ?? section;
+}
 
 // The section a view belongs to (null for the chromeless player / loading
 // views, which own no tab).
@@ -50,10 +67,31 @@ interface TabBarHandlers {
   onSelectAccount: (accountId: string) => void;
 }
 
-// Persistent, docked top section bar (hidden on the full-screen player / EPG).
-// Content owns focus by default; D-pad Up moves focus onto the active tab,
+const CLOCK_REFRESH_MS = 20 * 1000;
+
+function pad(value: number): string {
+  return (value < 10 ? '0' : '') + value;
+}
+
+// "SEX · 20 NOV": weekday and month abbreviations come from the engine, minus
+// the trailing dot some locales add.
+function shortDate(now: Date): string {
+  const part = (options: Intl.DateTimeFormatOptions): string => {
+    try {
+      return now.toLocaleDateString(getLocale(), options).replace(/\./g, '').trim();
+    } catch {
+      return '';
+    }
+  };
+  const weekday = part({ weekday: 'short' });
+  const month = part({ month: 'short' });
+  return `${weekday} · ${now.getDate()} ${month}`.trim();
+}
+
+// Persistent, docked top section bar (hidden on the full-screen player).
+// Content owns focus by default; D-pad Up moves focus onto the active item,
 // Left/Right switch section live, Down/Select/Back drop focus back into the
-// content. The Search tab expands an inline input instead of switching.
+// content. The Search item expands an inline input instead of switching.
 export class TabBar {
   private el: HTMLElement | null = null;
   private handlers: TabBarHandlers;
@@ -68,6 +106,7 @@ export class TabBar {
   private switcher: AccountSwitcher | null = null;
   private accounts: PlaylistEntry[] = [];
   private selectedAccountId = '';
+  private clockTimer: ReturnType<typeof setInterval> | null = null;
 
   constructor(handlers: TabBarHandlers) {
     this.handlers = handlers;
@@ -85,12 +124,16 @@ export class TabBar {
   // Focus targets = the sections, plus the account avatar when present.
   private ringLength(): number { return this.sections.length + (this.accountShown ? 1 : 0); }
   private onAccount(): boolean { return this.accountShown && this.focusIndex === this.sections.length; }
+  private activeIndex(): number {
+    const item = barItemFor(this.active);
+    return Math.max(0, this.sections.findIndex((s) => s.id === item));
+  }
 
   setSections(hasXtream: boolean): void {
     this.hasXtream = hasXtream;
     this.sections = hasXtream ? FULL_SECTIONS : LITE_SECTIONS;
-    if (!this.sections.some((s) => s.id === this.active)) this.active = 'live';
-    this.focusIndex = Math.max(0, this.sections.findIndex((s) => s.id === this.active));
+    if (!this.sections.some((s) => s.id === barItemFor(this.active))) this.active = 'live';
+    this.focusIndex = this.activeIndex();
     if (this._shown) this.render();
   }
 
@@ -99,7 +142,7 @@ export class TabBar {
     this.selectedAccountId = selectedId;
     // If the avatar just disappeared while focused on it, park focus on the active tab.
     if (!this.accountShown && this.focusIndex >= this.sections.length) {
-      this.focusIndex = Math.max(0, this.sections.findIndex((s) => s.id === this.active));
+      this.focusIndex = this.activeIndex();
     }
     this.switcher?.setAccounts(accounts, selectedId);
     if (this._shown) this.render();
@@ -115,13 +158,33 @@ export class TabBar {
     document.body.classList.toggle('tabbar-docked', v);
     if (v) { this.ensureEl(); this.render(); }
     this.el?.classList.toggle('tab-bar--hidden', !v);
+    this.syncClockTimer();
   }
 
   setActive(section: Section): void {
     if (section !== 'search' && this.searchExpanded) { this.searchExpanded = false; this.resetSearchInput(); }
     this.active = section;
-    this.focusIndex = Math.max(0, this.sections.findIndex((s) => s.id === section));
+    this.focusIndex = this.activeIndex();
     if (this._shown) this.render();
+  }
+
+  // The clock only needs minute precision; a slow tick while docked is enough.
+  private syncClockTimer(): void {
+    if (this._shown && this.clockTimer === null) {
+      this.clockTimer = setInterval(() => this.renderClock(), CLOCK_REFRESH_MS);
+    } else if (!this._shown && this.clockTimer !== null) {
+      clearInterval(this.clockTimer);
+      this.clockTimer = null;
+    }
+  }
+
+  private renderClock(): void {
+    const time = this.el?.querySelector<HTMLElement>('.tab-bar-time');
+    const date = this.el?.querySelector<HTMLElement>('.tab-bar-date');
+    if (!time || !date) return;
+    const now = new Date();
+    time.textContent = `${pad(now.getHours())}:${pad(now.getMinutes())}`;
+    date.textContent = shortDate(now);
   }
 
   // Collapse the inline box's DOM back to width 0 when search is left via a route
@@ -136,7 +199,7 @@ export class TabBar {
   focus(): void {
     if (!this._shown) return;
     this._focused = true;
-    this.focusIndex = Math.max(0, this.sections.findIndex((s) => s.id === this.active));
+    this.focusIndex = this.activeIndex();
     this.render();
     if (this.active === 'search' && this.searchExpanded) {
       this.el?.querySelector<HTMLInputElement>('.tab-bar-search-input')?.focus();
@@ -170,7 +233,7 @@ export class TabBar {
         return;
       }
       this.active = section;
-      this.focusIndex = Math.max(0, this.sections.findIndex((s) => s.id === section));
+      this.focusIndex = this.activeIndex();
       this.dropFocus();
       this.handlers.onEnter(section);
     });
@@ -288,20 +351,33 @@ export class TabBar {
     if (!this.el) return;
     const searchIdx = this.sections.findIndex((s) => s.id === 'search');
     const iconFocused = this._focused && this.focusIndex === searchIdx && !this.searchExpanded;
+    const activeItem = barItemFor(this.active);
+    const now = new Date();
     morph(this.el, html`
       <div class="tab-bar-inner" data-nav-container>
-        <span class="tab-bar-title">${CONFIG.APP_NAME}</span>
-        ${this.sections.filter((s) => s.id !== 'search').map((s) => {
-          const i = this.sections.findIndex((x) => x.id === s.id);
-          const focusedCls = this._focused && i === this.focusIndex ? 'focused' : '';
-          const activeCls = s.id === this.active ? 'active' : '';
-          return html`
-          <button class="tab-bar-item ${focusedCls} ${activeCls}"
-                  data-key="${s.id}" data-section="${s.id}" aria-label="${t(s.labelKey)}">${t(s.labelKey)}</button>
-        `;
-        })}
+        <div class="tab-bar-brand" data-key="brand">
+          <span class="tab-bar-logo" aria-hidden="true">${CONFIG.APP_NAME.charAt(0)}</span>
+          <span class="tab-bar-title">${CONFIG.APP_NAME}</span>
+        </div>
+        <div class="tab-bar-items" data-key="items">
+          ${this.sections.filter((s) => s.id !== 'search').map((s) => {
+            const i = this.sections.findIndex((x) => x.id === s.id);
+            const focusedCls = this._focused && i === this.focusIndex ? 'focused' : '';
+            const activeCls = s.id === activeItem ? 'active' : '';
+            return html`
+            <button class="tab-bar-item ${focusedCls} ${activeCls}"
+                    data-key="${s.id}" data-section="${s.id}" aria-label="${t(s.labelKey)}"><span
+                    class="tab-bar-icon" aria-hidden="true">${raw(s.icon)}</span><span
+                    class="tab-bar-label">${t(s.labelKey)}</span></button>
+          `;
+          })}
+        </div>
         <div class="tab-bar-search ${this.searchExpanded ? 'expanded' : ''}" data-key="search-slot" data-morph-preserve></div>
         <div class="tab-bar-account" data-key="account-slot" data-morph-preserve></div>
+        <div class="tab-bar-clock" data-key="clock">
+          <span class="tab-bar-time">${pad(now.getHours())}:${pad(now.getMinutes())}</span>
+          <span class="tab-bar-date">${shortDate(now)}</span>
+        </div>
       </div>
     `);
     this.mountSearch(iconFocused);

@@ -26,6 +26,11 @@ import { Movies } from './components/movies';
 import { Series } from './components/series';
 import { Search } from './components/search';
 import { Access } from './components/access';
+import { Home, type HomeChannel, type HomeCounts, type HomeData, type HomeSection } from './components/home';
+import { RecentlyWatchedService } from './services/recently-watched';
+import { loadAllSeries, loadAllVodStreams } from './services/xtream-catalog';
+import { createXtreamClient } from './services/xtream-client';
+import { ActivationService } from './services/xsol/activation-service';
 import { showToast } from './components/toast';
 import { showNumberEntry, hideNumberEntry } from './components/number-entry';
 import { ReminderService } from './services/reminder-service';
@@ -53,7 +58,7 @@ import { getLocale, initLocale, resolveLocale, setLocale, t, tp } from './i18n';
 const log = createLogger('App');
 
 type ViewName = 'channels' | 'player' | 'epg' | 'settings' | 'reminders'
-  | 'loading' | 'movies' | 'series' | 'search' | 'access';
+  | 'loading' | 'movies' | 'series' | 'search' | 'access' | 'home';
 
 class App {
   private views!: Record<ViewName, HTMLElement>;
@@ -66,6 +71,7 @@ class App {
   private epgGrid!: EpgGrid;
   private settings!: Settings;
   private access!: Access;
+  private home!: Home;
   private sidebar!: Sidebar;
   private menu!: PlayerMenu;
   private reminderPrompt = new ReminderPrompt();
@@ -104,6 +110,7 @@ class App {
       epg: $('#view-epg')!,
       settings: $('#view-settings')!,
       access: $('#view-access')!,
+      home: $('#view-home')!,
       reminders: $('#view-reminders')!,
       movies: $('#view-movies')!,
       series: $('#view-series')!,
@@ -170,12 +177,28 @@ class App {
 
     this.access = new Access(this.views.access, {
       onPlaylistChanged: () => { void this.onSettingsSaved('reload'); },
-      onBack: () => this.goLive(),
+      onBack: () => this.leaveToStart(),
       onRevealTabBar: () => {
         if (!this.tabBar.shown) return false;
         this.tabBar.focus();
         return true;
       },
+    });
+
+    this.home = new Home(this.views.home, {
+      getData: () => this.homeData(),
+      loadCounts: () => this.homeCounts(),
+      loadUserExpiry: () => this.homeUserExpiry(),
+      onResume: (index) => this.playChannel(index),
+      onPlayChannel: (index) => this.playChannel(index),
+      onAllChannels: () => this.enterSection('live'),
+      onSection: (section: HomeSection) => this.enterSection(section),
+      onRevealTabBar: () => {
+        if (!this.tabBar.shown) return false;
+        this.tabBar.focus();
+        return true;
+      },
+      onBack: () => this.confirmExit(),
     });
 
     this.player.init($('#video-player') as HTMLVideoElement);
@@ -854,10 +877,17 @@ class App {
         .filter((p) => p.source === 'xtream' && p.xtream && isSourceEnabled(p));
       this.tabBar.setAccounts(xtreamAccounts, this.activeXtreamAccount()?.id ?? '');
 
-      this.showView('channels');
       this.channelList.render();
+      if (StorageService.getStartView() === 'home') this.showHome();
+      else this.showView('channels');
 
       showToast(tp('app.channelsLoaded', PlaylistService.channels.length));
+      // The home footer and the Access screen both read the panel's answer.
+      void ActivationService.refresh()
+        .then((changed) => {
+          if (changed) void this.onSettingsSaved('reload');
+        })
+        .catch(err => log.warn('Activation check failed:', err));
 
       this.scanReminders();
       ReminderService.reschedulePending();
@@ -914,6 +944,7 @@ class App {
   private showView(name: ViewName, preserveChannelFocus = false): void {
     this.livePreview?.beforeViewChange(name);
     if (name !== 'access') this.access?.close();
+    if (name !== 'home') this.home?.close();
     if (name !== 'channels' && this.channelList.isEditing) this.channelList.exitEditMode();
     // Re-assert the persisted theme on every view transition. This reverts any
     // unsaved live preview when Settings closes (Back / section switch / Cancel)
@@ -998,6 +1029,10 @@ class App {
             err,
           ));
       }
+      return;
+    }
+    if (section === 'home') {
+      this.showHome();
       return;
     }
     if (section === 'access') {
@@ -1136,6 +1171,86 @@ class App {
           err,
         ));
     }
+  }
+
+  private showHome(): void {
+    this.player.stop();
+    this.showView('home');
+    this.home.open();
+  }
+
+  // Back out of a screen that has no parent of its own: to home, or to the
+  // channel list when the app is set to start there.
+  private leaveToStart(): void {
+    if (StorageService.getStartView() === 'home' && StorageService.getPlaylists().length > 0) {
+      this.showHome();
+    } else {
+      this.goLive();
+    }
+  }
+
+  private confirmExit(): void {
+    const now = Date.now();
+    if (now - this.backPressTime < 3000) {
+      void this.exitApp();
+    } else {
+      this.backPressTime = now;
+      showToast(t('app.exitHint'));
+    }
+  }
+
+  private homeData(): HomeData {
+    const toHome = (index: number): HomeChannel | null => {
+      const channel = PlaylistService.getByIndex(index);
+      return channel ? { index, name: channel.name, group: channel.group, logo: channel.logo } : null;
+    };
+    // The index alone defaults to 0, which would present the first channel as
+    // "last watched" on an install that never played anything.
+    const lastKey = StorageService.getLastChannelKey();
+    const lastIndex = lastKey
+      ? PlaylistService.resolveLastChannelIndex(lastKey, StorageService.getLastChannel())
+      : -1;
+    const featured: HomeChannel[] = [];
+    const taken: Record<number, boolean> = {};
+    const add = (index: number): void => {
+      if (index < 0 || taken[index] || featured.length >= 4) return;
+      const item = toHome(index);
+      if (!item) return;
+      taken[index] = true;
+      featured.push(item);
+    };
+    const recent = RecentlyWatchedService.getItems();
+    for (let i = 0; i < recent.length; i++) add(recent[i].channelIndex);
+    for (let i = 0; featured.length < 4 && i < PlaylistService.channels.length; i++) add(i);
+    return {
+      channelCount: PlaylistService.channels.length,
+      lastWatched: lastIndex >= 0 ? toHome(lastIndex) : null,
+      featured,
+      hasXtream: this.activeXtreamAccount() !== null,
+    };
+  }
+
+  private async homeCounts(): Promise<HomeCounts> {
+    const account = this.activeXtreamAccount();
+    if (!account) return { movies: null, series: null };
+    const size = (list: Promise<unknown[]>): Promise<number | null> =>
+      list.then(items => items.length, () => null);
+    const [movies, series] = await Promise.all([
+      size(loadAllVodStreams(account)),
+      size(loadAllSeries(account)),
+    ]);
+    return { movies, series };
+  }
+
+  private async homeUserExpiry(): Promise<number | null | undefined> {
+    const account = this.activeXtreamAccount();
+    if (!account || !account.xtream) return undefined;
+    const info = await createXtreamClient({
+      baseUrl: account.url,
+      username: account.xtream.username,
+      password: account.xtream.password,
+    }, account.id).getAccountInfo();
+    return info ? info.expiresAt : undefined;
   }
 
   private playChannel(index: number, catchup?: CatchupInfo, scope: ChannelScope | null = null): void {
@@ -1315,6 +1430,7 @@ class App {
       if (currentView === 'series') { this.series.handleAction('back'); return; }
       if (currentView === 'search') { this.search.handleAction('back'); return; }
       if (currentView === 'access') { this.access.handleAction('back'); return; }
+      if (currentView === 'home') { this.home.handleAction('back'); return; }
       if (currentView === 'epg') {
         if (this.epgGrid.isFilterOpen) {
           this.epgGrid.handleAction('back');
@@ -1340,13 +1456,9 @@ class App {
       if (currentView === 'channels') {
         if (this.livePreview.handleBack()) return;
         if (this.channelList.handleBack()) return;
-        const now = Date.now();
-        if (now - this.backPressTime < 3000) {
-          void this.exitApp();
-        } else {
-          this.backPressTime = now;
-          showToast(t('app.exitHint'));
-        }
+        // With a home screen, Back from the list returns to it; exiting is Back from home.
+        if (StorageService.getStartView() === 'home') this.showHome();
+        else this.confirmExit();
         return;
       }
     }
@@ -1370,6 +1482,9 @@ class App {
         break;
       case 'access':
         this.access.handleAction(action);
+        break;
+      case 'home':
+        this.home.handleAction(action);
         break;
       case 'player':
         if (this.player.isVod()) {
