@@ -29,10 +29,10 @@ test('opens on the home screen with the sections and the channel count', async (
   await expect(page.locator('#home-status')).toHaveText('2 channels available');
   await expect(page.locator(`${CARD} .home-card-title`))
     .toHaveText(['Live TV', 'Movies', 'Series', 'Access', 'Settings']);
-  await expect(page.locator('[data-count-for="live"]')).toHaveText('2 channels');
-  // An M3U-only setup has no catalogue behind Movies and Series.
-  await expect(page.locator('[data-count-for="movies"]')).toHaveText('Needs an Xtream account');
-  await expect(page.locator('[data-count-for="series"]')).toHaveText('Needs an Xtream account');
+  // The cards carry no counts; an M3U-only setup is told Movies and Series need an account.
+  await expect(page.locator('[data-note-for="live"]')).toHaveText('');
+  await expect(page.locator('[data-note-for="movies"]')).toHaveText('Needs an Xtream account');
+  await expect(page.locator('[data-note-for="series"]')).toHaveText('Needs an Xtream account');
   // Nothing watched yet: no resume, and focus starts on the first section.
   await expect(page.locator('[data-home-action="resume"]')).toHaveCount(0);
   await expect(page.locator(`${CARD}.focused`)).toHaveAttribute('data-section', 'live');

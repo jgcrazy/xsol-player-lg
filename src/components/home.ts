@@ -31,15 +31,8 @@ export interface HomeData {
   hasXtream: boolean;
 }
 
-export interface HomeCounts {
-  movies: number | null;
-  series: number | null;
-}
-
 interface HomeHandlers {
   getData: () => HomeData;
-  /** Catalogue sizes for the active Xtream account; null where unknown. */
-  loadCounts: () => Promise<HomeCounts>;
   /** IPTV account expiry in unix seconds, null for "never", undefined when unknown. */
   loadUserExpiry: () => Promise<number | null | undefined>;
   onResume: (index: number) => void;
@@ -106,7 +99,6 @@ export class Home {
   private timer: ReturnType<typeof setInterval> | null = null;
   private unsubscribe: (() => void) | null = null;
   private opened = false;
-  private counts: HomeCounts = { movies: null, series: null };
   private userExpiry: number | null | undefined = undefined;
   private requestId = 0;
 
@@ -173,12 +165,8 @@ export class Home {
 
   private async loadAsyncData(): Promise<void> {
     const request = ++this.requestId;
-    const [counts, expiry] = await Promise.all([
-      this.handlers.loadCounts().catch((): HomeCounts => ({ movies: null, series: null })),
-      this.handlers.loadUserExpiry().catch((): undefined => undefined),
-    ]);
+    const expiry = await this.handlers.loadUserExpiry().catch((): undefined => undefined);
     if (request !== this.requestId || !this.opened) return;
-    this.counts = counts;
     this.userExpiry = expiry;
     this.render();
   }
@@ -202,13 +190,10 @@ export class Home {
     return this.nav.focused?.dataset.key ?? '';
   }
 
-  private sectionCount(id: HomeSection, data: HomeData): string {
-    if (id === 'live') return t('home.count.channels', { count: formatCount(data.channelCount) });
-    if (id !== 'movies' && id !== 'series') return '';
-    if (!data.hasXtream) return t('home.needsAccount');
-    const value = id === 'movies' ? this.counts.movies : this.counts.series;
-    if (value === null) return '';
-    return t(id === 'movies' ? 'home.count.movies' : 'home.count.series', { count: formatCount(value) });
+  // Movies and Series only exist behind an Xtream account; say so instead of
+  // opening an empty catalogue.
+  private sectionNote(id: HomeSection, data: HomeData): string {
+    return (id === 'movies' || id === 'series') && !data.hasXtream ? t('home.needsAccount') : '';
   }
 
   private avatar(channel: HomeChannel): Safe {
@@ -302,18 +287,15 @@ export class Home {
           </div>
           <div class="home-cards" data-nav-container>
             ${SECTION_CARDS.map((card) => {
-              const count = this.sectionCount(card.id, data);
+              const note = this.sectionNote(card.id, data);
               return html`
                 <button class="home-card" data-focusable data-key="section:${card.id}"
                         data-home-action="section" data-section="${card.id}">
                   <span class="home-card-icon">${raw(card.icon)}</span>
                   <span class="home-card-text">
                     <span class="home-card-title">${t(card.titleKey)}</span>
-                    <span class="home-card-count" data-count-for="${card.id}">${count}</span>
+                    <span class="home-card-note" data-note-for="${card.id}">${note}</span>
                   </span>
-                  ${card.id === 'live' && data.channelCount > 0
-                    ? html`<span class="home-card-watermark" aria-hidden="true">${data.channelCount}</span>`
-                    : ''}
                 </button>`;
             })}
           </div>

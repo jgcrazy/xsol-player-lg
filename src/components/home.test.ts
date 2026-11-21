@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { Home, type HomeCounts, type HomeData } from './home';
+import { Home, type HomeData } from './home';
 import { ActivationService, type ActivationSnapshot } from '../services/xsol/activation-service';
 
 function channel(index: number, name = `ch${index + 1}`, group = 'Group 1', logo = '') {
@@ -19,7 +19,6 @@ describe('Home', () => {
   let root: HTMLElement;
   let home: Home;
   let data: HomeData;
-  let counts: HomeCounts;
   let userExpiry: number | null | undefined;
   let activation: ActivationSnapshot;
   let onResume: ReturnType<typeof vi.fn>;
@@ -32,7 +31,7 @@ describe('Home', () => {
   const text = (selector: string): string => root.querySelector(selector)?.textContent?.trim() ?? '';
   const focusedKey = (): string | undefined => root.querySelector<HTMLElement>('.focused')?.dataset.key;
   const settle = async (): Promise<void> => { await vi.advanceTimersByTimeAsync(0); };
-  const count = (section: string): string => text(`[data-count-for="${section}"]`);
+  const note = (section: string): string => text(`[data-note-for="${section}"]`);
 
   beforeEach(() => {
     vi.useFakeTimers();
@@ -46,7 +45,6 @@ describe('Home', () => {
       featured: [channel(4, 'ch5', 'Group 2'), channel(0), channel(1), channel(2)],
       hasXtream: true,
     };
-    counts = { movies: 1200, series: 340 };
     userExpiry = Date.UTC(2031, 2, 9) / 1000;
     activation = snapshot();
     vi.spyOn(ActivationService, 'snapshot', 'get').mockImplementation(() => activation);
@@ -58,7 +56,6 @@ describe('Home', () => {
     onBack = vi.fn();
     home = new Home(root, {
       getData: () => data,
-      loadCounts: async () => counts,
       loadUserExpiry: async () => userExpiry,
       onResume, onPlayChannel, onAllChannels, onSection, onRevealTabBar, onBack,
     });
@@ -91,35 +88,25 @@ describe('Home', () => {
     expect(text('#home-status')).toBe('1,959 channels available');
   });
 
-  it('shows the channel, movie and series counts on their cards', async () => {
+  it('shows no counts on the section cards', async () => {
     home.open();
-    expect(count('movies')).toBe('');
     await settle();
 
-    expect(count('live')).toBe('1,959 channels');
-    expect(count('movies')).toBe('1,200 movies');
-    expect(count('series')).toBe('340 series');
-    expect(count('access')).toBe('');
     expect(root.querySelectorAll('.home-card')).toHaveLength(5);
+    for (const section of ['live', 'movies', 'series', 'access', 'settings']) {
+      expect(note(section)).toBe('');
+    }
+    expect(root.querySelector('.home-card-watermark')).toBeNull();
   });
 
   it('says Movies and Series need an account when there is none', async () => {
     data.hasXtream = false;
-    counts = { movies: null, series: null };
     home.open();
     await settle();
 
-    expect(count('movies')).toBe('Needs an Xtream account');
-    expect(count('series')).toBe('Needs an Xtream account');
-  });
-
-  it('leaves a count blank when the catalogue cannot be read', async () => {
-    counts = { movies: null, series: 12 };
-    home.open();
-    await settle();
-
-    expect(count('movies')).toBe('');
-    expect(count('series')).toBe('12 series');
+    expect(note('movies')).toBe('Needs an Xtream account');
+    expect(note('series')).toBe('Needs an Xtream account');
+    expect(note('live')).toBe('');
   });
 
   it('offers to resume the last channel and starts there', async () => {
@@ -246,23 +233,22 @@ describe('Home', () => {
   });
 
   it('stops ticking and ignores late data once closed', async () => {
-    let release: (value: HomeCounts) => void = () => {};
+    let release: (value: number | null | undefined) => void = () => {};
     home = new Home(root, {
       getData: () => data,
-      loadCounts: () => new Promise<HomeCounts>((resolve) => { release = resolve; }),
-      loadUserExpiry: async () => userExpiry,
+      loadUserExpiry: () => new Promise<number | null | undefined>((resolve) => { release = resolve; }),
       onResume, onPlayChannel, onAllChannels, onSection, onRevealTabBar, onBack,
     });
     home.open();
     home.close();
-    release({ movies: 7, series: 7 });
+    release(Date.UTC(2031, 2, 9) / 1000);
     await settle();
     const rendered = root.innerHTML;
 
     vi.setSystemTime(new Date(2026, 8, 15, 16, 0));
     await vi.advanceTimersByTimeAsync(60 * 1000);
 
-    expect(count('movies')).toBe('');
+    expect(text('#home-user-expiry')).toBe('—');
     expect(root.innerHTML).toBe(rendered);
   });
 });

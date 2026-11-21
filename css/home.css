@@ -430,7 +430,7 @@
   line-height: 1.2;
 }
 
-.home-card-count {
+.home-card-note {
   min-height: 18px;
   margin-top: 4px;
   overflow: hidden;
@@ -441,19 +441,6 @@
   font-size: 14px;
   line-height: 18px;
   color: #8f867c;
-}
-
-.home-card-watermark {
-  position: absolute;
-  right: -4px;
-  bottom: -22px;
-  display: none;
-  font-family: "Newsreader", serif;
-  font-weight: 300;
-  font-size: 96px;
-  line-height: 1;
-  color: rgba(255, 255, 255, .05);
-  pointer-events: none;
 }
 
 .home-card.focused,
@@ -468,11 +455,6 @@
   border-color: rgba(232, 182, 95, .5);
   background: rgba(232, 182, 95, .14);
   color: #e8b65f;
-}
-
-.home-card.focused .home-card-watermark,
-.home-card:hover .home-card-watermark {
-  display: block;
 }
 
 .home-channels {

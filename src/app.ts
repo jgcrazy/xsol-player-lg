@@ -26,9 +26,8 @@ import { Movies } from './components/movies';
 import { Series } from './components/series';
 import { Search } from './components/search';
 import { Access } from './components/access';
-import { Home, type HomeChannel, type HomeCounts, type HomeData, type HomeSection } from './components/home';
+import { Home, type HomeChannel, type HomeData, type HomeSection } from './components/home';
 import { RecentlyWatchedService } from './services/recently-watched';
-import { loadAllSeries, loadAllVodStreams } from './services/xtream-catalog';
 import { createXtreamClient } from './services/xtream-client';
 import { ActivationService } from './services/xsol/activation-service';
 import { showToast } from './components/toast';
@@ -187,7 +186,6 @@ class App {
 
     this.home = new Home(this.views.home, {
       getData: () => this.homeData(),
-      loadCounts: () => this.homeCounts(),
       loadUserExpiry: () => this.homeUserExpiry(),
       onResume: (index) => this.playChannel(index),
       onPlayChannel: (index) => this.playChannel(index),
@@ -1228,18 +1226,6 @@ class App {
       featured,
       hasXtream: this.activeXtreamAccount() !== null,
     };
-  }
-
-  private async homeCounts(): Promise<HomeCounts> {
-    const account = this.activeXtreamAccount();
-    if (!account) return { movies: null, series: null };
-    const size = (list: Promise<unknown[]>): Promise<number | null> =>
-      list.then(items => items.length, () => null);
-    const [movies, series] = await Promise.all([
-      size(loadAllVodStreams(account)),
-      size(loadAllSeries(account)),
-    ]);
-    return { movies, series };
   }
 
   private async homeUserExpiry(): Promise<number | null | undefined> {
