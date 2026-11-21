@@ -10,6 +10,7 @@ import {
   StorageService,
   XTREAM_CATALOG_REFRESH_HOUR_OPTIONS,
 } from '../services/storage-service';
+import { accessChoices } from '../services/xsol/activation-service';
 import { EpgService } from '../services/epg-service';
 import { ChannelCustomizationService } from '../services/channel-customization';
 import { PlaylistService } from '../services/playlist-service';
@@ -300,23 +301,24 @@ function xtreamCard(pl: Partial<PlaylistEntry>) {
   return html`
     <div class="xtream-card ${enabled ? '' : 'source-disabled'}"
          data-id="${pl.id || ''}" data-source-entry>
+      <div class="xtream-managed-name">${pl.name || ''}</div>
       <div class="xtream-fields">
-        <div class="settings-field">
+        <div class="settings-field xtream-field-private">
           <label>${t('settings.label')}</label>
           <input type="text" class="settings-input xtream-name" data-focusable
                  aria-label="${t('settings.accountLabel')}" placeholder="${t('settings.myProvider')}" value="${pl.name || ''}">
         </div>
-        <div class="settings-field wide">
+        <div class="settings-field wide xtream-field-private">
           <label>${t('settings.serverUrl')}</label>
           <input type="text" class="settings-input xtream-url" data-focusable
                  aria-label="${t('settings.serverUrl')}" placeholder="http://host:port" value="${pl.url || ''}">
         </div>
-        <div class="settings-field">
+        <div class="settings-field xtream-field-private">
           <label>${t('settings.username')}</label>
           <input type="text" class="settings-input xtream-username" data-focusable
                  aria-label="${t('settings.username')}" placeholder="username" value="${pl.xtream?.username || ''}">
         </div>
-        <div class="settings-field">
+        <div class="settings-field xtream-field-private">
           <label>${t('settings.password')}</label>
           <input type="password" class="settings-input xtream-password" data-focusable
                  aria-label="${t('settings.password')}" placeholder="password" value="${pl.xtream?.password || ''}">
@@ -502,6 +504,9 @@ export class Settings {
     const selectedAccountId = StorageService.getSelectedXtreamAccountId();
     this.watchlistAccount = enabledAccounts.find((account) => account.id === selectedAccountId)
       ?? enabledAccounts[0] ?? null;
+    // Accesses delivered by the panel are managed on the Access screen: here
+    // only the stream format of the one in use is offered, and no server address.
+    const managedSources = accessChoices() !== null;
     const manualEpgSources = StorageService.getManualEpgSources();
     this.storedEpgOffsets = StorageService.getEpgOffsets();
     this.epgOffsets = { ...this.storedEpgOffsets };
@@ -565,9 +570,10 @@ export class Settings {
               </div>
             </div>
 
-            <div class="settings-category" id="settings-sources" data-settings-category="sources">
+            <div class="settings-category ${managedSources ? 'sources-managed' : ''}"
+                 id="settings-sources" data-settings-category="sources">
               <div class="settings-section">
-                <h3 class="settings-section-title">${t('settings.xtreamAccount')}</h3>
+                <h3 class="settings-section-title">${t(managedSources ? 'settings.sources' : 'settings.xtreamAccount')}</h3>
                 <div class="xtream-entries" id="xtream-entries">
                   ${accounts.length
                     ? html`${accounts.map((pl) => xtreamCard(pl))}`
@@ -579,7 +585,7 @@ export class Settings {
                 </div>
               </div>
 
-              <div class="settings-section">
+              <div class="settings-section settings-section-playlists">
                 <h3 class="settings-section-title">${t('settings.playlists')}</h3>
                 <div class="playlist-entries" id="playlist-entries">
                   ${playlists.length
@@ -1525,6 +1531,13 @@ export class Settings {
         (item as HTMLElement).dataset.settingsTarget === category,
       );
     });
+  }
+
+  /** Lands on one category, for a caller that opens the page for that purpose. */
+  openCategory(category: SettingsCategory): void {
+    this.scrollToCategory(category);
+    const target = this.container.querySelector<HTMLElement>(`[data-settings-target="${category}"]`);
+    if (target) this.nav.focus(target);
   }
 
   private scrollToCategory(category: SettingsCategory): void {

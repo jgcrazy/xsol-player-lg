@@ -787,6 +787,12 @@ export const StorageService = {
 
   // Where the app lands once channels are loaded. 'home' is the shipped default;
   // 'channels' opens straight on the channel list, as the app did before it had a home screen.
+  // Which Settings the tab opens: the card screen, or straight into the option
+  // panes behind it (the classic page).
+  getSettingsEntry(): 'cards' | 'panes' {
+    return get<unknown>('settings_entry', 'cards') === 'panes' ? 'panes' : 'cards';
+  },
+
   getStartView(): 'home' | 'channels' {
     return get<unknown>('start_view', 'home') === 'channels' ? 'channels' : 'home';
   },
@@ -1116,6 +1122,17 @@ export const StorageService = {
       .filter((e) => e.accountId === accountId)
       .sort((a, b) => b.updatedAt - a.updatedAt)
       .map(cloneValue);
+  },
+  /** How many titles of one kind have a saved position, across every account. */
+  countResume(kind: ResumeKind): number {
+    const all = userData ? userData.resume : get<Record<string, ResumeEntry>>('resume', {});
+    return Object.keys(all).filter((key) => all[key].kind === kind).length;
+  },
+  /** Forgets every saved position of one kind (the "continue watching" history). */
+  clearResumeKind(kind: ResumeKind): void {
+    const all = userData ? userData.resume : get<Record<string, ResumeEntry>>('resume', {});
+    const entries = Object.keys(all).map((key) => all[key]).filter((entry) => entry.kind === kind);
+    for (const entry of entries) this.clearResume(entry.accountId, entry.kind, entry.itemId);
   },
   clearResume(accountId: string, kind: ResumeKind, itemId: string): void {
     const key = `${accountId}|${kind}|${itemId}`;

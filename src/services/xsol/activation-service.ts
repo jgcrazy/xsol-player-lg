@@ -141,7 +141,7 @@ const PANEL_ID_PREFIX = 'xsol-';
 const WEB_PLAYLIST_ID_PREFIX = 'xsol-web-';
 
 function isPanelManaged(entry: PlaylistEntry): boolean {
-  return entry.id.indexOf(PANEL_ID_PREFIX) === 0;
+  return typeof entry.id === 'string' && entry.id.indexOf(PANEL_ID_PREFIX) === 0;
 }
 
 // Fallback label for a source the portal did not name: the account, else the server.

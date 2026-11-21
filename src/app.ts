@@ -23,6 +23,7 @@ import { TabBar, type Section, sectionForView } from './components/tab-bar';
 import { Movies } from './components/movies';
 import { Series } from './components/series';
 import { Search } from './components/search';
+import { Preferences, type PreferencePane } from './components/preferences';
 import { Access } from './components/access';
 import { Home, type HomeChannel, type HomeData, type HomeSection } from './components/home';
 import { RecentlyWatchedService } from './services/recently-watched';
@@ -59,7 +60,7 @@ import { getLocale, initLocale, resolveLocale, setLocale, t, tp } from './i18n';
 const log = createLogger('App');
 
 type ViewName = 'channels' | 'player' | 'epg' | 'settings' | 'reminders'
-  | 'loading' | 'movies' | 'series' | 'search' | 'access' | 'home';
+  | 'loading' | 'movies' | 'series' | 'search' | 'access' | 'home' | 'prefs';
 
 class App {
   private views!: Record<ViewName, HTMLElement>;
@@ -85,6 +86,9 @@ class App {
   private reminderManagerOrigin: 'settings' | 'epg' = 'settings';
   private tabBar!: TabBar;
   private search!: Search;
+  private preferences!: Preferences;
+  // The option panes were opened from a card: Back and Save lead to the cards again.
+  private panesFromCards = false;
   private movies!: Movies;
   private series!: Series;
   private lastSearchQuery = '';
@@ -111,6 +115,7 @@ class App {
       player: $('#view-player')!,
       epg: $('#view-epg')!,
       settings: $('#view-settings')!,
+      prefs: $('#view-prefs')!,
       access: $('#view-access')!,
       home: $('#view-home')!,
       reminders: $('#view-reminders')!,
@@ -176,6 +181,32 @@ class App {
       () => this.player.syncCurrentIndex(),
       () => this.openReminderManager('settings'),
     );
+
+    this.preferences = new Preferences(this.views.prefs, {
+      onBack: () => this.leaveToStart(),
+      onRevealTabBar: () => {
+        if (!this.tabBar.shown) return false;
+        this.tabBar.focus();
+        return true;
+      },
+      onOpenPane: (pane) => this.openSettingsPane(pane),
+      onOpenReminders: () => this.openReminderManager('settings'),
+      onLocaleChanged: () => {
+        const locale = resolveLocale(StorageService.getLocalePreference());
+        if (locale === getLocale()) return;
+        setLocale(locale);
+        this.tabBar.refresh();
+        ReminderService.reschedulePending();
+      },
+      onRefreshChanged: () => {
+        this.scheduleEpgRefresh();
+        this.schedulePlaylistRefresh();
+      },
+      onHistoryCleared: () => {
+        this.channelList.render();
+      },
+      reminderCount: () => ReminderService.listManageable().length,
+    });
 
     this.access = new Access(this.views.access, {
       // Stay on Access through the reload: the user is watching it for the result.
@@ -781,6 +812,7 @@ class App {
     }
     this.livePreview?.beforeViewChange(name);
     if (name !== 'access') this.access?.close();
+    if (name !== 'prefs') this.preferences?.close();
     if (name !== 'home') {
       this.home?.close();
       this.leaveHomePreview();
@@ -881,6 +913,11 @@ class App {
       return;
     }
     if (section === 'settings') {
+      this.panesFromCards = false;
+      if (StorageService.getSettingsEntry() === 'cards') {
+        this.showPreferences();
+        return;
+      }
       this.settings.render();
       this.showView('settings');
       return;
@@ -1164,6 +1201,20 @@ class App {
 
   // Back out of a screen that has no parent of its own: to home, or to the
   // channel list when the app is set to start there.
+  private showPreferences(): void {
+    this.panesFromCards = false;
+    this.showView('prefs');
+    this.preferences.open();
+  }
+
+  // A card opens the pane that holds its detailed options.
+  private openSettingsPane(pane: PreferencePane): void {
+    this.panesFromCards = true;
+    this.settings.render();
+    this.showView('settings');
+    this.settings.openCategory(pane);
+  }
+
   private leaveToStart(): void {
     if (StorageService.getStartView() === 'home' && StorageService.getPlaylists().length > 0) {
       this.showHome();
@@ -1402,6 +1453,7 @@ class App {
       if (currentView === 'search') { this.search.handleAction('back'); return; }
       if (currentView === 'access') { this.access.handleAction('back'); return; }
       if (currentView === 'home') { this.home.handleAction('back'); return; }
+      if (currentView === 'prefs') { this.preferences.handleAction('back'); return; }
       if (currentView === 'epg') {
         if (this.epgGrid.isFilterOpen) {
           this.epgGrid.handleAction('back');
@@ -1415,6 +1467,8 @@ class App {
       }
       if (currentView === 'settings') {
         if (this.settings.dismissDropdown()) return;
+        // Opened from a card: Back leads to the cards again.
+        if (this.panesFromCards) { this.showPreferences(); return; }
         this.tabBar.setActive('live');
         this.channelList.render();
         this.showView('channels');
@@ -1456,6 +1510,9 @@ class App {
         break;
       case 'home':
         this.home.handleAction(action);
+        break;
+      case 'prefs':
+        this.preferences.handleAction(action);
         break;
       case 'player':
         if (this.player.isVod()) {
@@ -1502,7 +1559,9 @@ class App {
         this.epgGrid.handleAction(action, event);
         break;
       case 'settings':
-        if (action === 'back') {
+        if (action === 'back' && this.panesFromCards) {
+          this.showPreferences();
+        } else if (action === 'back') {
           this.channelList.render();
           this.showView('channels');
         } else {
@@ -1638,6 +1697,10 @@ class App {
       this.schedulePlaylistRefresh();
     }
     this.channelList.render();
+    if (this.panesFromCards) {
+      this.showPreferences();
+      return;
+    }
     this.showView('channels');
   }
 }

@@ -232,6 +232,11 @@ export const test = base.extend<{
         if (localStorage.getItem('iptv_start_view') === null) {
           localStorage.setItem('iptv_start_view', '"channels"');
         }
+        // The same baseline keeps the Settings tab on the option panes, which is
+        // what the Settings specs drive; the card screen has its own spec.
+        if (localStorage.getItem('iptv_settings_entry') === null) {
+          localStorage.setItem('iptv_settings_entry', '"panes"');
+        }
       });
     }
     // The simulation project strips every API Chromium 53 lacks before the app

@@ -1,0 +1,154 @@
+/* The Settings card screen: a title, groups of cards in three columns, and the
+   device identifiers at the bottom. */
+.prefs-view {
+  width: 1920px;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 0 54px;
+  display: flex;
+  flex-direction: column;
+  font-family: "Manrope", "LG Smart UI", sans-serif;
+  color: #f2ece2;
+  background:
+    radial-gradient(900px 500px at 20% 30%, rgba(214, 150, 60, 0.08), transparent 70%),
+    radial-gradient(800px 520px at 90% 95%, rgba(110, 70, 140, 0.08), transparent 70%),
+    #0d0b0a;
+}
+
+.prefs-view button { font-family: inherit; }
+/* The app-wide focus ring and press scale do not belong on these controls. */
+.prefs-view button:hover,
+.prefs-view button.focused { transform: none; }
+.prefs-view [data-focusable].focused { outline: none; }
+
+.prefs-scroll {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-x: hidden;
+  padding: 0 14px 40px;
+}
+.prefs-scroll::-webkit-scrollbar { display: none; }
+
+.prefs-head { margin-top: 40px; display: flex; align-items: center; gap: 26px; }
+.prefs-back {
+  flex: 0 0 58px;
+  width: 58px; height: 58px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.02);
+  color: #c9c0b3;
+  cursor: pointer;
+}
+.prefs-back svg { width: 16px; height: 16px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+.prefs-back.focused,
+.prefs-back:hover { border-color: rgba(232, 182, 95, 0.5); color: #e8b65f; box-shadow: none; }
+.prefs-eyebrow { font-size: 11px; font-weight: 700; letter-spacing: 4px; text-transform: uppercase; color: #e8b65f; }
+.prefs-title {
+  margin: 6px 0 0;
+  font-family: "Newsreader", serif;
+  font-weight: 300;
+  font-size: 64px;
+  line-height: 1.05;
+  letter-spacing: -1.5px;
+}
+
+.prefs-group { margin-top: 30px; }
+.prefs-head + .prefs-group { margin-top: 44px; }
+.prefs-group-head { display: flex; align-items: center; gap: 18px; }
+.prefs-group-title {
+  flex: 0 0 auto;
+  font-size: 10.5px; font-weight: 700; letter-spacing: 3.5px; text-transform: uppercase;
+  color: #6f675f;
+}
+.prefs-group-rule { flex: 1; height: 1px; background: rgba(255, 255, 255, 0.06); }
+
+/* Three equal columns without Grid: fixed-width cards that wrap. */
+.prefs-grid { margin: 16px -10px -20px; display: flex; flex-wrap: wrap; }
+.prefs-card {
+  flex: 0 0 581px;
+  width: 581px;
+  height: 116px;
+  margin: 0 10px 20px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  padding: 0 28px;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 14px;
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.035), rgba(255, 255, 255, 0.012));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+}
+.prefs-card:hover { border-color: rgba(232, 182, 95, 0.35); }
+.prefs-card.focused {
+  border-color: rgba(232, 182, 95, 0.6);
+  background: linear-gradient(160deg, rgba(232, 182, 95, 0.12), rgba(60, 40, 20, 0.22));
+  box-shadow: 0 18px 50px -12px rgba(232, 182, 95, 0.35), inset 0 0 0 1px rgba(232, 182, 95, 0.12);
+}
+.prefs-card.is-soon { opacity: 0.5; cursor: default; }
+
+.prefs-card-icon {
+  flex: 0 0 56px;
+  width: 56px; height: 56px;
+  box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.03);
+  color: #bdb4a7;
+}
+.prefs-card-icon svg {
+  width: 22px; height: 22px;
+  fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round;
+}
+.prefs-card.focused .prefs-card-icon,
+.prefs-card.is-on .prefs-card-icon {
+  border-color: rgba(232, 182, 95, 0.45);
+  background: rgba(232, 182, 95, 0.12);
+  color: #e8b65f;
+}
+
+.prefs-card-text { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.prefs-card-title {
+  font-size: 19px; font-weight: 600; letter-spacing: -0.3px; color: #f2ece2;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.prefs-card-subtitle {
+  margin-top: 5px;
+  font-family: "Newsreader", serif; font-style: italic; font-size: 14.5px; color: #8a8178;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.prefs-card.focused .prefs-card-subtitle { color: #c99a4d; }
+
+.prefs-switch {
+  flex: 0 0 auto;
+  height: 26px;
+  box-sizing: border-box;
+  display: flex; align-items: center; gap: 7px;
+  padding: 0 11px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 999px;
+  font-size: 10px; font-weight: 700; letter-spacing: 2.5px; text-transform: uppercase;
+  color: #6f675f;
+}
+.prefs-switch-dot { width: 5px; height: 5px; border-radius: 50%; background: currentColor; }
+.prefs-switch.is-on {
+  color: #e8b65f;
+  border-color: rgba(232, 182, 95, 0.5);
+  background: rgba(232, 182, 95, 0.08);
+}
+
+.prefs-foot {
+  flex: 0 0 96px;
+  display: flex; align-items: center; justify-content: center;
+  gap: 64px;
+  border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+.prefs-foot-item { display: flex; align-items: baseline; gap: 16px; }
+.prefs-foot-label { font-size: 11px; font-weight: 700; letter-spacing: 3.5px; text-transform: uppercase; color: #6f675f; }
+.prefs-foot-value { font-family: "Newsreader", serif; font-size: 15px; color: #bdb4a7; }

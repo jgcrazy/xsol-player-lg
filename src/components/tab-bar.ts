@@ -49,6 +49,8 @@ function barItemFor(section: Section): Section {
 // The section a view belongs to (null for the chromeless player / loading
 // views, which own no tab).
 export function sectionForView(view: string): Section | null {
+  // The Settings card screen and the option panes behind it are one section.
+  if (view === 'prefs') return 'settings';
   return SECTIONS.find((s) => s.view === view)?.id ?? null;
 }
 

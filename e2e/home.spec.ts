@@ -104,7 +104,7 @@ test('a section card opens its section, and Back from it returns home', async ({
   await expect(page.locator('#view-home')).toBeVisible();
 
   await page.locator(`${CARD}[data-section="settings"]`).click();
-  await expect(page.locator('#view-settings')).toBeVisible();
+  await expect(page.locator('#view-prefs')).toBeVisible();
 });
 
 test('the D-pad walks the cards and OK opens the focused one', async ({ page }) => {
@@ -262,7 +262,7 @@ test.describe('live preview in the last-watched card', () => {
 
     await page.locator(`${CARD}[data-section="settings"]`).click();
 
-    await expect(page.locator('#view-settings')).toBeVisible();
+    await expect(page.locator('#view-prefs')).toBeVisible();
     await expect.poll(async () => (await video(page)).active).toBe(false);
   });
 

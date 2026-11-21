@@ -102,6 +102,12 @@
   .access-button > * + * { margin-left: 12px; }
   .access-body > * + * { margin-left: 96px; }
   .access-codes > * + * { margin-left: 32px; }
+  .prefs-head > * + * { margin-left: 26px; }
+  .prefs-group-head > * + * { margin-left: 18px; }
+  .prefs-card > * + * { margin-left: 22px; }
+  .prefs-switch > * + * { margin-left: 7px; }
+  .prefs-foot > * + * { margin-left: 64px; }
+  .prefs-foot-item > * + * { margin-left: 16px; }
   .search-list > * + * { margin-top: 8px; }
   .search-channel-row > * + * { margin-left: 24px; }
   .search-program-list > * + * { margin-top: 8px; }

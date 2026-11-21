@@ -1046,3 +1046,21 @@
   border-color: var(--focus-ring);
   box-shadow: 0 0 0 3px var(--accent-glow), 0 0 16px var(--accent-glow);
 }
+
+/* Accesses delivered by the panel: only the one in use, by name, with its
+   stream format. No server address, no account fields, nothing to add or remove
+   here - that is the Access screen's job. The fields stay in the page so Save
+   keeps what is stored. */
+.xtream-managed-name { display: none; }
+.sources-managed .xtream-managed-name {
+  display: block;
+  margin-bottom: 14px;
+  font-size: 26px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+.sources-managed .xtream-field-private,
+.sources-managed .xtream-card-foot,
+.sources-managed .xtream-card.source-disabled,
+.sources-managed #add-xtream,
+.sources-managed .settings-section-playlists { display: none; }

@@ -260,7 +260,7 @@ describe('Settings.render', () => {
       .map((item) => item.textContent?.trim());
     expect(labels).toEqual([
       'General',
-      'Sources',
+      'Stream',
       'Program Guide',
       'Appearance',
       'Playback',
