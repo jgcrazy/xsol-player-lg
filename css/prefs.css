@@ -149,9 +149,9 @@
   gap: 64px;
   border-top: 1px solid rgba(255, 255, 255, 0.06);
 }
-.prefs-foot-item { display: flex; align-items: baseline; gap: 16px; }
-.prefs-foot-label { font-size: 11px; font-weight: 700; letter-spacing: 3.5px; text-transform: uppercase; color: #6f675f; }
-.prefs-foot-value { font-family: "Newsreader", serif; font-size: 15px; color: #bdb4a7; }
+.prefs-foot-item { display: flex; align-items: baseline; gap: 18px; }
+.prefs-foot-label { font-size: 14px; font-weight: 700; letter-spacing: 3px; text-transform: uppercase; color: #a39a8d; }
+.prefs-foot-value { font-size: 26px; font-weight: 700; letter-spacing: 1px; color: #f2ece2; }
 
 /* The list a "hide categories" card opens. */
 .prefs-picker-hint {

@@ -71,6 +71,8 @@ interface Group {
   cards: Card[];
 }
 
+const CARDS_PER_ROW = 3;
+
 function formatKey(key: string): string {
   return key.length === 6 ? `${key.slice(0, 3)} ${key.slice(3)}` : key;
 }
@@ -142,7 +144,72 @@ export class Preferences {
       return;
     }
     if (action !== 'up' && action !== 'down' && action !== 'left' && action !== 'right') return;
-    if (!this.nav.move(action) && action === 'up') this.handlers.onRevealTabBar();
+    this.move(action);
+  }
+
+  // The cards sit in rows of three inside their groups, so the D-pad follows
+  // that grid by position instead of guessing from geometry: Down from a short
+  // row lands on the nearest card of the next one, and nothing is skipped.
+  private move(direction: 'up' | 'down' | 'left' | 'right'): void {
+    const focused = this.nav.focused;
+    const onBack = focused?.dataset.prefsAction === 'back';
+    const rows = this.picker
+      ? this.picker.rows.map((row) => [`row:${row.key}`])
+      : this.cardRows();
+    if (!rows.length) {
+      if (direction === 'up' && onBack) this.handlers.onRevealTabBar();
+      else this.focusKey('prefs-back');
+      return;
+    }
+    if (onBack || !focused) {
+      if (direction === 'up') this.handlers.onRevealTabBar();
+      else if (direction === 'down' || direction === 'right') this.focusKey(rows[0][0]);
+      return;
+    }
+    const key = focused.dataset.key ?? '';
+    let row = -1;
+    let column = 0;
+    for (let r = 0; r < rows.length; r++) {
+      const c = rows[r].indexOf(key);
+      if (c !== -1) { row = r; column = c; }
+    }
+    if (row === -1) { this.focusKey(rows[0][0]); return; }
+    if (direction === 'left') {
+      if (column > 0) this.focusKey(rows[row][column - 1]);
+    } else if (direction === 'right') {
+      if (column < rows[row].length - 1) this.focusKey(rows[row][column + 1]);
+    } else if (direction === 'down') {
+      if (row < rows.length - 1) this.focusKey(rows[row + 1][Math.min(column, rows[row + 1].length - 1)]);
+    } else if (row > 0) {
+      this.focusKey(rows[row - 1][Math.min(column, rows[row - 1].length - 1)]);
+    } else {
+      this.focusKey('prefs-back');
+    }
+  }
+
+  private cardRows(): string[][] {
+    const rows: string[][] = [];
+    this.groups().forEach((group) => {
+      for (let i = 0; i < group.cards.length; i += CARDS_PER_ROW) {
+        rows.push(group.cards.slice(i, i + CARDS_PER_ROW).map((card) => `card:${card.id}`));
+      }
+    });
+    return rows;
+  }
+
+  private focusKey(key: string): void {
+    const el = this.container.querySelector<HTMLElement>(`[data-key="${key}"][data-focusable]`);
+    if (!el) return;
+    this.nav.focus(el);
+    // The title belongs on screen with the first row and with the back button.
+    const firstRow = this.picker ? this.picker.rows.slice(0, 1).map((row) => `row:${row.key}`) : (this.cardRows()[0] ?? []);
+    if (key === 'prefs-back' || firstRow.indexOf(key) !== -1) {
+      const scroll = this.container.querySelector<HTMLElement>('.prefs-scroll');
+      if (scroll) {
+        scroll.scrollTop = 0;
+        requestAnimationFrame(() => { scroll.scrollTop = 0; });
+      }
+    }
   }
 
   private activate(control: HTMLElement): void {
@@ -342,7 +409,9 @@ export class Preferences {
             id: 'subtitles',
             icon: CAPTIONS_ICON,
             title: 'prefs.subtitles',
-            subtitle: () => subtitles.preferredLanguage || t('prefs.subtitlesAny'),
+            subtitle: () => (subtitlesReady
+              ? (subtitles.preferredLanguage || t('prefs.configured'))
+              : t('prefs.notConfigured')),
             run: () => this.handlers.onOpenPane('subtitles'),
           },
           this.hideCard('hide-live', 'prefs.hideLive', 'live'),
@@ -405,13 +474,6 @@ export class Preferences {
             title: 'settings.playback',
             subtitle: () => t('prefs.playbackHint'),
             run: () => this.handlers.onOpenPane('playback'),
-          },
-          {
-            id: 'online-subtitles',
-            icon: CAPTIONS_ICON,
-            title: 'settings.onlineSubtitles',
-            subtitle: () => t(subtitlesReady ? 'prefs.configured' : 'prefs.notConfigured'),
-            run: () => this.handlers.onOpenPane('subtitles'),
           },
           {
             id: 'cloud',

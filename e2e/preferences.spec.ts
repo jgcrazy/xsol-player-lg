@@ -339,3 +339,38 @@ test('turning parental control on hides the adult categories; one shown again st
   await enterTab(page, 'live');
   await expect(page.locator('#view-channels .channel-item .channel-name')).toHaveText(['ch1', 'ch3']);
 });
+
+test('the D-pad follows the card grid row by row, with no card skipped', async ({ page }) => {
+  await openCards(page);
+  await page.mouse.move(960, 20);
+  const at = () => page.evaluate(() =>
+    (document.querySelector('#view-prefs .focused') as HTMLElement | null)?.dataset.key ?? '');
+  const walk = async (keys: string[]): Promise<string[]> => {
+    const seen: string[] = [];
+    for (const key of keys) {
+      await page.keyboard.press(key);
+      seen.push(await at());
+    }
+    return seen;
+  };
+
+  expect(await at()).toBe('card:parental');
+  // Along the first row, stopping at its end.
+  expect(await walk(['ArrowRight', 'ArrowRight', 'ArrowRight']))
+    .toEqual(['card:language', 'card:subtitles', 'card:subtitles']);
+  // Straight down the third column; a short row gives its last card.
+  expect(await walk(['ArrowDown', 'ArrowDown', 'ArrowDown', 'ArrowDown']))
+    .toEqual(['card:hide-series', 'card:clear-series', 'card:data', 'card:time-format']);
+  // And back up the first column to the title's Back button, then the top bar.
+  expect(await walk(['ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp', 'ArrowUp']))
+    .toEqual(['card:data', 'card:clear-channels', 'card:hide-live', 'card:parental', 'prefs-back']);
+  await page.keyboard.press('ArrowUp');
+  await expect(page.locator('.tab-bar-item.focused')).toHaveCount(1);
+
+  // The title is back on screen with the first row.
+  const title = (await page.locator('#view-prefs .prefs-title').boundingBox())!;
+  expect(title.y).toBeGreaterThan(96);
+  // Each card appears once.
+  const titles = await page.locator('#view-prefs .prefs-card-title').allTextContents();
+  expect(new Set(titles).size).toBe(titles.length);
+});
