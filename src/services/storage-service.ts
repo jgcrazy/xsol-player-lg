@@ -494,6 +494,24 @@ function evictCache(): void {
   ));
 }
 
+const DEVICE_LINK_KEY = 'deviceLink';
+
+/** What ties this TV to its record on the activation panel. */
+export interface DeviceLinkState {
+  /** Pseudo-MAC shown to the customer; sent as `device_id`. */
+  deviceId?: string;
+  /** Hardware proof that lets the same TV re-register after a reinstall. Never displayed. */
+  proof?: string;
+  /** 'hardware' when derived from the TV's own identifier, 'install' when generated here. */
+  source?: 'hardware' | 'install';
+  /** Per-device signing secret issued by the panel. */
+  secret?: string;
+  /** Ownership token the panel requires before it releases the playlist. */
+  deviceToken?: string;
+  /** Six-digit portal key, as last reported by the panel. */
+  manageKey?: string;
+}
+
 export const StorageService = {
   get,
   set,
@@ -529,7 +547,29 @@ export const StorageService = {
   },
 
   clearAll(): void {
+    // The panel identity outlives an app reset: a fresh one would show the
+    // customer a different MAC and key than the device they already paid for.
+    const deviceLink = localStorage.getItem(PREFIX + DEVICE_LINK_KEY);
     localStorage.clear();
+    if (deviceLink !== null) {
+      try {
+        localStorage.setItem(PREFIX + DEVICE_LINK_KEY, deviceLink);
+      } catch {
+        log.warn(
+          'Device link could not be restored after reset',
+          'event=persistence.local.write.failed',
+          'operation=write',
+          `key=${DEVICE_LINK_KEY}`,
+        );
+      }
+    }
+  },
+
+  getDeviceLink(): DeviceLinkState {
+    return get<DeviceLinkState>(DEVICE_LINK_KEY, {});
+  },
+  setDeviceLink(state: DeviceLinkState): boolean {
+    return set(DEVICE_LINK_KEY, state);
   },
 
   async clearUserData(): Promise<void> {

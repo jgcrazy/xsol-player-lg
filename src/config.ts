@@ -13,6 +13,20 @@ export const CONFIG = {
   SERVICE_ID: __SERVICE_ID__,
   SERVICE_HOST: '127.0.0.1',
 
+  // Activation panel (per-device signed API) and the customer portal where the
+  // MAC + key shown on screen are entered.
+  XSOL: {
+    PANEL_BASE_URL: 'https://dash.xsol.app.br',
+    PORTAL_URL: 'https://xsol.app.br',
+    API_PREFIX: '/api/device/v1',
+    REQUEST_TIMEOUT_MS: 15000,
+    // The panel allows six registrations an hour per device; never loop on it.
+    REGISTER_RETRY_MIN_MS: 60 * 1000,
+    HEARTBEAT_INTERVAL_MS: 60 * 1000,
+    ACTIVATION_POLL_INTERVAL_MS: 5000,
+    DEVICE_NAME: 'LG webOS TV',
+  },
+
   DEFAULT_PLAYLIST_REFRESH_INTERVAL_MS: 6 * 60 * 60 * 1000,
   WORKER_IDLE_TERMINATION_MS: 1000,
   PLAYLIST_CACHE_WRITE_DELAY_MS: 1200,
