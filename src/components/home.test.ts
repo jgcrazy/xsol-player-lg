@@ -11,7 +11,7 @@ function snapshot(patch: Partial<ActivationSnapshot> = {}): ActivationSnapshot {
   return {
     status: 'active', deviceId: '02:00:00:00:00:01', manageKey: '123456',
     expiryDate: '2030-01-05 00:00:00', trial: false, lifetime: false,
-    hasPlaylist: false, errorCode: '', ...patch,
+    hasPlaylist: false, playlistName: '', errorCode: '', ...patch,
   };
 }
 

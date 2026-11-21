@@ -58,7 +58,7 @@
 }
 
 .access-title {
-  font-size: calc(52px * var(--font-scale));
+  font-size: calc(44px * var(--font-scale));
   line-height: 1.15;
 }
 
@@ -71,7 +71,7 @@
 }
 
 .access-codes {
-  margin-top: 44px;
+  margin-top: 28px;
   display: flex;
   gap: 32px;
 }
@@ -102,7 +102,7 @@
 }
 
 .access-status {
-  margin-top: 40px;
+  margin-top: 24px;
   display: flex;
   align-items: center;
   flex-wrap: wrap;
@@ -175,4 +175,133 @@
   margin-top: 10px;
   font-size: calc(30px * var(--font-scale));
   font-weight: 700;
+}
+
+.access-playlist {
+  margin-top: 14px;
+  display: flex;
+  align-items: baseline;
+  font-size: calc(24px * var(--font-scale));
+}
+
+.access-playlist-label {
+  flex-shrink: 0;
+  margin-right: 12px;
+  color: var(--text-secondary);
+}
+
+.access-playlist-name {
+  min-width: 0;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  font-weight: 600;
+}
+
+/* Refresh: the icon turns for as long as the check is in flight. */
+.access-button.is-refreshing .access-refresh-icon {
+  animation: access-spin .8s linear infinite;
+}
+
+@keyframes access-spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+/* Sign in on the TV */
+.access-login {
+  margin-top: 30px;
+  padding-top: 24px;
+  border-top: 1px solid var(--border);
+}
+
+.access-login-title {
+  font-size: calc(26px * var(--font-scale));
+  font-weight: 600;
+}
+
+.access-login-actions {
+  margin-top: 16px;
+  display: flex;
+}
+
+.access-login-actions > * + * {
+  margin-left: 16px;
+}
+
+.access-form {
+  margin-top: 14px;
+  max-width: 760px;
+}
+
+.access-field {
+  margin-top: 10px;
+  display: flex;
+  align-items: center;
+}
+
+.access-field > span {
+  flex-shrink: 0;
+  width: 280px;
+  font-size: calc(20px * var(--font-scale));
+  color: var(--text-secondary);
+}
+
+.access-input {
+  flex: 1;
+  min-width: 0;
+  height: 52px;
+  padding: 0 16px;
+  box-sizing: border-box;
+  border: 2px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  font-family: inherit;
+  font-size: calc(22px * var(--font-scale));
+}
+
+.access-input.focused,
+.access-input:focus {
+  border-color: var(--accent);
+  outline: none;
+}
+
+.access-locked-server {
+  margin-top: 10px;
+  font-size: calc(20px * var(--font-scale));
+  color: var(--text-secondary);
+}
+
+.access-form-actions {
+  margin-top: 16px;
+  display: flex;
+}
+
+.access-form-actions > * + * {
+  margin-left: 16px;
+}
+
+.access-button--primary {
+  background: var(--accent);
+  color: var(--bg-primary);
+  font-weight: 700;
+}
+
+.access-notice {
+  margin-top: 14px;
+  font-size: calc(21px * var(--font-scale));
+  line-height: 1.35;
+}
+
+.access-notice--error {
+  color: var(--danger);
+}
+
+.access-notice--info {
+  color: var(--text-secondary);
+}
+
+.access-notice--success {
+  color: var(--success);
 }

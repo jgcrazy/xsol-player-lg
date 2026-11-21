@@ -214,6 +214,50 @@ describe('ActivationService.refresh', () => {
     expect(ActivationService.snapshot.errorCode).toBe('credential_revoked');
   });
 
+  it('names the linked playlist as it was saved on the portal', async () => {
+    checkReply.data = active({
+      domain: XTREAM, has_playlist: true,
+      web_playlists: [
+        { id: 1, name: 'N1', m3u_url: 'http://host/other.m3u' },
+        { id: 2, name: 'N2', m3u_url: XTREAM },
+      ],
+    });
+
+    await ActivationService.refresh();
+
+    expect(ActivationService.snapshot.playlistName).toBe('N2');
+  });
+
+  it('falls back to the account, then the server, for the playlist name', async () => {
+    checkReply.data = active({ domain: XTREAM, has_playlist: true });
+    await ActivationService.refresh();
+    expect(ActivationService.snapshot.playlistName).toBe('u1');
+
+    checkReply.data = active({ domain: 'http://host:8080/a/b.m3u', has_playlist: true });
+    await ActivationService.refresh();
+    expect(ActivationService.snapshot.playlistName).toBe('host:8080');
+  });
+
+  it('has no name while the panel withholds the playlist, but still reports one linked', async () => {
+    checkReply.data = active({ domain: '', has_playlist: true });
+
+    await ActivationService.refresh();
+
+    expect(ActivationService.snapshot.playlistName).toBe('');
+    expect(ActivationService.snapshot.hasPlaylist).toBe(true);
+  });
+
+  it('does not take a server-only address for a playlist', async () => {
+    // What a redeemed code leaves on the panel until the user signs in with an account.
+    checkReply.data = active({ domain: 'http://host:8080', has_playlist: true });
+
+    expect(await ActivationService.refresh()).toBe(false);
+
+    expect(StorageService.getPlaylists()).toEqual([]);
+    expect(ActivationService.snapshot.hasPlaylist).toBe(false);
+    expect(ActivationService.snapshot.playlistName).toBe('');
+  });
+
   it('notifies subscribers and stops after unsubscribe', async () => {
     const seen: string[] = [];
     const stop = ActivationService.subscribe(snapshot => seen.push(snapshot.status));

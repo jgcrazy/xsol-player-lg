@@ -30,6 +30,8 @@ export interface ActivationSnapshot {
   lifetime: boolean;
   /** True when the panel holds a playlist for this device. */
   hasPlaylist: boolean;
+  /** Name of the playlist the panel has linked, '' when none or not disclosed. */
+  playlistName: string;
   /** Panel code behind 'refused'. */
   errorCode: string;
 }
@@ -44,6 +46,7 @@ let current: ActivationSnapshot = {
   trial: false,
   lifetime: false,
   hasPlaylist: false,
+  playlistName: '',
   errorCode: '',
 };
 const listeners: Listener[] = [];
@@ -56,6 +59,29 @@ function publish(next: ActivationSnapshot): void {
 
 function text(value: unknown): string {
   return typeof value === 'string' ? value.trim() : '';
+}
+
+// `http://host:port` with nothing after it: a server, not yet a playlist. A code
+// that only names the provider's server leaves exactly this on the panel until
+// the user signs in with an account.
+export function isServerOnlyUrl(url: string): boolean {
+  return /^https?:\/\/[^/?#]+\/?$/i.test(url.trim());
+}
+
+// What to call the linked playlist on screen: the name it was saved under on the
+// portal, else the account, else the server.
+function playlistNameFrom(data: PanelData, domain: string): string {
+  const saved = data.web_playlists;
+  if (Array.isArray(saved)) {
+    for (let i = 0; i < saved.length; i++) {
+      const item = saved[i] as { name?: unknown; m3u_url?: unknown } | null;
+      if (item && text(item.m3u_url) === domain && text(item.name)) return text(item.name);
+    }
+  }
+  const entry = playlistFromDomain(domain, '');
+  if (!entry) return '';
+  if (entry.xtream) return entry.xtream.username;
+  return entry.url.replace(/^https?:\/\//i, '').split(/[/?#]/)[0];
 }
 
 /**
@@ -122,6 +148,8 @@ function applyPanelPlaylist(data: PanelData): boolean {
     return false;
   }
 
+  if (isServerOnlyUrl(domain)) return false;
+
   const existing = index === -1 ? null : playlists[index];
   const next = playlistFromDomain(domain, existing?.name || CONFIG.APP_NAME);
   if (!next) return false;
@@ -164,6 +192,7 @@ async function check(): Promise<boolean> {
     }
     const changed = applyPanelPlaylist(data);
     const expiry = data.expiry_date;
+    const domain = text(data.domain);
     publish({
       status: statusFrom(data),
       deviceId: identity.deviceId,
@@ -171,7 +200,8 @@ async function check(): Promise<boolean> {
       expiryDate: typeof expiry === 'string' ? expiry : '',
       trial: data.trial === true,
       lifetime: data.lifetime === true,
-      hasPlaylist: data.has_playlist === true,
+      hasPlaylist: data.has_playlist === true && !isServerOnlyUrl(domain),
+      playlistName: domain && !isServerOnlyUrl(domain) ? playlistNameFrom(data, domain) : '',
       errorCode: '',
     });
     return changed;
@@ -221,7 +251,7 @@ export const ActivationService = {
     listeners.length = 0;
     current = {
       status: 'connecting', deviceId: '', manageKey: '', expiryDate: '',
-      trial: false, lifetime: false, hasPlaylist: false, errorCode: '',
+      trial: false, lifetime: false, hasPlaylist: false, playlistName: '', errorCode: '',
     };
   },
 };

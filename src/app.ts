@@ -71,6 +71,7 @@ class App {
   private settings!: Settings;
   private access!: Access;
   private home!: Home;
+  private returnToAccess = false;
   private sidebar!: Sidebar;
   private menu!: PlayerMenu;
   private reminderPrompt = new ReminderPrompt();
@@ -175,7 +176,11 @@ class App {
     );
 
     this.access = new Access(this.views.access, {
-      onPlaylistChanged: () => { void this.onSettingsSaved('reload'); },
+      // Stay on Access through the reload: the user is watching it for the result.
+      onPlaylistChanged: () => {
+        this.returnToAccess = true;
+        void this.onSettingsSaved('reload');
+      },
       onBack: () => this.leaveToStart(),
       onRevealTabBar: () => {
         if (!this.tabBar.shown) return false;
@@ -834,6 +839,7 @@ class App {
         this.channelList.render();
         // First run: the Access screen carries the MAC, key and portal QR code the
         // customer needs, and picks the playlist up as soon as the portal has one.
+        this.returnToAccess = false;
         this.showView('access');
         this.access.open();
         return;
@@ -876,8 +882,15 @@ class App {
       this.tabBar.setAccounts(xtreamAccounts, this.activeXtreamAccount()?.id ?? '');
 
       this.channelList.render();
-      if (StorageService.getStartView() === 'home') this.showHome();
-      else this.showView('channels');
+      if (this.returnToAccess) {
+        this.returnToAccess = false;
+        this.showView('access');
+        this.access.open();
+      } else if (StorageService.getStartView() === 'home') {
+        this.showHome();
+      } else {
+        this.showView('channels');
+      }
 
       showToast(tp('app.channelsLoaded', PlaylistService.channels.length));
       // The home footer and the Access screen both read the panel's answer.
@@ -934,6 +947,8 @@ class App {
       this.settings.render();
       showToast(t('app.loadFailed'));
     } finally {
+      // A failed load lands on Settings; a later load must not jump back to Access.
+      this.returnToAccess = false;
       hide(this.views.loading);
       done();
     }
