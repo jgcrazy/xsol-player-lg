@@ -166,7 +166,8 @@
   padding: 8px 16px;
 }
 
-#view-channels.has-live-preview .channel-main::-webkit-scrollbar {
+#view-channels.has-live-preview .channel-main::-webkit-scrollbar,
+#view-channels.has-idle-preview .channel-main::-webkit-scrollbar {
   width: 0;
 }
 
@@ -184,7 +185,8 @@
   transition: opacity 140ms ease;
 }
 
-#view-channels.has-live-preview .channel-scroll-indicator {
+#view-channels.has-live-preview .channel-scroll-indicator,
+#view-channels.has-idle-preview .channel-scroll-indicator {
   display: block;
 }
 

@@ -135,6 +135,8 @@ export const EN_MESSAGES = {
   'preview.unmute': 'Unmute',
   'preview.timeLeft': '{minutes} min left',
   'preview.noUpcoming': 'No upcoming programs',
+  'preview.idleTitle': 'Live preview',
+  'preview.idleHint': 'Select a channel to watch it here',
   'preview.sourceUnavailable': 'Source unavailable',
   'player.playing': 'Now playing: {name}',
   'player.guide': 'Program Guide',

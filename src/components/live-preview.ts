@@ -31,6 +31,8 @@ import { showToast } from './toast';
 type PreviewHostView = 'channels' | 'player' | string;
 
 export interface LivePreviewOptions {
+  /** Placeholder column shown while Live preview is on and nothing is playing. */
+  idleContainer?: HTMLElement | null;
   channelView: HTMLElement;
   player: Player;
   channelList: ChannelList;
@@ -58,6 +60,7 @@ export class LivePreview {
   private channelSet: Channel[] | null = null;
   private channelKey = '';
   private channelAvailable = true;
+  private managingList = false;
 
   constructor(
     private readonly container: HTMLElement,
@@ -209,7 +212,46 @@ export class LivePreview {
     return true;
   }
 
+  /** The list editor needs the full width; the idle column steps aside while it is open. */
+  setManagingList(managing: boolean): void {
+    if (this.managingList === managing) return;
+    this.managingList = managing;
+    this.syncIdle();
+  }
+
+  // With Live preview on, the third column is part of the layout from the start:
+  // until a channel is playing it holds a placeholder instead of leaving the list
+  // to reflow the moment one is picked. A separate element, so the real panel's
+  // visibility keeps meaning "something is playing here".
+  private syncIdle(): void {
+    const idle = this.options.idleContainer;
+    if (!idle) return;
+    const shouldIdle = this.options.getCurrentView() === 'channels'
+      && StorageService.getLivePreview()
+      && !this.isShowing
+      && !this.managingList;
+    this.options.channelView.classList.toggle('has-idle-preview', shouldIdle);
+    if (!shouldIdle) {
+      hide(idle);
+      return;
+    }
+    morph(idle, html`
+      <div class="live-preview-heading" data-key="idle-heading">
+        <span class="live-preview-channel">${t('preview.idleTitle')}</span>
+      </div>
+      <div class="live-preview-idle-slot" data-key="idle-slot">
+        <p class="live-preview-idle-hint">${t('preview.idleHint')}</p>
+      </div>
+    `);
+    show(idle);
+  }
+
   refresh(): void {
+    this.refreshPanel();
+    this.syncIdle();
+  }
+
+  private refreshPanel(): void {
     const { channelView, player } = this.options;
     const currentView = this.options.getCurrentView();
     const state = player.getLivePlaybackSnapshot();

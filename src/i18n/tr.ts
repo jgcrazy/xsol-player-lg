@@ -130,6 +130,8 @@ export const TR_MESSAGES = {
   'preview.unmute': 'Sesi aç',
   'preview.timeLeft': '{minutes} dk kaldı',
   'preview.noUpcoming': 'Sırada program yok',
+  'preview.idleTitle': 'Canlı ön izleme',
+  'preview.idleHint': 'Burada izlemek için bir kanal seçin',
   'preview.sourceUnavailable': 'Kaynak kullanılamıyor',
   'player.playing': 'Şimdi oynatılıyor: {name}',
   'player.guide': 'TV Rehberi',

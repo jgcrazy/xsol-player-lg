@@ -28,6 +28,7 @@ interface ChannelListEditorOptions {
   render: () => void;
   moveListFocus: (delta: number) => boolean;
   onEnterManagement: () => void;
+  onLeaveManagement: () => void;
   onChannelsChanged: () => void;
   onEpgMappingChanged: () => void;
   onEpgOffsetChanged: () => void;
@@ -272,6 +273,7 @@ export class ChannelListEditor {
       PlaylistService.setIncludeHidden(false);
       this.options.onChannelsChanged();
     }
+    this.options.onLeaveManagement();
     this.options.render();
   }
 

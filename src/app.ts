@@ -124,7 +124,11 @@ class App {
         onEnterPreview: () => this.livePreview?.focusControls() ?? false,
         onListFocus: () => this.livePreview?.leaveControls(false),
         getPreviewHintState: () => this.livePreview?.hintState() ?? 'off',
-        onEnterManagement: () => this.livePreview?.close(),
+        onEnterManagement: () => {
+          this.livePreview?.close();
+          this.livePreview?.setManagingList(true);
+        },
+        onLeaveManagement: () => this.livePreview?.setManagingList(false),
       },
     );
     this.player = new Player(this.views.player, () => {
@@ -163,6 +167,7 @@ class App {
 
     this.player.init($('#video-player') as HTMLVideoElement);
     this.livePreview = new LivePreview($('#live-preview')!, {
+      idleContainer: $('#live-preview-idle'),
       channelView: this.views.channels,
       player: this.player,
       channelList: this.channelList,

@@ -51,6 +51,7 @@ export interface ChannelListOptions {
   onListFocus?: () => void;
   getPreviewHintState?: () => PreviewHintState;
   onEnterManagement?: () => void;
+  onLeaveManagement?: () => void;
 }
 
 export class ChannelList {
@@ -108,6 +109,7 @@ export class ChannelList {
       onListFocus = () => {},
       getPreviewHintState = () => 'off',
       onEnterManagement = () => {},
+      onLeaveManagement = () => {},
     } = options;
     this.container = container;
     this.onChannelSelect = onChannelSelect;
@@ -125,6 +127,7 @@ export class ChannelList {
       render: () => this.render(),
       moveListFocus: (delta) => this.moveVirtualFocus(delta),
       onEnterManagement,
+      onLeaveManagement,
       onChannelsChanged: () => this.onChannelsChanged(),
       onEpgMappingChanged,
       onEpgOffsetChanged,

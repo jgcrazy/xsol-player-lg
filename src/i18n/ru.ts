@@ -136,6 +136,8 @@ export const RU_MESSAGES = {
   'preview.unmute': 'Включить звук',
   'preview.timeLeft': 'Осталось {minutes} мин',
   'preview.noUpcoming': 'Нет предстоящих программ',
+  'preview.idleTitle': 'Предпросмотр эфира',
+  'preview.idleHint': 'Выберите канал, чтобы смотреть его здесь',
   'preview.sourceUnavailable': 'Источник недоступен',
   'player.playing': 'Сейчас воспроизводится: {name}',
   'player.guide': 'Телепрограмма',

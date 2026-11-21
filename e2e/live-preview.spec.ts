@@ -857,3 +857,65 @@ test('reduced motion preserves geometry and continuity', async ({ page }) => {
   await expectPreviewGeometry(page);
   expect(await snapshot(page)).toEqual(before);
 });
+
+const IDLE = '#view-channels #live-preview-idle';
+
+test('the preview column is part of the layout before any channel is chosen', async ({ page }) => {
+  await setup(page);
+  await expect(page.locator(IDLE)).toBeVisible();
+  await expect(page.locator(PANEL)).toBeHidden();
+  await expect(page.locator(`${IDLE} .live-preview-idle-hint`)).not.toBeEmpty();
+
+  const columns = () => page.evaluate(() => {
+    const box = (selector: string) => document.querySelector(selector)!.getBoundingClientRect();
+    const visible = ['#live-preview', '#live-preview-idle']
+      .map(selector => box(selector)).filter(rect => rect.width > 0)[0];
+    return {
+      sidebarRight: box('.sidebar').right,
+      mainLeft: box('.channel-main').left,
+      mainRight: box('.channel-main').right,
+      columnLeft: visible.left,
+      columnRight: visible.right,
+    };
+  });
+  const idle = await columns();
+  expect(idle.sidebarRight).toBeLessThanOrEqual(idle.mainLeft);
+  expect(idle.mainRight).toBeLessThanOrEqual(idle.columnLeft);
+  expect(idle.columnRight).toBe(1920);
+
+  // Picking a channel swaps the placeholder for the real panel without moving the list.
+  await selectFirst(page);
+  await expect(page.locator(IDLE)).toBeHidden();
+  expect(await columns()).toEqual(idle);
+
+  await page.keyboard.press('Escape');
+  await expect(page.locator(PANEL)).toBeHidden();
+  await expect(page.locator(IDLE)).toBeVisible();
+  expect(await columns()).toEqual(idle);
+});
+
+test('no preview column is reserved while Live preview is off', async ({ page }) => {
+  await setup(page, { enabled: false });
+  await expect(page.locator(IDLE)).toBeHidden();
+  await expect(page.locator('#view-channels')).not.toHaveClass(/has-idle-preview/);
+  const mainRight = await page.locator('.channel-main').evaluate(el => el.getBoundingClientRect().right);
+  expect(mainRight).toBe(1920);
+});
+
+test('the idle preview column steps aside for the list editor and other views', async ({ page }) => {
+  await setup(page);
+  await expect(page.locator(IDLE)).toBeVisible();
+
+  const yellow = () => page.evaluate(
+    () => document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 405, bubbles: true })),
+  );
+  await yellow();
+  await expect(page.locator('.channel-view.editing')).toHaveCount(1);
+  await expect(page.locator(IDLE)).toBeHidden();
+  await page.keyboard.press('Escape');
+  await expect(page.locator('.channel-view.editing')).toHaveCount(0);
+  await expect(page.locator(IDLE)).toBeVisible();
+
+  await enterTab(page, 'settings');
+  await expect(page.locator(IDLE)).toBeHidden();
+});

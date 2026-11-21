@@ -136,6 +136,8 @@ export const UK_MESSAGES = {
   'preview.unmute': 'Увімкнути звук',
   'preview.timeLeft': 'Залишилося {minutes} хв',
   'preview.noUpcoming': 'Немає майбутніх програм',
+  'preview.idleTitle': 'Попередній перегляд ефіру',
+  'preview.idleHint': 'Виберіть канал, щоб дивитися його тут',
   'preview.sourceUnavailable': 'Джерело недоступне',
   'player.playing': 'Зараз відтворюється: {name}',
   'player.guide': 'Телепрограма',

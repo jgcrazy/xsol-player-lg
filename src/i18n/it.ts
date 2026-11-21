@@ -132,6 +132,8 @@ export const IT_MESSAGES = {
   'preview.unmute': 'Attiva audio',
   'preview.timeLeft': 'Tempo rimanente: {minutes} min',
   'preview.noUpcoming': 'Nessun programma in arrivo',
+  'preview.idleTitle': 'Anteprima live',
+  'preview.idleHint': 'Seleziona un canale per guardarlo qui',
   'preview.sourceUnavailable': 'Sorgente non disponibile',
   'player.playing': 'In riproduzione: {name}',
   'player.guide': 'Guida TV',

@@ -136,6 +136,8 @@ export const PL_MESSAGES = {
   'preview.unmute': 'Włącz dźwięk',
   'preview.timeLeft': 'Pozostało {minutes} min',
   'preview.noUpcoming': 'Brak kolejnych programów',
+  'preview.idleTitle': 'Podgląd na żywo',
+  'preview.idleHint': 'Wybierz kanał, aby oglądać go tutaj',
   'preview.sourceUnavailable': 'Źródło niedostępne',
   'player.playing': 'Teraz odtwarzane: {name}',
   'player.guide': 'Program TV',

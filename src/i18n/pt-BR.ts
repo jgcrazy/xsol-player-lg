@@ -132,6 +132,8 @@ export const PT_BR_MESSAGES = {
   'preview.unmute': 'Ativar som',
   'preview.timeLeft': 'Tempo restante: {minutes} min',
   'preview.noUpcoming': 'Nenhum programa a seguir',
+  'preview.idleTitle': 'Prévia ao vivo',
+  'preview.idleHint': 'Selecione um canal para assistir aqui',
   'preview.sourceUnavailable': 'Fonte indisponível',
   'player.playing': 'Reproduzindo agora: {name}',
   'player.guide': 'Guia de programação',
