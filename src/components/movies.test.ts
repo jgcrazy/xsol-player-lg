@@ -444,7 +444,7 @@ describe('Movies browse', () => {
 
     expect(container.querySelectorAll('.catalog-cat').length).toBeLessThan(80);
     expect(container.querySelectorAll('.catalog-tile').length).toBeLessThan(60);
-    expect(container.querySelector<HTMLElement>('.catalog-cats-track')!.style.height).toBe(`${50_002 * 42}px`);
+    expect(container.querySelector<HTMLElement>('.catalog-cats-track')!.style.height).toBe(`${50_002 * 52}px`);
 
     // Walking down keeps rendering only a window, wherever it is.
     for (let i = 0; i < 40; i++) view.handleAction('down');
