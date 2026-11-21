@@ -257,7 +257,8 @@ class App {
 
     this.movies = new Movies(this.views.movies, {
       onRevealTabBar: () => this.tabBar.focus(),
-      onBack: () => this.goLive(),
+      // The side column's "Home" pill and the remote's Back both lead out.
+      onBack: () => this.leaveToStart(),
       onPlayVod: (req) => {
         this.showView('player');
         this.player.playVod({
@@ -271,7 +272,8 @@ class App {
     });
     this.series = new Series(this.views.series, {
       onRevealTabBar: () => this.tabBar.focus(),
-      onBack: () => this.goLive(),
+      // The side column's "Home" pill and the remote's Back both lead out.
+      onBack: () => this.leaveToStart(),
       onPlayVod: (req) => {
         this.showView('player');
         this.player.playVod({

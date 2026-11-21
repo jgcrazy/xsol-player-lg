@@ -295,8 +295,21 @@ describe('XtreamClient VOD', () => {
     );
     expect(items).toEqual([{
       accountId: 'acc1', streamId: '10', name: 'Movie One', poster: 'http://host/a.png',
-      rating: '7.5', categoryId: '1', containerExtension: 'mp4',
+      rating: '7.5', categoryId: '1', containerExtension: 'mp4', year: 0, addedAt: 0,
     }]);
+  });
+
+  it('reads the year and the added date a VOD list carries, in whatever form', async () => {
+    fetchTextMock.mockResolvedValue(JSON.stringify([
+      { stream_id: 1, name: 'Alpha (2017)', added: '1700000000' },
+      { stream_id: 2, name: 'Bravo', year: '2019', added: 1700000001 },
+      { stream_id: 3, name: 'Charlie', releaseDate: '2021-05-04' },
+      { stream_id: 4, name: 'Delta (1080p)', added: '' },
+    ]));
+    const items = await createXtreamClient(creds, 'acc1').getVodStreams();
+    expect(items.map((item) => [item.year, item.addedAt])).toEqual([
+      [2017, 1700000000000], [2019, 1700000001000], [2021, 0], [0, 0],
+    ]);
   });
 
   it('getVodStreams with no category omits the category_id param', async () => {
@@ -452,8 +465,17 @@ describe('XtreamClient Series', () => {
     );
     expect(items).toEqual([{
       accountId: 'acc1', seriesId: '7', name: 'Series One', poster: 'http://host/c.png',
-      rating: '8', categoryId: '2',
+      rating: '8', categoryId: '2', year: 0, addedAt: 0,
     }]);
+  });
+
+  it('reads the year and the last change a series list carries', async () => {
+    fetchTextMock.mockResolvedValue(JSON.stringify([
+      { series_id: 1, name: 'Alpha', releaseDate: '2018-01-02', last_modified: '1700000000' },
+      { series_id: 2, name: 'Bravo (2020)' },
+    ]));
+    const items = await createXtreamClient(creds, 'acc1').getSeries();
+    expect(items.map((item) => [item.year, item.addedAt])).toEqual([[2018, 1700000000000], [2020, 0]]);
   });
 
   it('parses series info into sorted seasons + episodesBySeason', async () => {

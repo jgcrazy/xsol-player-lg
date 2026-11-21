@@ -230,6 +230,20 @@ function parseServerOffset(server: Record<string, unknown>): number | null {
 
 /** A per-account handle over the Xtream `player_api.php` JSON endpoint. Flat
  *  composition (no inheritance); catalog methods grow on the same factory. */
+// The catalog lists rarely name the year outright: take a year field, a release
+// date, or the "(2017)" providers append to the title.
+function listYear(row: Record<string, unknown>): number {
+  const direct = toStr(row.year) || toStr(row.releaseDate) || toStr(row.releasedate) || toStr(row.release_date);
+  const match = direct.match(/(?:19|20)\d{2}/) || toStr(row.name).match(/\(((?:19|20)\d{2})\)\s*$/);
+  if (!match) return 0;
+  return Number(match[1] || match[0]) || 0;
+}
+
+function listAddedAt(value: unknown): number {
+  const seconds = Number(toStr(value));
+  return seconds > 0 ? seconds * 1000 : 0;
+}
+
 export function createXtreamClient(creds: XtreamCredentials, accountId = '') {
   return {
     /** Account status, or null when the panel is unreachable / returns non-JSON. */
@@ -382,6 +396,8 @@ export function createXtreamClient(creds: XtreamCredentials, accountId = '') {
           rating: toStr(s.rating),
           categoryId: toStr(s.category_id),
           containerExtension: toStr(s.container_extension),
+          year: listYear(s),
+          addedAt: listAddedAt(s.added),
         }))
         .filter((v) => v.streamId !== '');
     },
@@ -440,6 +456,8 @@ export function createXtreamClient(creds: XtreamCredentials, accountId = '') {
           poster: toStr(s.cover),
           rating: toStr(s.rating),
           categoryId: toStr(s.category_id),
+          year: listYear(s),
+          addedAt: listAddedAt(s.last_modified),
         }))
         .filter((s) => s.seriesId !== '');
     },

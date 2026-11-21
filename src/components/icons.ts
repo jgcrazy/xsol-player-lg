@@ -80,3 +80,6 @@ export const SERIES_ICON = `<svg ${NAV_SVG}><circle cx="8" cy="12" r="3.5"/><cir
 export const ACCESS_ICON = `<svg ${NAV_SVG}><circle cx="8" cy="15" r="4"/><path d="M11 12 20 3M16 7l3 3M13.5 9.5l2 2"/></svg>`;
 export const SETTINGS_ICON = `<svg ${NAV_SVG}><circle cx="12" cy="12" r="3.2"/><path d="M12 2.5l1.6 2.6 3-.6.9 2.9 2.9.9-.6 3 2.2 1.7-2.2 1.7.6 3-2.9.9-.9 2.9-3-.6L12 21.5l-1.6-2.6-3 .6-.9-2.9-2.9-.9.6-3L2 12l2.2-1.7-.6-3 2.9-.9.9-2.9 3 .6z"/></svg>`;
 export const ARROW_RIGHT_ICON = `<svg ${NAV_SVG}><path d="M5 12h14M13 6l6 6-6 6"/></svg>`;
+export const INFO_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v5M12 7.6v.2"/></svg>';
+export const FILTER_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M4 7h16M7 12h10M10 17h4"/></svg>';
+export const STAR_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m12 2.5 2.9 6.2 6.6.8-4.9 4.6 1.3 6.6L12 17.4l-5.9 3.3 1.3-6.6-4.9-4.6 6.6-.8z"/></svg>';

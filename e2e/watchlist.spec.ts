@@ -168,7 +168,8 @@ test('shows Resume on return and keeps three movie actions at a stable height', 
   await page.goto('/');
 
   await enterTab(page, 'movies');
-  await focusAndSelect(page, '#view-movies [data-watchlist-item="10"]');
+  await focusAndSelect(page, '#view-movies .catalog-cat[data-category-id="~favorites"]');
+  await focusAndSelect(page, '#view-movies .catalog-tile[data-item-id="10"]');
   await focusAndSelect(page, '#view-movies [data-action="play"]');
   await expect(page.locator('#view-player')).toBeVisible();
   await page.locator('#video-player').evaluate((video) => {
@@ -213,7 +214,8 @@ test('keeps three pseudo-localized movie actions on one row without clipping', a
   await page.goto('/?pseudo=1');
 
   await enterTab(page, 'movies');
-  await focusAndSelect(page, '#view-movies [data-watchlist-item="10"]');
+  await focusAndSelect(page, '#view-movies .catalog-cat[data-category-id="~favorites"]');
+  await focusAndSelect(page, '#view-movies .catalog-tile[data-item-id="10"]');
 
   const actions = page.locator('#view-movies .detail-btn');
   await expect(actions).toHaveCount(3);
@@ -242,7 +244,8 @@ test('auto-plays the next Watchlist movie and removes each completed movie', asy
   await page.goto('/');
 
   await enterTab(page, 'movies');
-  await focusAndSelect(page, '#view-movies [data-watchlist-item="10"]');
+  await focusAndSelect(page, '#view-movies .catalog-cat[data-category-id="~favorites"]');
+  await focusAndSelect(page, '#view-movies .catalog-tile[data-item-id="10"]');
   await focusAndSelect(page, '#view-movies [data-action="play"]');
   await expect(page.locator('#player-osd .osd-channel-name')).toHaveText('Movie One');
 

@@ -1,15 +1,16 @@
-import type { Action, PlaylistEntry, SeriesCategory, SeriesItem, SeriesInfo, Episode, ResumeEntry, ResumeKind, VodQueueItem, WatchlistEntry } from '../types';
+import type { Action, PlaylistEntry, SeriesCategory, SeriesItem, SeriesInfo, Episode, ResumeKind, VodQueueItem, WatchlistEntry } from '../types';
 import { html, raw, Safe } from '../utils/dom';
 import { morph } from '../utils/morph';
 import { StorageService } from '../services/storage-service';
-import { loadSeriesCategories, loadSeries, loadSeriesInfo } from '../services/xtream-catalog';
+import { loadAllSeries, loadSeriesCategories, loadSeries, loadSeriesInfo } from '../services/xtream-catalog';
 import { xtreamEpisodeUrl, type XtreamCredentials } from '../utils/xtream-url';
-import { CatalogView, type CatalogHandlers } from './catalog-view';
+import { CatalogView, type CatalogHandlers, type CatalogItemMeta } from './catalog-view';
 import { PLAY_ICON, watchlistIcon } from './icons';
 import { showToast } from './toast';
 import { t } from '../i18n';
 import { VirtualList } from '../utils/virtual-list';
 
+const RESUME_ID_PREFIX = 'resume:';
 const EPISODE_GAP = 16;
 const EPISODE_NO_PLOT_ESTIMATE = 138;
 const EPISODE_PLOT_ESTIMATE = 216;
@@ -18,15 +19,15 @@ const EPISODE_OVERSCAN = 5;
 // space left under the header.
 const EPISODE_VIEWPORT_FALLBACK = 984;
 
-// The Series section: browse (Continue rail of resumed episodes + per-category
-// rails + an "all categories" drill-in) → per-category poster grid → a detail
-// screen with a season selector over an episode list. The browse/grid/nav
-// machinery lives in CatalogView.
+// The Series section: the shared browse screen (categories, featured card,
+// poster grid) and a detail screen with a season selector over an episode
+// list. The browse and navigation machinery lives in CatalogView.
 export class Series extends CatalogView<SeriesCategory, SeriesItem> {
   protected get kicker(): string { return t('common.series'); }
   protected readonly resumeKind: ResumeKind = 'episode';
   protected get emptyMessage(): string { return t('catalog.noSeries'); }
   protected get gridEmptyMessage(): string { return t('catalog.noSeriesCategory'); }
+  protected get searchPlaceholder(): string { return t('catalog.searchSeries'); }
 
   private currentSeries: SeriesItem | null = null;
   private currentInfo: SeriesInfo | null = null;
@@ -59,6 +60,12 @@ export class Series extends CatalogView<SeriesCategory, SeriesItem> {
   ): Promise<SeriesItem[]> {
     return loadSeries(account, categoryId, signal);
   }
+  protected loadAllItems(account: PlaylistEntry, signal: AbortSignal): Promise<SeriesItem[]> {
+    return loadAllSeries(account, signal);
+  }
+  protected itemMeta(s: SeriesItem): CatalogItemMeta {
+    return { rating: s.rating, year: s.year ?? 0, addedAt: s.addedAt ?? 0 };
+  }
   protected itemId(s: SeriesItem): string { return s.seriesId; }
   protected itemName(s: SeriesItem): string { return s.name; }
   protected itemPoster(s: SeriesItem): string { return s.poster; }
@@ -73,28 +80,59 @@ export class Series extends CatalogView<SeriesCategory, SeriesItem> {
     this.detailController = null;
   }
 
-  protected continueRail(): Safe | '' {
-    return this.resume.length
-      ? this.rail(t('catalog.continueWatching'), this.resume.map((r) => this.resumeTile(r)))
-      : '';
+  // A resume entry names an episode, not its series, so "Continue watching"
+  // lists the episodes themselves under an id that cannot collide with a series.
+  protected continueItems(): SeriesItem[] {
+    return this.resume.map((r) => ({
+      accountId: r.accountId,
+      seriesId: RESUME_ID_PREFIX + r.itemId,
+      name: r.name,
+      poster: r.poster,
+      rating: '',
+      categoryId: '',
+    }));
   }
 
-  protected watchlistRail(): Safe | '' {
-    const entries = StorageService.getWatchlist(this.account!.id, 'series');
-    return entries.length
-      ? this.rail(t('common.watchlist'), entries.map((entry) => this.tile(this.watchlistEntryToSeries(entry))))
-      : '';
+  protected favoriteItems(): SeriesItem[] {
+    return StorageService.getWatchlist(this.account!.id, 'series')
+      .map((entry) => this.watchlistEntryToSeries(entry));
   }
 
-  protected fallbackItem(seriesId: string): SeriesItem | null {
-    const entry = StorageService.getWatchlist(this.account!.id, 'series')
-      .find((item) => item.itemId === seriesId);
-    return entry ? this.watchlistEntryToSeries(entry) : null;
+  protected isFavorite(series: SeriesItem): boolean {
+    return StorageService.isWatchlisted(this.account!.id, 'series', series.seriesId);
   }
 
-  protected heroFallback(): SeriesItem | null {
-    const entry = StorageService.getWatchlist(this.account!.id, 'series')[0];
-    return entry ? this.watchlistEntryToSeries(entry) : null;
+  protected toggleFavorite(series: SeriesItem): boolean {
+    if (series.seriesId.indexOf(RESUME_ID_PREFIX) === 0) return false;
+    const added = this.storeWatchlistToggle(series, series.poster, series.rating);
+    showToast(t(added ? 'catalog.watchlistAdded' : 'catalog.watchlistRemoved'));
+    return added;
+  }
+
+  // An episode in progress resumes; a series opens on its episodes.
+  protected playFeatured(series: SeriesItem): void {
+    this.openTile(series);
+  }
+
+  protected openTile(series: SeriesItem): void {
+    if (series.seriesId.indexOf(RESUME_ID_PREFIX) === 0) {
+      this.playResume(series.seriesId.slice(RESUME_ID_PREFIX.length));
+      return;
+    }
+    void this.openDetail(series);
+  }
+
+  private storeWatchlistToggle(series: SeriesItem, poster: string, rating: string): boolean {
+    return StorageService.toggleWatchlist({
+      accountId: this.account!.id,
+      kind: 'series',
+      itemId: series.seriesId,
+      name: series.name,
+      poster,
+      rating,
+      categoryId: series.categoryId,
+      addedAt: Date.now(),
+    });
   }
 
   private watchlistEntryToSeries(entry: WatchlistEntry): SeriesItem {
@@ -110,7 +148,6 @@ export class Series extends CatalogView<SeriesCategory, SeriesItem> {
 
   protected selectExtra(el: HTMLElement): boolean {
     if (el.dataset.action === 'watchlist') { this.toggleWatchlist(); return true; }
-    if (el.dataset.resumeEpisode !== undefined) { this.playResume(el.dataset.resumeEpisode); return true; }
     if (el.dataset.season !== undefined) { this.selectSeason(Number(el.dataset.season)); return true; }
     if (el.dataset.episodeId !== undefined) { this.playEpisode(el.dataset.episodeId); return true; }
     return false;
@@ -118,18 +155,12 @@ export class Series extends CatalogView<SeriesCategory, SeriesItem> {
 
   private toggleWatchlist(): void {
     const series = this.currentSeries;
-    const account = this.account;
-    if (!series || !account) return;
-    const added = StorageService.toggleWatchlist({
-      accountId: account.id,
-      kind: 'series',
-      itemId: series.seriesId,
-      name: series.name,
-      poster: this.currentInfo?.poster || series.poster,
-      rating: this.currentInfo?.rating || series.rating,
-      categoryId: series.categoryId,
-      addedAt: Date.now(),
-    });
+    if (!series || !this.account) return;
+    const added = this.storeWatchlistToggle(
+      series,
+      this.currentInfo?.poster || series.poster,
+      this.currentInfo?.rating || series.rating,
+    );
     showToast(t(added ? 'catalog.watchlistAdded' : 'catalog.watchlistRemoved'));
     this.renderDetail();
   }
@@ -246,15 +277,6 @@ export class Series extends CatalogView<SeriesCategory, SeriesItem> {
       episodeQueue: r.episodeQueue,
       watchlistOwner: r.watchlistOwner,
     });
-  }
-
-  private resumeTile(r: ResumeEntry): Safe {
-    return html`
-      <div class="catalog-tile" data-focusable data-key="r:${r.itemId}" data-resume-episode="${r.itemId}">
-        <div class="catalog-poster-wrap">${this.posterCell(r.name, r.poster)}</div>
-        <div class="catalog-tile-name">${r.name}</div>
-      </div>
-    `;
   }
 
   private episodeRow(accountId: string, ep: Episode): Safe {

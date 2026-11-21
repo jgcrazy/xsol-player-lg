@@ -5,7 +5,9 @@ import type { PlaylistEntry, WatchlistEntry, WatchlistKind } from '../types';
 const { catalogMock, storageMock, watchlistState, toastMock } = vi.hoisted(() => {
   const watchlistState = { entries: [] as WatchlistEntry[] };
   return {
-    catalogMock: { loadSeriesCategories: vi.fn(), loadSeries: vi.fn(), loadSeriesInfo: vi.fn() },
+    catalogMock: {
+      loadSeriesCategories: vi.fn(), loadSeries: vi.fn(), loadSeriesInfo: vi.fn(), loadAllSeries: vi.fn(),
+    },
     watchlistState,
     storageMock: {
       getResumeList: vi.fn(() => [] as unknown[]),
@@ -43,6 +45,8 @@ let container: HTMLElement;
 beforeEach(() => {
   Element.prototype.scrollIntoView = vi.fn();
   vi.clearAllMocks();
+  // The background whole-catalog request never answers unless a test says so.
+  catalogMock.loadAllSeries.mockReset().mockImplementation(() => new Promise(() => {}));
   // clearAllMocks clears calls but not implementations; re-establish defaults so a
   // prior test's mockReturnValue override doesn't leak (order-safety).
   storageMock.getResumeList.mockReturnValue([]);
@@ -61,122 +65,140 @@ async function openWith(cats = [{ id: '1', name: 'Cat A' }], items = [series('s1
   return { view, handlers };
 }
 
-describe('Series browse + grid', () => {
-  it('renders a rail per preloaded category with poster tiles', async () => {
-    await openWith([{ id: '1', name: 'Cat A' }], [series('s1', 'Series One')]);
-    expect(container.querySelector('.catalog-rail-title')?.textContent).toContain('Cat A');
-    expect(container.querySelector('.catalog-tile[data-item-id="s1"]')?.textContent).toContain('Series One');
+describe('Series browse', () => {
+  const names = () => Array.from(container.querySelectorAll('.catalog-grid .catalog-tile-name')).map((n) => n.textContent);
+  const row = (id: string) => container.querySelector<HTMLElement>(`.catalog-cat[data-category-id="${id}"]`)!;
+  const hover = (selector: string) => container.querySelector(selector)!
+    .dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
+  const flush = async () => { for (let i = 0; i < 6; i++) await Promise.resolve(); };
+
+  it('lists the categories at the side and the active one as a poster grid', async () => {
+    await openWith([{ id: '1', name: 'Cat A' }, { id: '2', name: 'Cat B' }], [series('s1', 'Series One')]);
+    expect(Array.from(container.querySelectorAll('.catalog-cat-name')).map((n) => n.textContent))
+      .toEqual(['Continue Watching', 'Favorites', 'Cat A', 'Cat B']);
+    expect(row('1').classList.contains('is-active')).toBe(true);
+    expect(names()).toEqual(['Series One']);
+    expect(container.querySelector('.catalog-feature-title')?.textContent).toBe('Series One');
+    expect(container.querySelector<HTMLInputElement>('.catalog-search-input')?.placeholder)
+      .toBe('Search series or categories…');
   });
 
-  it('updates the hero title and backdrop to the focused series', async () => {
-    const s1 = { accountId: 'x1', seriesId: 's1', name: 'Series One', poster: 'http://host/a1.jpg', rating: '', categoryId: '1' };
-    const s2 = { accountId: 'x1', seriesId: 's2', name: 'Series Two', poster: 'http://host/a2.jpg', rating: '', categoryId: '1' };
+  it('follows the focused poster with the featured card', async () => {
+    const s1 = { ...series('s1', 'Series One'), poster: 'http://host/a1.jpg', rating: '8.44', year: 2019 };
+    const s2 = { ...series('s2', 'Series Two'), poster: 'http://host/a2.jpg' };
     await openWith([{ id: '1', name: 'Cat A' }], [s1, s2]);
-    const hero = container.querySelector<HTMLElement>('.catalog-hero')!;
-    const title = () => container.querySelector('.catalog-hero-title')?.textContent;
+    expect(container.querySelector('.catalog-feature-rating')?.textContent).toBe('8.4');
+    expect(container.querySelector('.catalog-feature-year')?.textContent).toBe('2019');
 
-    container.querySelector('.catalog-tile[data-item-id="s2"]')!
-      .dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
-    expect(title()).toBe('Series Two');
-    expect(hero.style.backgroundImage).toContain('a2.jpg');
+    hover('.catalog-tile[data-item-id="s2"]');
 
-    container.querySelector('.catalog-tile[data-item-id="s1"]')!
-      .dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
-    expect(title()).toBe('Series One');
-    expect(hero.style.backgroundImage).toContain('a1.jpg');
+    expect(container.querySelector('.catalog-feature-title')?.textContent).toBe('Series Two');
+    expect(container.querySelector<HTMLImageElement>('.catalog-feature-poster img')?.src).toContain('a2.jpg');
   });
 
-  it('shows a Continue rail from the episode resume list and resumes an episode directly', async () => {
+  it('opens on Continue watching with the episodes in progress, and resumes one directly', async () => {
     storageMock.getResumeList.mockReturnValue([
       { accountId: 'x1', kind: 'episode', itemId: 'e1', name: 'Series One — S1E1 — Episode One', poster: '', ext: 'mkv', position: 300, duration: 1500, updatedAt: 1 },
+      { accountId: 'x1', kind: 'vod', itemId: '9', name: 'A movie', poster: '', ext: 'mp4', position: 1, duration: 2, updatedAt: 2 },
     ]);
     const { view, handlers } = await openWith();
-    expect(container.textContent).toContain('Continue Watching');
-    const tile = container.querySelector('.catalog-tile[data-resume-episode="e1"]') as HTMLElement;
-    expect(tile).not.toBeNull();
-    tile.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
+    expect(row('~continue').classList.contains('is-active')).toBe(true);
+    expect(names()).toEqual(['Series One — S1E1 — Episode One']);
+
     view.handleAction('select');
+
     expect(handlers.onPlayVod).toHaveBeenCalledWith(expect.objectContaining({
       itemId: 'e1', accountId: 'x1', kind: 'episode', resumeSecs: 300,
       url: 'http://host:8080/series/u/p/e1.mkv',
     }));
+    // Watch on the card does the same; an episode cannot be favorited as a series.
+    handlers.onPlayVod.mockClear();
+    hover('[data-catalog-action="watch"]');
+    view.handleAction('select');
+    expect(handlers.onPlayVod).toHaveBeenCalledWith(expect.objectContaining({ itemId: 'e1', resumeSecs: 300 }));
+    hover('[data-catalog-action="favorite"]');
+    view.handleAction('select');
+    expect(storageMock.toggleWatchlist).not.toHaveBeenCalled();
   });
 
-  it('shows a Watchlist rail from stored series snapshots', async () => {
+  it('lists Favorites from stored series snapshots and opens one', async () => {
     watchlistState.entries = [{
-      accountId: 'x1', kind: 'series', itemId: 's9', name: 'Saved Series',
-      poster: '', rating: '', categoryId: '9', addedAt: 2,
+      accountId: 'x1', kind: 'series', itemId: 's9', name: 'Saved Series', poster: '',
+      rating: '8', categoryId: '7', addedAt: 2,
     }];
     catalogMock.loadSeriesInfo.mockResolvedValue({ seasons: [], episodesBySeason: {} });
     const { view } = await openWith();
-    expect(container.textContent).toContain('Watchlist');
-    const tile = container.querySelector('.catalog-tile[data-item-id="s9"]') as HTMLElement;
-    expect(tile.textContent).toContain('Saved Series');
-    tile.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
+    expect(row('~favorites').querySelector('.catalog-cat-count')?.textContent).toBe('1');
+
+    hover('.catalog-cat[data-category-id="~favorites"]');
     view.handleAction('select');
-    await Promise.resolve(); await Promise.resolve();
+    expect(names()).toEqual(['Saved Series']);
+    hover('.catalog-tile[data-item-id="s9"]');
+    view.handleAction('select');
+    await flush();
     expect(container.querySelector('.series-detail')?.textContent).toContain('Saved Series');
   });
 
-  it('reveals the tab bar when Up cannot move within the view', async () => {
-    const { view, handlers } = await openWith();
-    view.handleAction('up');
-    expect(handlers.onRevealTabBar).toHaveBeenCalled();
-  });
-
-  it('drills into a non-rail category grid and back to browse', async () => {
-    // 7 categories: the first RAIL_CATEGORIES (6) become poster rails; the 7th
-    // is a non-rail tile in the "All Categories" rail — the drill-in target.
-    const cats = Array.from({ length: 7 }, (_, i) => ({ id: String(i + 1), name: `Cat ${i + 1}` }));
-    const { view, handlers } = await openWith(cats, [series('s1', 'Series One')]);
-    const cat = container.querySelector('.catalog-cat[data-category-id="7"]') as HTMLElement;
-    expect(cat).not.toBeNull();
-    cat.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
-    catalogMock.loadSeries.mockResolvedValue([series('s2', 'Series Two', '7')]);
+  it('favorites the featured series from the card', async () => {
+    const { view } = await openWith();
+    hover('[data-catalog-action="favorite"]');
     view.handleAction('select');
-    await Promise.resolve(); await Promise.resolve();
-    expect(container.querySelector('.catalog-grid')).not.toBeNull();
-    expect(container.querySelector('.catalog-tile[data-item-id="s2"]')).not.toBeNull();
-    view.handleAction('back');
-    expect(container.querySelector('.catalog-browse')).not.toBeNull();
-    expect(handlers.onBack).not.toHaveBeenCalled();
+    expect(storageMock.toggleWatchlist).toHaveBeenCalledWith(expect.objectContaining({
+      accountId: 'x1', kind: 'series', itemId: 's1', name: 'Series One',
+    }));
+    expect(container.querySelector('[data-catalog-action="favorite"]')?.textContent?.trim()).toBe('Favorited');
   });
 
-  it('opens a series detail on select and backs out to browse', async () => {
+  it('selecting another category loads and shows it', async () => {
+    const { view } = await openWith([{ id: '1', name: 'Cat A' }, { id: '2', name: 'Cat B' }]);
+    catalogMock.loadSeries.mockResolvedValue([series('s2', 'Series B', '2')]);
+    hover('.catalog-cat[data-category-id="2"]');
+    view.handleAction('select');
+    await flush();
+    expect(names()).toEqual(['Series B']);
+    expect(container.querySelector('.catalog-head-name')?.textContent).toBe('Cat B');
+  });
+
+  it('opens a series detail on select and from Watch, and backs out to browse', async () => {
     catalogMock.loadSeriesInfo.mockResolvedValue({ seasons: [], episodesBySeason: {} });
     const { view, handlers } = await openWith();
-    const tile = container.querySelector('.catalog-tile[data-item-id="s1"]') as HTMLElement;
-    tile.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
     view.handleAction('select');
-    await Promise.resolve(); await Promise.resolve();
+    await flush();
     expect(container.querySelector('.series-detail')).not.toBeNull();
     expect(container.textContent).toContain('Series One');
     view.handleAction('back');
     expect(container.querySelector('.catalog-browse')).not.toBeNull();
     expect(handlers.onBack).not.toHaveBeenCalled();
+
+    // A series has episodes to choose from, so Watch leads to them.
+    hover('[data-catalog-action="watch"]');
+    view.handleAction('select');
+    await flush();
+    expect(container.querySelector('.series-detail')).not.toBeNull();
+    expect(handlers.onPlayVod).not.toHaveBeenCalled();
   });
 
-  it('goes back to Live from the browse top level', async () => {
+  it('leaves from the browse top level', async () => {
     const { view, handlers } = await openWith();
     view.handleAction('back');
     expect(handlers.onBack).toHaveBeenCalled();
   });
 
-  it('refreshes the Continue rail from storage on each browse render', async () => {
+  it('counts Continue watching again after walking detail and back', async () => {
     catalogMock.loadSeriesInfo.mockResolvedValue({ seasons: [], episodesBySeason: {} });
     const { view } = await openWith();
-    expect(container.textContent).not.toContain('Continue Watching');
-    // An episode is watched, so a resume entry now exists; walking detail -> browse
-    // should surface it without re-entering the section.
+    expect(row('~continue').querySelector('.catalog-cat-count')?.textContent).toBe('0');
     storageMock.getResumeList.mockReturnValue([
       { accountId: 'x1', kind: 'episode', itemId: 'e1', name: 'Series One — S1E1', poster: '', ext: 'mp4', position: 300, duration: 1500, updatedAt: 1 },
     ]);
-    const tile = container.querySelector('.catalog-tile[data-item-id="s1"]') as HTMLElement;
-    tile.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
     view.handleAction('select');
-    await Promise.resolve(); await Promise.resolve();
-    view.handleAction('back'); // detail -> browse re-render
-    expect(container.textContent).toContain('Continue Watching');
+    await flush();
+    view.refreshPlaybackState(); // the player hands control back to the detail screen
+    view.handleAction('back');
+    expect(container.querySelector('.catalog-browse')).not.toBeNull();
+
+    view.refreshPlaybackState();
+    expect(row('~continue').querySelector('.catalog-cat-count')?.textContent).toBe('1');
   });
 });
 
@@ -362,7 +384,7 @@ describe('Series detail', () => {
       },
     ]);
     const { view, handlers } = await openWith();
-    const tile = container.querySelector('.catalog-tile[data-resume-episode="e1"]') as HTMLElement;
+    const tile = container.querySelector('.catalog-tile[data-item-id="resume:e1"]') as HTMLElement;
     tile.dispatchEvent(new CustomEvent('nav:hover', { bubbles: true }));
     view.handleAction('select');
     expect(handlers.onPlayVod).toHaveBeenCalledWith(expect.objectContaining({

@@ -139,7 +139,7 @@ const M3U_SCREENS: Screen[] = [
         // spec. Place the column where the animation would rest instead —
         // sampling the top of every pane would be steadier, but then nothing
         // below the fold is ever compared.
-        await p.evaluate((name) => {
+        const reachesTop = await p.evaluate((name) => {
           const scroll = document.querySelector('.settings-scroll') as HTMLElement;
           const target = document.querySelector(`#settings-${name}`)!;
           // The scroller sets `scroll-behavior: smooth`, so even assigning
@@ -147,11 +147,18 @@ const M3U_SCREENS: Screen[] = [
           // deletes the CSSOM reflection but cannot take the property away
           // from the real engine.
           scroll.style.setProperty('scroll-behavior', 'auto');
+          // The last panes are shorter than the viewport; give the column room
+          // so each one can be placed at the top, where both engines agree.
+          scroll.style.setProperty('padding-bottom', '1080px');
           scroll.scrollTop += target.getBoundingClientRect().top
             - scroll.getBoundingClientRect().top;
+          return Math.abs(target.getBoundingClientRect().top - scroll.getBoundingClientRect().top) < 2;
         }, pane);
-        await expect(p.locator(`.settings-nav-item.active[data-settings-target="${pane}"]`))
-          .toBeVisible();
+        // A pane near the end cannot reach the top of a page this short; the
+        // rail then marks whichever pane the bottom of the scroll belongs to.
+        await expect(p.locator(reachesTop
+          ? `.settings-nav-item.active[data-settings-target="${pane}"]`
+          : '.settings-nav-item.active')).toBeVisible();
       },
     }))),
   {
@@ -297,6 +304,8 @@ const M3U_SCREENS: Screen[] = [
       await p.locator('.tab-bar-search-input').fill('zzqqxx');
       await expect(p.locator('#view-search')).toBeVisible();
       await expect(p.locator('#view-search .catalog-tile')).toHaveCount(0);
+      // No tiles is also true while the search is still running: wait for its verdict.
+      await expect(p.locator('#view-search .search-empty')).toHaveText('No results found.');
     },
   },
   {
@@ -521,7 +530,7 @@ const XTREAM_SCREENS: Screen[] = [
       await expect(p.locator('.tab-bar-item[data-section="movies"]')).toBeVisible();
       await enterTab(p, 'movies');
       await expect(p.locator('#view-movies .catalog-tile').first()).toBeVisible();
-      await expect(p.locator('#view-movies .catalog-rail-title').first())
+      await expect(p.locator('#view-movies .catalog-head-name'))
         .toHaveText('Continue Watching');
     },
   },

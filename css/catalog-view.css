@@ -1,5 +1,6 @@
 /* Shared styles for the Xtream catalog sections (Movies, Series) and the
-   Search results: hero, horizontal rails, poster grid, and the detail screens. */
+   Search results: rails and tiles, the detail screens, and - at the end - the
+   browse screen (side column, featured card, poster grid). */
 .catalog-hint {
   margin: 0;
   font-size: 30px;
@@ -17,66 +18,9 @@
 .catalog-loading,
 .catalog-empty { display: flex; align-items: center; justify-content: center; height: 100%; }
 
-.catalog-browse { position: relative; padding: 0; overflow: hidden; }
-
-.catalog-hero {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background-size: cover;
-  background-position: center 28%;
-  background-color: var(--bg-primary);
-}
-.catalog-hero-scrim {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  background:
-    linear-gradient(90deg, rgb(var(--catalog-hero-scrim-rgb) / 0.95) 2%, rgb(var(--catalog-hero-scrim-rgb) / 0.5) 40%, transparent 72%),
-    linear-gradient(0deg, var(--bg-primary) 6%, transparent 52%);
-}
-.catalog-hero-body {
-  position: absolute;
-  left: 80px; top: 120px;
-  max-width: 960px;
-  z-index: 1;
-}
-.catalog-hero-kicker {
-  font-size: 22px; letter-spacing: 4px; font-weight: 700;
-  color: var(--accent); text-transform: uppercase;
-}
-.catalog-hero-title {
-  margin: 12px 0 0; font-size: 64px; font-weight: 800;
-  color: var(--text-primary); line-height: 1.05;
-}
-
-.catalog-rails {
-  position: absolute;
-  top: 0; left: 0; right: 0; bottom: 0;
-  overflow-y: auto;
-  z-index: 2;
-}
-.catalog-rails-spacer { height: 58%; }
-.catalog-rails-body {
-  min-height: 42%;
-  padding: 8px 80px 60px;
-  background: linear-gradient(180deg, transparent 0, rgb(var(--catalog-hero-scrim-rgb) / 0.85) 90px, var(--bg-primary) 240px);
-}
-
 .catalog-rail { margin-bottom: 28px; }
 .catalog-rail-title { margin: 0 0 12px; font-size: 30px; font-weight: 600; color: var(--text-primary); }
 .catalog-rail-track { display: flex; gap: 20px; overflow-x: auto; padding: 12px 12px 20px; margin: 0 -12px; }
-.catalog-category-rail { height: 152px; display: block; overflow-anchor: none; }
-.catalog-category-rail-spacer { position: relative; height: 120px; }
-.catalog-category-rail-cell {
-  position: absolute;
-  top: 0;
-  width: 300px;
-  height: 120px;
-}
-
-.catalog-grid-title { margin: 0 0 24px; font-size: 44px; font-weight: 700; color: var(--text-primary); }
-.catalog-grid-track { position: relative; width: 100%; }
-.catalog-grid-cell { position: absolute; width: 220px; height: 371px; }
-
 .catalog-tile { width: 220px; flex: 0 0 auto; cursor: pointer; }
 .catalog-poster-wrap {
   width: 220px; height: 330px;
@@ -89,8 +33,7 @@
   margin-top: 10px; font-size: 22px; color: var(--text-primary);
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
-.catalog-tile.focused,
-.catalog-cat.focused {
+.catalog-tile.focused {
   box-shadow: none;
   border-color: transparent !important;
 }
@@ -98,19 +41,6 @@
   outline: 3px solid var(--catalog-focus);
   outline-offset: 2px;
   box-shadow: 0 0 0 6px rgb(var(--catalog-focus-rgb) / 0.25), 0 10px 24px rgba(0, 0, 0, 0.6);
-}
-
-.catalog-cat {
-  width: 300px; height: 120px; flex: 0 0 auto;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 12px; background: var(--catalog-surface); border: 3px solid transparent;
-  font-size: 26px; color: var(--text-primary); text-align: center; padding: 0 16px;
-  box-sizing: border-box;
-}
-.catalog-cat.focused {
-  outline: 3px solid var(--catalog-focus);
-  outline-offset: 2px;
-  box-shadow: 0 0 0 6px rgb(var(--catalog-focus-rgb) / 0.25);
 }
 
 .movies-detail { display: flex; gap: 56px; }
@@ -183,3 +113,363 @@
   font-size: 24px; line-height: 1.4; color: var(--text-secondary);
   margin: 10px 0 0; max-height: 68px; overflow: hidden;
 }
+
+/* ---- Browse screen: side column | featured card + poster grid ---- */
+.catalog-browse {
+  display: flex;
+  gap: 28px;
+  padding: 26px 54px 0;
+  overflow: hidden;
+  font-family: "Manrope", "LG Smart UI", sans-serif;
+  background:
+    radial-gradient(900px 600px at 62% 70%, rgba(214, 150, 60, 0.13), transparent 70%),
+    radial-gradient(800px 620px at 8% 92%, rgba(110, 70, 140, 0.16), transparent 70%),
+    radial-gradient(700px 400px at 60% 10%, rgba(120, 80, 40, 0.08), transparent 70%),
+    #0d0b0a;
+}
+.catalog-browse > .catalog-empty { flex: 1; }
+.catalog-browse button,
+.catalog-browse input { font-family: inherit; }
+/* The app-wide focus ring and press scale do not belong on these controls. */
+.catalog-browse button:hover,
+.catalog-browse button.focused { transform: none; }
+.catalog-browse [data-focusable].focused { box-shadow: none; outline: none; }
+
+.catalog-side {
+  flex: 0 0 400px;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.catalog-side-pill {
+  flex: 0 0 auto;
+  height: 48px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 18px 0 12px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.02);
+  color: #d9d1c4;
+  cursor: pointer;
+}
+.catalog-home.focused,
+.catalog-home:hover { border-color: rgba(232, 182, 95, 0.4); }
+.catalog-home-chevron {
+  flex: 0 0 auto;
+  width: 28px; height: 28px;
+  box-sizing: border-box;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 50%;
+  color: #c9c0b3;
+}
+.catalog-home-chevron svg { width: 12px; height: 12px; fill: none; stroke: currentColor; stroke-width: 2.2; }
+.catalog-home-label {
+  flex: 1;
+  text-align: left;
+  font-family: "Newsreader", serif;
+  font-style: italic;
+  font-size: 16px;
+}
+.catalog-home-hint { font-size: 10px; font-weight: 700; letter-spacing: 3px; color: #6f675f; }
+
+.catalog-search { padding-left: 20px; cursor: text; }
+.catalog-search-icon { flex: 0 0 auto; width: 15px; height: 15px; display: flex; color: #8a8178; }
+.catalog-search-icon svg { width: 100%; height: 100%; }
+.catalog-search-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: #f2ece2;
+  font-family: "Newsreader", serif;
+  font-size: 15px;
+}
+.catalog-browse .catalog-search-input { font-family: "Newsreader", serif; }
+/* Two rules, not one list: Chromium 53 only knows the prefixed pseudo-element
+   and would drop a rule that names the standard one beside it. */
+.catalog-search-input::-webkit-input-placeholder { color: #6f675f; font-style: italic; }
+.catalog-search-input::placeholder { color: #6f675f; font-style: italic; }
+.catalog-search.has-focus { border-color: rgba(232, 182, 95, 0.4); }
+
+.catalog-cats {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  overflow-anchor: none;
+}
+.catalog-cats::-webkit-scrollbar,
+.catalog-grid::-webkit-scrollbar { display: none; }
+.catalog-cats-track { position: relative; width: 100%; }
+.catalog-cat-cell { position: absolute; left: 0; right: 0; height: 39px; }
+.catalog-cat {
+  width: 100%;
+  height: 39px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 0 14px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: #bdb4a7;
+  font-size: 12px;
+  font-weight: 500;
+  letter-spacing: 1px;
+  text-align: left;
+  cursor: pointer;
+}
+.catalog-cat-dot { flex: 0 0 auto; width: 4px; height: 4px; border-radius: 50%; background: #4a443e; }
+.catalog-cat-name { flex: 1; min-width: 0; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.catalog-cat-count { flex: 0 0 auto; font-family: "Newsreader", serif; font-size: 13px; letter-spacing: 0; color: #5a534c; }
+.catalog-cat:hover { background: rgba(255, 255, 255, 0.03); }
+.catalog-cat.focused { background: rgba(255, 255, 255, 0.03); border-color: rgba(232, 182, 95, 0.4); }
+.catalog-cat.is-active {
+  border-color: rgba(255, 255, 255, 0.18);
+  background: rgba(255, 255, 255, 0.05);
+  color: #ffffff;
+  font-weight: 700;
+}
+.catalog-cat.is-active.focused { border-color: rgba(232, 182, 95, 0.55); }
+.catalog-cat.is-active .catalog-cat-dot { background: #e8b65f; }
+.catalog-cat.is-active .catalog-cat-count { color: #bdb4a7; }
+
+.catalog-main {
+  flex: 1;
+  min-width: 0;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.catalog-feature-slot { flex: 0 0 380px; }
+.catalog-feature {
+  position: relative;
+  height: 380px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.07);
+  border-radius: 22px;
+  overflow: hidden;
+  background:
+    radial-gradient(700px 380px at 72% 30%, rgba(40, 80, 60, 0.35), transparent 70%),
+    linear-gradient(180deg, #0c100e 0%, #0a0b0a 70%, #1a140e 100%);
+  box-shadow: 0 30px 80px -20px rgba(214, 150, 60, 0.22);
+}
+.catalog-feature-head { position: absolute; top: 30px; left: 32px; right: 260px; }
+.catalog-feature-empty .catalog-feature-eyebrow { position: absolute; top: 30px; left: 32px; }
+.catalog-feature-eyebrow {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 4px;
+  text-transform: uppercase;
+  color: #e8b65f;
+}
+.catalog-dot { width: 5px; height: 5px; border-radius: 50%; background: #e8b65f; }
+.catalog-rule { width: 40px; height: 1px; background: rgba(232, 182, 95, 0.5); }
+.catalog-feature-title {
+  margin: 10px 0 0;
+  font-family: "Newsreader", serif;
+  font-weight: 300;
+  font-size: 50px;
+  line-height: 1.12;
+  letter-spacing: -1px;
+  color: #ffffff;
+  max-height: 112px;
+  overflow: hidden;
+}
+.catalog-feature-meta { margin-top: 10px; display: flex; align-items: center; gap: 8px; font-size: 12.5px; }
+.catalog-feature-rating { display: flex; align-items: center; gap: 3px; font-weight: 700; color: #e8b65f; }
+.catalog-feature-sep { color: #5a534c; }
+.catalog-feature-year { font-weight: 600; color: #bdb4a7; }
+.catalog-star { display: inline-flex; width: 0.9em; height: 0.9em; }
+.catalog-star svg { width: 100%; height: 100%; fill: currentColor; }
+
+.catalog-feature-actions { position: absolute; left: 32px; bottom: 26px; display: flex; gap: 12px; }
+.catalog-pill {
+  height: 44px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 20px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 999px;
+  background: transparent;
+  color: #efe7da;
+  font-size: 14px;
+  font-weight: 600;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.catalog-pill-icon { flex: 0 0 auto; width: 16px; height: 16px; display: flex; }
+.catalog-pill-icon svg { width: 100%; height: 100%; }
+.catalog-pill.focused,
+.catalog-pill:hover { border-color: rgba(232, 182, 95, 0.5); }
+.catalog-pill.focused { background: rgba(232, 182, 95, 0.1); }
+.catalog-pill.is-favorite { color: #e8b65f; border-color: rgba(232, 182, 95, 0.5); }
+.catalog-pill-primary {
+  border-color: transparent;
+  background: linear-gradient(180deg, #f0c374, #e0aa55);
+  color: #1b130a;
+  font-weight: 700;
+  box-shadow: 0 8px 30px -6px rgba(232, 182, 95, 0.6);
+}
+.catalog-pill-primary.focused {
+  border-color: #ffffff;
+  background: linear-gradient(180deg, #f6d08a, #e8b65f);
+}
+
+.catalog-feature-poster {
+  position: absolute;
+  top: 44px; right: 30px;
+  width: 190px; height: 286px;
+  border-radius: 12px;
+  overflow: hidden;
+  background: #17130f;
+  transform: rotate(1.5deg);
+  box-shadow: 0 20px 50px -10px rgba(0, 0, 0, 0.8);
+}
+.catalog-browse .catalog-poster { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; }
+.catalog-browse .catalog-poster-empty { display: none; }
+.catalog-poster-initial {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-family: "Newsreader", serif;
+  font-size: 72px;
+  color: #4a443e;
+}
+.catalog-badge {
+  position: absolute;
+  top: 10px; right: 10px;
+  display: flex; align-items: center; gap: 3px;
+  padding: 3px 7px;
+  border-radius: 5px;
+  background: rgba(10, 8, 6, 0.75);
+  color: #e8b65f;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.catalog-head { flex: 0 0 auto; margin-top: 26px; display: flex; align-items: center; gap: 18px; }
+.catalog-head-name {
+  margin: 0;
+  min-width: 0;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+  font-family: "Newsreader", serif;
+  font-style: italic;
+  font-weight: 300;
+  font-size: 28px;
+  color: #e3dbcf;
+}
+.catalog-head-count {
+  flex: 0 0 auto;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 3.5px;
+  text-transform: uppercase;
+  color: #6f675f;
+}
+.catalog-head-divider { flex: 0 0 auto; width: 1px; height: 20px; background: rgba(255, 255, 255, 0.1); }
+.catalog-head-new { flex: 0 0 auto; font-family: "Newsreader", serif; font-style: italic; font-size: 15px; color: #e8b65f; }
+.catalog-sort {
+  flex: 0 0 auto;
+  margin-left: auto;
+  height: 36px;
+  box-sizing: border-box;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 0 16px;
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 999px;
+  background: transparent;
+  color: #bdb4a7;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+.catalog-sort-icon { width: 14px; height: 14px; display: flex; }
+.catalog-sort-icon svg { width: 100%; height: 100%; }
+.catalog-sort.focused,
+.catalog-sort:hover { border-color: rgba(232, 182, 95, 0.5); color: #e8b65f; }
+
+.catalog-grid {
+  flex: 1;
+  min-height: 0;
+  margin-top: 14px;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overflow-anchor: none;
+}
+.catalog-browse .catalog-grid-track { position: relative; width: 100%; }
+.catalog-browse .catalog-grid-cell { position: absolute; width: 252px; height: 434px; }
+.catalog-grid-empty { margin-top: 40px; font-size: 22px; }
+.catalog-skeleton { display: flex; gap: 24px; }
+.catalog-skeleton-tile {
+  flex: 0 0 252px;
+  height: 378px;
+  margin-top: 24px;
+  border-radius: 12px;
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.catalog-browse .catalog-tile { width: 252px; cursor: pointer; }
+.catalog-tile-year { height: 16px; line-height: 16px; font-size: 12px; font-weight: 600; color: #8a8178; }
+.catalog-browse .catalog-poster-wrap {
+  position: relative;
+  width: 252px; height: 378px;
+  margin-top: 8px;
+  box-sizing: border-box;
+  border: 1px solid rgba(255, 255, 255, 0.06);
+  border-radius: 12px;
+  overflow: hidden;
+  background: #17130f;
+  box-shadow: 0 10px 30px -12px rgba(0, 0, 0, 0.6);
+  transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s;
+}
+.catalog-browse .catalog-tile-name {
+  margin-top: 8px;
+  height: 24px;
+  line-height: 24px;
+  font-family: "Newsreader", serif;
+  font-size: 17px;
+  color: #e3dbcf;
+  overflow: hidden; white-space: nowrap; text-overflow: ellipsis;
+}
+.catalog-tile-play {
+  position: absolute;
+  top: 50%; left: 50%;
+  width: 62px; height: 62px;
+  margin: -31px 0 0 -31px;
+  display: none;
+  align-items: center; justify-content: center;
+  border-radius: 50%;
+  background: rgba(232, 182, 95, 0.92);
+  color: #1b130a;
+  box-shadow: 0 8px 30px -4px rgba(232, 182, 95, 0.6);
+}
+.catalog-tile-play svg { width: 26px; height: 26px; }
+.catalog-browse .catalog-tile.focused .catalog-poster-wrap {
+  outline: none;
+  border-color: rgba(232, 182, 95, 0.7);
+  transform: scale(1.03);
+  box-shadow: 0 24px 60px -14px rgba(232, 182, 95, 0.45);
+}
+.catalog-browse .catalog-tile.focused .catalog-tile-name { color: #e8b65f; }
+.catalog-browse .catalog-tile.focused .catalog-tile-play { display: flex; }
+.catalog-pill .favorite-glyph.unset { fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linejoin: round; }
+.catalog-pill .favorite-glyph.set { fill: currentColor; }

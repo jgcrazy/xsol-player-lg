@@ -85,7 +85,7 @@ test('browse Movies, open a detail, and start playback', async ({ page }) => {
   await enterTab(page, 'movies');
   await expect(page.locator('#view-movies')).toBeVisible();
 
-  await expect(page.locator('#view-movies .catalog-rail-title')).toContainText('Cat A');
+  await expect(page.locator('#view-movies .catalog-head-name')).toContainText('Cat A');
   await expect(page.locator('.catalog-tile[data-item-id="10"]')).toContainText('Movie One');
 
   // Focus the poster and open its detail. Dispatch an explicit bubbling
@@ -290,4 +290,65 @@ test('a detail whose first control is hidden focuses the next visible one', asyn
   const focused = await page.evaluate(() =>
     document.querySelector('#view-movies .focused')?.getAttribute('data-key') ?? null);
   expect(focused).toBe('watchlist');
+});
+
+test('categories sit at the side, and the search finds movies in every category', async ({ page }) => {
+  await page.route('**/get.php*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/x-mpegurl', body: SAMPLE_M3U }));
+  await page.route('**/xmltv.php*', (route) =>
+    route.fulfill({ status: 200, contentType: 'application/xml', body: '<tv></tv>' }));
+  const movies = [
+    { stream_id: 10, name: 'Alpha (2017)', stream_icon: '', container_extension: 'mp4', category_id: '1', rating: '6.2' },
+    { stream_id: 20, name: 'Bravo', stream_icon: '', container_extension: 'mp4', category_id: '2' },
+    { stream_id: 21, name: 'Charlie', stream_icon: '', container_extension: 'mp4', category_id: '2' },
+  ];
+  await page.route('**/player_api.php*', (route) => {
+    const url = new URL(route.request().url());
+    const action = url.searchParams.get('action');
+    const category = url.searchParams.get('category_id');
+    let body: unknown = {};
+    if (action === 'get_vod_categories') {
+      body = [{ category_id: '1', category_name: 'Cat A' }, { category_id: '2', category_name: 'Cat B' }];
+    } else if (action === 'get_vod_streams') {
+      body = category ? movies.filter(movie => movie.category_id === category) : movies;
+    }
+    return route.fulfill({ status: 200, contentType: 'application/json', body: JSON.stringify(body) });
+  });
+  await page.addInitScript(() => {
+    localStorage.setItem('iptv_playlists', JSON.stringify([
+      { id: 'x1', name: 'X Account', url: 'http://host.example.com:8080',
+        source: 'xtream', xtream: { username: 'u', password: 'p' } },
+    ]));
+  });
+  await page.goto('/');
+  await enterTab(page, 'movies');
+
+  // The side column lists the app's two lists, then the provider's categories with their counts.
+  const side = page.locator('#view-movies .catalog-cat');
+  await expect(side.locator('.catalog-cat-name')).toHaveText(['Continue Watching', 'Favorites', 'Cat A', 'Cat B']);
+  await expect(side.locator('.catalog-cat-count')).toHaveText(['0', '0', '1', '2']);
+  const sideBox = (await page.locator('#view-movies .catalog-side').boundingBox())!;
+  const gridBox = (await page.locator('#view-movies .catalog-grid').boundingBox())!;
+  expect(sideBox.x + sideBox.width).toBeLessThanOrEqual(gridBox.x);
+
+  // The featured card shows the focused poster, with the year read from its title.
+  await expect(page.locator('#view-movies .catalog-feature-title')).toHaveText('Alpha (2017)');
+  await expect(page.locator('#view-movies .catalog-feature-year')).toHaveText('2017');
+  await expect(page.locator('#view-movies .catalog-feature-rating')).toHaveText('6.2');
+
+  // Picking a category swaps the grid.
+  await page.locator('#view-movies .catalog-cat[data-category-id="2"]').click();
+  await expect(page.locator('#view-movies .catalog-head-name')).toHaveText('Cat B');
+  await expect(page.locator('#view-movies .catalog-grid .catalog-tile-name')).toHaveText(['Bravo', 'Charlie']);
+
+  // The search looks in every category, not only the one on screen.
+  await page.locator('#view-movies .catalog-search-input').fill('alp');
+  await expect(page.locator('#view-movies .catalog-head-name')).toHaveText('Search results');
+  await expect(page.locator('#view-movies .catalog-grid .catalog-tile-name')).toHaveText(['Alpha (2017)']);
+
+  // Back clears the search first, and only then leaves Movies.
+  await page.locator('#view-movies .catalog-search-input').press('Enter');
+  await page.evaluate(() => document.dispatchEvent(new KeyboardEvent('keydown', { keyCode: 461, bubbles: true })));
+  await expect(page.locator('#view-movies .catalog-head-name')).toHaveText('Cat B');
+  await expect(page.locator('#view-movies')).toBeVisible();
 });

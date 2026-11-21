@@ -399,6 +399,10 @@ export interface VodItem {
   rating: string;
   categoryId: string;
   containerExtension: string;
+  /** Release year, when the list (or the title itself) carries one. */
+  year?: number;
+  /** Epoch ms the provider added the title; drives "recently added". */
+  addedAt?: number;
 }
 
 // A sidecar subtitle file (SRT or WebVTT) delivered alongside an Xtream VOD
@@ -438,6 +442,9 @@ export interface SeriesItem {
   poster: string;
   rating: string;
   categoryId: string;
+  year?: number;
+  /** Epoch ms of the provider's last change to the series. */
+  addedAt?: number;
 }
 
 export interface Episode {
