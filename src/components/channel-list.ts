@@ -283,15 +283,7 @@ export class ChannelList {
         <div class="sidebar" data-nav-container>
           <div class="sidebar-header">
             <div class="channel-count">${tp('channel.count', totalChannels)}</div>
-            ${editing || showingRecent
-              ? html`<div class="channel-edit-btn-spacer" aria-hidden="true"></div>`
-              : html`
-                <button class="channel-edit-btn"
-                        data-key="edit-channels"
-                        data-focusable data-edit-channels
-                        aria-label="${t('settings.editChannelList')}"
-                        title="${t('settings.editChannelList')}"><img src="assets/icons/pencil.svg" alt=""></button>
-              `}
+            <div class="channel-edit-btn-spacer" aria-hidden="true"></div>
           </div>
           ${showTabs ? html`
             <div class="playlist-tabs">

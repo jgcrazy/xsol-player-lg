@@ -270,7 +270,7 @@ describe('ChannelList.render', () => {
       data.channels.push(...savedChannels);
     }
 
-    expect(container.querySelector('.channel-edit-btn')!.classList.contains('focused')).toBe(false);
+    expect(container.querySelector('.channel-edit-btn')).toBeNull();
     expect(container.querySelector('.group-item')!.classList.contains('focused')).toBe(true);
   });
 
@@ -312,14 +312,11 @@ describe('ChannelList.render', () => {
     expect(container.querySelector('.edit-text-input')).toBeNull();
   });
 
-  it('opens channel editing from the pencil button', () => {
+  it('has no pencil button; the Yellow key opens channel editing', () => {
     list.render();
-    const edit = container.querySelector<HTMLElement>('.channel-edit-btn');
-    expect(edit?.querySelector('img')?.getAttribute('src')).toBe('assets/icons/pencil.svg');
-    hover(edit!);
-    list.handleAction('select');
-    expect(list.isEditing).toBe(true);
     expect(container.querySelector('.channel-edit-btn')).toBeNull();
+    list.handleAction('yellow');
+    expect(list.isEditing).toBe(true);
   });
 
   it('uses the singular channel count for a one-channel playlist', () => {

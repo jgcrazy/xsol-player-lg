@@ -382,16 +382,6 @@ describe('ChannelList edit mode', () => {
       }
     });
 
-    it('keeps the pencil for channel editing', () => {
-      openFavorites();
-      const pencil = container.querySelector<HTMLElement>('.channel-edit-btn');
-      expect(pencil).not.toBeNull();
-      hover(pencil!);
-      list.handleAction('select');
-      expect(container.querySelector('.favorite-hints')).toBeNull();
-      expect(container.querySelector('.edit-hints')).not.toBeNull();
-    });
-
     it('keeps the yellow-key channel editor shortcut in Favorites', () => {
       openFavorites();
       list.handleAction('yellow');
