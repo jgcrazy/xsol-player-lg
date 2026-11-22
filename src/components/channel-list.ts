@@ -30,7 +30,7 @@ import { CONFIG } from '../config';
 // Row strides mirror the fixed row geometry in css/channel-list.css:
 // .channel-item is 88px, .group-item is 39px plus the 3px between rows.
 const CHANNEL_ROW_STRIDE = 88;
-const GROUP_ROW_STRIDE = 42;
+const GROUP_ROW_STRIDE = 52;
 const CHANNEL_OVERSCAN = 12;
 const CHANNEL_VIEWPORT_FALLBACK = 900;
 
