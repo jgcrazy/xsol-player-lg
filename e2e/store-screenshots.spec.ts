@@ -1,3 +1,4 @@
+import { writeFileSync } from 'node:fs';
 import { test, expect, neuterVideo, routeLiveManifest, enterTab, type Page } from './helpers';
 
 // Captures the LG Content Store screenshots from the real app over synthetic data.
@@ -140,6 +141,22 @@ async function shot(page: Page, name: string): Promise<void> {
   await page.screenshot({ path: `${OUT}/store-${name}.png` });
 }
 
+// Numbered UI elements for the LG UX scenario document (store/ux-scenario.md):
+// [selector, name, what it does]. Elements that are not on screen are skipped.
+type Marker = [string, string, string];
+
+async function annotate(page: Page, name: string, markers: Marker[]): Promise<void> {
+  const items: { n: number; name: string; text: string; x: number; y: number; w: number; h: number }[] = [];
+  for (const [selector, label, text] of markers) {
+    const box = await page.locator(selector).first().boundingBox().catch(() => null);
+    if (!box) continue;
+    items.push({ n: items.length + 1, name: label, text, x: box.x, y: box.y, w: box.width, h: box.height });
+  }
+  writeFileSync(`${OUT}/ux-${name}.json`, JSON.stringify(items, null, 2));
+}
+
+const TAB = (id: string): string => `.tab-bar-item[data-section="${id}"]`;
+
 test('captures the store screenshots', async ({ page }) => {
   test.setTimeout(120_000);
   await page.clock.setFixedTime(new Date('2026-11-21T20:40:00-03:00'));
@@ -154,6 +171,12 @@ test('captures the store screenshots', async ({ page }) => {
   await expect(page.locator('#view-channels')).toBeVisible();
   await page.waitForTimeout(800);
   await shot(page, '2-live');
+  await annotate(page, '2-live', [
+    ['.tab-bar-items', 'Section bar', 'Switches between Home, Live, Movies, Series, Settings and Search. Left/Right moves, OK opens.'],
+    ['.tab-bar-legend', 'Colour-key legend', 'Shows what the Red, Green, Yellow and Blue keys do on this screen.'],
+    ['.group-item', 'Channel group', 'A group of channels. Up/Down moves, OK shows its channels, Right goes to the channel list.'],
+    ['.channel-item', 'Channel', 'A live channel. OK plays it full screen; Back returns here. Green marks it as a favorite.'],
+  ]);
   await press(page, 13);
   await page.waitForTimeout(800);
   await press(page, 27);
@@ -161,32 +184,61 @@ test('captures the store screenshots', async ({ page }) => {
   await expect(page.locator('#view-home [data-home-action="resume"]')).toBeVisible();
   await page.waitForTimeout(800);
   await shot(page, '1-home');
+  await annotate(page, '1-home', [
+    ['.tab-bar-brand', 'App name and logo', 'XSol Player logo; not a button.'],
+    ['[data-home-action="resume"]', 'Resume', 'OK plays the last watched channel.'],
+    ['[data-section="live"]', 'Section card', 'Opens a section (Live, Movies, Series, Access, Settings). Left/Right moves between cards.'],
+    ['.home-channel', 'On-air channel', 'A featured channel. OK plays it.'],
+  ]);
 
   await press(page, 403); // Red: the guide
   await expect(page.locator('#view-epg')).toBeVisible();
   await page.waitForTimeout(1200);
   await shot(page, '3-guide');
+  await annotate(page, '3-guide', [
+    ['.tab-bar-items', 'Section bar', 'The Red key opens the Guide and leaves it again.'],
+    ['#view-epg', 'Program guide', 'Channels on the left, programs on a timeline. Up/Down changes channel, Left/Right moves in time, OK opens a program (play, catch-up, reminder).'],
+  ]);
   await press(page, 403);
 
   await enterTab(page, 'movies');
   await expect(page.locator('#view-movies .catalog-tile').first()).toBeVisible({ timeout: 15000 });
   await page.waitForTimeout(1200);
   await shot(page, '4-movies');
+  await annotate(page, '4-movies', [
+    ['#view-movies .catalog-search', 'Search box', 'OK focuses the field to search movies by title.'],
+    ['#view-movies .catalog-cat', 'Category', 'A movie category. OK shows its movies.'],
+    ['#view-movies .catalog-tile', 'Movie poster', 'A movie. OK opens its detail page with Play, trailer-style info and a watchlist button. Green adds it to favorites.'],
+    ['.tab-bar-legend', 'Colour-key legend', 'Green: favorite. Yellow: change sort. Red/Blue as labeled.'],
+  ]);
 
   await enterTab(page, 'series');
   await expect(page.locator('#view-series .catalog-tile').first()).toBeVisible({ timeout: 15000 });
   await page.waitForTimeout(1200);
   await shot(page, '5-series');
+  await annotate(page, '5-series', [
+    ['#view-series .catalog-search', 'Search box', 'OK focuses the field to search series by title.'],
+    ['#view-series .catalog-cat', 'Category', 'A series category. OK shows its series.'],
+    ['#view-series .catalog-tile', 'Series poster', 'A series. OK opens its seasons and episodes. Green adds it to favorites.'],
+    ['.tab-bar-legend', 'Colour-key legend', 'Green: favorite. Yellow: change sort. Red/Blue as labeled.'],
+  ]);
 
   await enterTab(page, 'home');
   await enterTab(page, 'search');
   await page.locator('.tab-bar-search-input').fill('s');
   await page.waitForTimeout(1500);
   await shot(page, '6-search');
+  await annotate(page, '6-search', [
+    ['.tab-bar-search-input', 'Search field', 'Type with the on-screen keyboard (or the remote); results update as you type across channels, programs, movies and series.'],
+  ]);
   await page.locator('.tab-bar-search-input').fill('');
 
   await enterTab(page, 'settings');
   await expect(page.locator('#view-prefs')).toBeVisible();
   await page.waitForTimeout(800);
   await shot(page, '7-settings');
+  await annotate(page, '7-settings', [
+    ['.prefs-card-title', 'Setting card', 'A group of settings (playlists, language, parental control, data). OK opens it.'],
+    ['.prefs-back', 'Back', 'Returns to the previous screen. The Blue key does the same.'],
+  ]);
 });

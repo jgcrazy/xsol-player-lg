@@ -2,7 +2,7 @@
 //
 //   node scripts/generate-store-assets.mjs
 //
-//   store/icon-512.png, icon-400.png   square, opaque app icon (the store rounds it)
+//   store/icon-512.png, icon-400.png   square, opaque, flat #151210 background (the store rounds it)
 //   store/background-1920x1080.png     background image
 //   store/screenshots/*.png            1280x720 and 960x540 copies of store/raw/*.png
 //
@@ -26,7 +26,10 @@ const defs = svg.match(/<defs>[\s\S]*?<\/defs>/)[0];
 const squareIcon = svg
   .replace(/<text[\s\S]*<\/text>/, '')
   .replace('translate(512 400)', 'translate(512 512) scale(1.22)')
-  .replace(/rx="228"/, 'rx="0"');
+  .replace(/rx="228"/, 'rx="0"')
+  // The store rejects gradient icon backgrounds and wants it to match the tile colour.
+  .replace('fill="url(#bg)"', 'fill="#151210"')
+  .replace('<circle r="330" fill="url(#halo)"/>', '');
 
 const background = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1920 1080" width="1920" height="1080">
   ${defs}
